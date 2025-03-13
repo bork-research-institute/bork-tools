@@ -8,9 +8,8 @@ import {
   settings,
   stringToUuid,
 } from '@elizaos/core';
-import evmPlugin from '@elizaos/plugin-evm';
+import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
-import { startChat } from '../chat';
 import { initializeClients } from '../clients';
 import { configureApiRoutes } from '../config/api-routes';
 import {
@@ -19,27 +18,7 @@ import {
   parseArguments,
 } from '../config/index';
 import { PostgresDatabaseAdapter } from '../plugins/adapter-postgres';
-import { ApiClient } from './api';
 import { character } from './character';
-
-let postgresAdapter: PostgresDatabaseAdapter;
-
-async function initializeDatabase() {
-  if (!process.env.POSTGRES_URL) {
-    throw new Error('POSTGRES_URL environment variable is not set');
-  }
-
-  elizaLogger.info('Initializing PostgreSQL connection...');
-  postgresAdapter = new PostgresDatabaseAdapter({
-    connectionString: process.env.POSTGRES_URL,
-    parseInputs: true,
-  });
-
-  // Test the connection
-  await postgresAdapter.init();
-  elizaLogger.success('Successfully connected to PostgreSQL database');
-  return postgresAdapter;
-}
 
 export function createAgent(
   character: Character,
@@ -48,7 +27,7 @@ export function createAgent(
   token: string,
 ) {
   // Use type assertion to handle plugin version mismatch
-  const plugins = [evmPlugin as unknown as Plugin];
+  const plugins = [];
 
   return new AgentRuntime({
     databaseAdapter: db,
@@ -65,34 +44,36 @@ export function createAgent(
   });
 }
 
-async function startAgent(character: Character, directClient: ApiClient) {
-  let db: (IDatabaseAdapter & IDatabaseCacheAdapter) | undefined;
+async function startAgent(
+  character: Character,
+  directClient: ApiClient,
+  db: IDatabaseAdapter & IDatabaseCacheAdapter,
+) {
   try {
-    elizaLogger.info(`Starting agent for character: ${character.name}`);
+    elizaLogger.info(
+      `[Initialize] Starting agent for character: ${character.name}`,
+    );
     character.id ??= stringToUuid(character.name);
     character.username ??= character.name;
 
     const token = getTokenForProvider(character.modelProvider, character);
     if (!token) {
       elizaLogger.error(
-        `No token found for provider ${character.modelProvider}`,
+        `[Initialize]No token found for provider ${character.modelProvider}`,
       );
       throw new Error(`No token found for provider ${character.modelProvider}`);
     }
-    db = await initializeDatabase();
+    elizaLogger.info('[Initialize] Initializing database cache');
     const cache = initializeDbCache(character, db);
-
     const runtime = createAgent(character, db, cache, token);
-
     await runtime.initialize();
     runtime.clients = await initializeClients(character, runtime);
-
     directClient.registerAgent(runtime);
 
     return runtime;
   } catch (error) {
     elizaLogger.error(
-      `Error starting agent for character ${character.name}:`,
+      `[Initialize]Error starting agent for character ${character.name}:`,
       error,
     );
     if (db) {
@@ -104,7 +85,8 @@ async function startAgent(character: Character, directClient: ApiClient) {
 }
 
 export const startAgents = async () => {
-  elizaLogger.info('Starting agents initialization');
+  console.log('Starting agents initialization');
+  elizaLogger.info('[Initialize] Starting agents initialization');
   const directClient = new ApiClient();
   configureApiRoutes(directClient.app);
   const serverPort = Number.parseInt(settings.SERVER_PORT || '3000');
@@ -116,30 +98,36 @@ export const startAgents = async () => {
   if (charactersArg) {
     characters = await loadCharacters(charactersArg);
   }
+  elizaLogger.info('[Initialize] Loading database adapter');
+  let db: (IDatabaseAdapter & IDatabaseCacheAdapter) | undefined;
+  try {
+    db = new PostgresDatabaseAdapter({
+      connectionString: process.env.POSTGRES_URL,
+      parseInputs: true,
+    });
 
+    // Test the connection
+    await db.init();
+  } catch (error) {
+    elizaLogger.error('[Initialize] Error initializing database:', error);
+    throw error;
+  }
+
+  elizaLogger.info('[Initialize] Starting agents');
   try {
     for (const character of characters) {
-      await startAgent(character, directClient as ApiClient);
+      await startAgent(character, directClient as ApiClient, db);
     }
   } catch (error) {
-    elizaLogger.error('Error starting agents:', error);
+    elizaLogger.error('[Initialize] Error starting agents:', error);
     throw error;
   }
 
   // upload some agent functionality into directClient
   directClient.startAgent = async (character: Character) => {
-    return startAgent(character, directClient);
+    return startAgent(character, directClient, db);
   };
-
   directClient.start(serverPort);
-  elizaLogger.info(`Server started successfully on port ${serverPort}`);
-
-  const isDaemonProcess = process.env.DAEMON_PROCESS === 'true';
-  if (!isDaemonProcess) {
-    elizaLogger.info("Chat started. Type 'exit' to quit.");
-    const chat = startChat(characters);
-    chat();
-  }
 
   // Handle graceful shutdown
   let isShuttingDown = false;
@@ -165,9 +153,9 @@ export const startAgents = async () => {
       }
 
       // Then close database connection
-      if (postgresAdapter) {
+      if (db) {
         elizaLogger.info('Closing database connection...');
-        await postgresAdapter.close();
+        await db.close();
         elizaLogger.info('Database connection closed successfully');
       }
 

@@ -1,8 +1,6 @@
-import { type Character, ModelProviderName, type Plugin } from '@elizaos/core';
-import { evmPlugin } from '@elizaos/plugin-evm';
+import { type Character, ModelProviderName } from '@elizaos/core';
 
-// Use type assertion to handle plugin version mismatch
-const plugins = [evmPlugin as unknown as Plugin];
+const plugins = [];
 
 // Note: There are type mismatches between different versions of @elizaos/core
 // in the dependencies. This is a known issue that needs to be resolved by:
@@ -18,9 +16,6 @@ export const character: Character = {
   plugins,
   settings: {
     secrets: {},
-    chains: {
-      evm: ['sonic'],
-    },
   },
   system: 'Roleplay and generate interesting on behalf of Eliza.',
   bio: [

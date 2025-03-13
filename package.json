@@ -3,24 +3,18 @@
   "private": true,
   "workspaces": ["frontend", "backend"],
   "scripts": {
-    "dev": "bun run --cwd frontend dev",
-    "build": "bun run --cwd frontend build",
-    "backend:dev": "bun run --cwd backend dev",
-    "install:all": "bun install",
-    "lint": "biome check .",
-    "format": "biome format . --write",
-    "sync-gfm": "bun run --cwd scripts/sync-gfm-transfers.ts"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "latest"
-  },
-  "engines": {
-    "node": ">=22"
+    "dotenvx": "dotenvx",
+    "dev": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend dev",
+    "build": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend build",
+    "backend:dev": "dotenvx run -f .env.backend.production -- bun run --cwd backend dev",
+    "install:all": "bun install"
   },
   "dependencies": {
-    "exponential-backoff": "^3.1.2",
-    "fs": "^0.0.1-security",
-    "path": "^0.12.7",
-    "url": "^0.11.4"
+    "@dotenvx/dotenvx": "^1.38.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "@types/bun": "latest",
+    "typescript": "^5"
   }
 }
