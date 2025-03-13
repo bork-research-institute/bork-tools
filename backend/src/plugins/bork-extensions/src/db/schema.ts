@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+
 export interface Account {
   id: string;
   createdAt: Date;
@@ -119,6 +121,22 @@ export interface Tweet {
   mediaUrl?: string;
 }
 
+export interface TweetAnalysis {
+  tweet_id: string;
+  type: string;
+  sentiment: string;
+  confidence: number;
+  metrics: Record<string, unknown>;
+  entities: string[];
+  topics: string[];
+  impact_score: number;
+  created_at: Date;
+  author_id: string;
+  tweet_text: string;
+  public_metrics: Record<string, unknown>;
+  raw_entities: Record<string, unknown>;
+}
+
 export interface AgentPrompt {
   id: string;
   prompt: string;
@@ -126,3 +144,35 @@ export interface AgentPrompt {
   version: string;
   enabled: boolean;
 }
+
+export interface TopicWeight {
+  topic: string;
+  weight: number;
+  impactScore: number;
+  lastUpdated: Date;
+}
+
+export interface TopicWeightRow {
+  topic: string;
+  weight: number;
+  impact_score: number;
+  last_updated: Date;
+  seed_weight: number;
+}
+
+export const createTables = async (db: Pool) => {
+  // ... existing tables ...
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS topic_weights (
+      topic TEXT PRIMARY KEY,
+      weight DOUBLE PRECISION NOT NULL,
+      impact_score DOUBLE PRECISION NOT NULL,
+      last_updated TIMESTAMP NOT NULL,
+      seed_weight DOUBLE PRECISION NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ... existing code ...
+};

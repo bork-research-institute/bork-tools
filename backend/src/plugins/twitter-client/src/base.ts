@@ -71,24 +71,34 @@ export class ClientBase extends EventEmitter {
 
     // Try to load cached cookies first
     const cachedCookies = await this.getCachedCookies(username);
-    if (cachedCookies) {
+    if (cachedCookies && cachedCookies.length > 0) {
       elizaLogger.info(
         `[Twitter Client] Found ${cachedCookies.length} cached cookies for ${username}`,
       );
       await this.setCookiesFromArray(cachedCookies);
       elizaLogger.info('[Twitter Client] Successfully set cached cookies');
-    } else {
-      elizaLogger.info(
-        '[Twitter Client] No cached cookies found, will need to authenticate',
-      );
-      // Try to get fresh cookies immediately
-      const authenticated = await this.authenticateWithCookies();
-      if (!authenticated) {
-        elizaLogger.error(
-          '[Twitter Client] Failed to authenticate with Twitter',
+
+      // Verify the cookies are still valid by trying to fetch profile
+      this.profile = await this.fetchProfile(username);
+      if (this.profile) {
+        elizaLogger.info(
+          '[Twitter Client] Successfully verified cached cookies',
         );
         return;
       }
+      elizaLogger.warn(
+        '[Twitter Client] Cached cookies appear to be invalid, will re-authenticate',
+      );
+    }
+
+    // If no valid cached cookies, authenticate
+    elizaLogger.info(
+      '[Twitter Client] No valid cached cookies found, will need to authenticate',
+    );
+    const authenticated = await this.authenticateWithCookies();
+    if (!authenticated) {
+      elizaLogger.error('[Twitter Client] Failed to authenticate with Twitter');
+      return;
     }
 
     // Verify authentication by trying to fetch profile
@@ -113,17 +123,6 @@ export class ClientBase extends EventEmitter {
       }
 
       elizaLogger.info('[Twitter Client] Attempting to get fresh cookies');
-      // First try to get existing cookies
-      const cookies = await this.twitterClient.getCookies();
-      if (cookies && cookies.length > 0) {
-        elizaLogger.info(
-          `[Twitter Client] Successfully obtained ${cookies.length} cookies`,
-        );
-        elizaLogger.debug('[Twitter Client] Cookie details:', cookies);
-        await this.cacheCookies(username, cookies);
-        elizaLogger.info('[Twitter Client] Successfully cached cookies');
-        return true;
-      }
 
       // If no cookies, try to authenticate
       elizaLogger.info(
@@ -268,24 +267,37 @@ export class ClientBase extends EventEmitter {
     cursor?: string,
   ): Promise<QueryTweetsResponse> {
     try {
-      const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ tweets: [] }), 10000),
+      const timeoutPromise = new Promise<QueryTweetsResponse>((resolve) =>
+        setTimeout(() => resolve({ tweets: [] }), 30000),
       );
 
       try {
-        const result = await this.requestQueue.add(
-          async () =>
-            await Promise.race([
-              this.twitterClient.fetchSearchTweets(
-                query,
-                maxTweets,
-                searchMode,
-                cursor,
-              ),
-              timeoutPromise,
-            ]),
-        );
-        return (result ?? { tweets: [] }) as QueryTweetsResponse;
+        const result = await this.requestQueue.add(async () => {
+          // First try to get fresh cookies
+          const cookies = await this.twitterClient.getCookies();
+          if (cookies && cookies.length > 0) {
+            await this.setCookiesFromArray(cookies);
+          }
+
+          return await Promise.race([
+            this.twitterClient.fetchSearchTweets(
+              query,
+              maxTweets,
+              searchMode,
+              cursor,
+            ),
+            timeoutPromise,
+          ]);
+        });
+
+        if (!result || !('tweets' in result) || result.tweets.length === 0) {
+          elizaLogger.warn(
+            `[Twitter Client] No tweets found for query: ${query}`,
+          );
+          return { tweets: [] };
+        }
+
+        return result as QueryTweetsResponse;
       } catch (error) {
         elizaLogger.error('Error fetching search tweets:', error);
         return { tweets: [] };

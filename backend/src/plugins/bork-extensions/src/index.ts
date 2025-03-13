@@ -4,7 +4,6 @@ import {
   logQueries,
   promptQueries,
   streamQueries,
-  tweetQueries,
 } from './db/queries.js';
 import {
   reviewTweet,
@@ -16,7 +15,6 @@ export {
   queries,
   schema,
   db,
-  tweetQueries,
   agentSettingQueries,
   promptQueries,
   streamQueries,
