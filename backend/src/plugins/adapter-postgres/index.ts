@@ -255,7 +255,7 @@ export class PostgresDatabaseAdapter
   }
 
   async testConnection(): Promise<boolean> {
-    let client;
+    let client: pg.PoolClient | undefined;
     try {
       client = await this.pool.connect();
       const result = await client.query('SELECT NOW()');
@@ -270,7 +270,9 @@ export class PostgresDatabaseAdapter
         `Failed to connect to database: ${(error as Error).message}`,
       );
     } finally {
-      if (client) client.release();
+      if (client) {
+        client.release();
+      }
     }
   }
 
@@ -325,7 +327,9 @@ export class PostgresDatabaseAdapter
     limit?: number;
   }): Promise<Memory[]> {
     return this.withDatabase(async () => {
-      if (params.roomIds.length === 0) return [];
+      if (params.roomIds.length === 0) {
+        return [];
+      }
       const placeholders = params.roomIds.map((_, i) => `$${i + 2}`).join(', ');
 
       let query = `SELECT * FROM memories WHERE type = $1 AND "roomId" IN (${placeholders})`;
@@ -485,7 +489,9 @@ export class PostgresDatabaseAdapter
         'SELECT * FROM memories WHERE id = $1',
         [id],
       );
-      if (rows.length === 0) return null;
+      if (rows.length === 0) {
+        return null;
+      }
 
       return {
         ...rows[0],
@@ -567,8 +573,12 @@ export class PostgresDatabaseAdapter
     end?: number;
   }): Promise<Memory[]> {
     // Parameter validation
-    if (!params.tableName) throw new Error('tableName is required');
-    if (!params.roomId) throw new Error('roomId is required');
+    if (!params.tableName) {
+      throw new Error('tableName is required');
+    }
+    if (!params.roomId) {
+      throw new Error('roomId is required');
+    }
 
     return this.withDatabase(async () => {
       // Build query
@@ -681,8 +691,7 @@ export class PostgresDatabaseAdapter
     return this.withDatabase(async () => {
       try {
         await this.pool.query(
-          `UPDATE goals SET name = $1, status = $2, objectives = $3 WHERE id = $4`,
-          [goal.name, goal.status, JSON.stringify(goal.objectives), goal.id],
+          `UPDATE goals SET name = ${goal.name}, status = ${goal.status}, objectives = ${JSON.stringify(goal.objectives)} WHERE id = ${goal.id}`,
         );
       } catch (error) {
         elizaLogger.error('Failed to update goal:', {
@@ -713,7 +722,9 @@ export class PostgresDatabaseAdapter
   }
 
   async removeGoal(goalId: UUID): Promise<void> {
-    if (!goalId) throw new Error('Goal ID is required');
+    if (!goalId) {
+      throw new Error('Goal ID is required');
+    }
 
     return this.withDatabase(async () => {
       try {
@@ -745,7 +756,9 @@ export class PostgresDatabaseAdapter
   }
 
   async removeRoom(roomId: UUID): Promise<void> {
-    if (!roomId) throw new Error('Room ID is required');
+    if (!roomId) {
+      throw new Error('Room ID is required');
+    }
 
     return this.withDatabase(async () => {
       const client = await this.pool.connect();
@@ -782,7 +795,7 @@ export class PostgresDatabaseAdapter
 
         elizaLogger.debug('Room and related data removed successfully:', {
           roomId,
-          removed: result?.rowCount ?? 0 > 0,
+          removed: result?.rowCount ?? 0,
         });
       } catch (error) {
         await client.query('ROLLBACK');
@@ -792,7 +805,9 @@ export class PostgresDatabaseAdapter
         });
         throw error;
       } finally {
-        if (client) client.release();
+        if (client) {
+          client.release();
+        }
       }
     }, 'removeRoom');
   }
@@ -925,13 +940,21 @@ export class PostgresDatabaseAdapter
     query_match_count: number;
   }): Promise<{ embedding: number[]; levenshtein_score: number }[]> {
     // Input validation
-    if (!opts.query_table_name) throw new Error('query_table_name is required');
-    if (!opts.query_input) throw new Error('query_input is required');
-    if (!opts.query_field_name) throw new Error('query_field_name is required');
-    if (!opts.query_field_sub_name)
+    if (!opts.query_table_name) {
+      throw new Error('query_table_name is required');
+    }
+    if (!opts.query_input) {
+      throw new Error('query_input is required');
+    }
+    if (!opts.query_field_name) {
+      throw new Error('query_field_name is required');
+    }
+    if (!opts.query_field_sub_name) {
       throw new Error('query_field_sub_name is required');
-    if (opts.query_match_count <= 0)
+    }
+    if (opts.query_match_count <= 0) {
       throw new Error('query_match_count must be positive');
+    }
 
     return this.withDatabase(async () => {
       try {
@@ -987,7 +1010,9 @@ export class PostgresDatabaseAdapter
               embedding: number[];
               levenshtein_score: number;
             } | null => {
-              if (!Array.isArray(row.embedding)) return null;
+              if (!Array.isArray(row.embedding)) {
+                return null;
+              }
               return {
                 embedding: row.embedding,
                 levenshtein_score: Number(row.levenshtein_score),
@@ -1020,9 +1045,15 @@ export class PostgresDatabaseAdapter
     type: string;
   }): Promise<void> {
     // Input validation
-    if (!params.userId) throw new Error('userId is required');
-    if (!params.roomId) throw new Error('roomId is required');
-    if (!params.type) throw new Error('type is required');
+    if (!params.userId) {
+      throw new Error('userId is required');
+    }
+    if (!params.roomId) {
+      throw new Error('roomId is required');
+    }
+    if (!params.type) {
+      throw new Error('type is required');
+    }
     if (!params.body || typeof params.body !== 'object') {
       throw new Error('body must be a valid object');
     }
@@ -1096,7 +1127,9 @@ export class PostgresDatabaseAdapter
 
       // Ensure vector is properly formatted
       const cleanVector = embedding.map((n) => {
-        if (!Number.isFinite(n)) return 0;
+        if (!Number.isFinite(n)) {
+          return 0;
+        }
         // Limit precision to avoid floating point issues
         return Number(n.toFixed(6));
       });
@@ -1236,7 +1269,9 @@ export class PostgresDatabaseAdapter
     unique = true,
     tableName = '',
   ): Promise<number> {
-    if (!tableName) throw new Error('tableName is required');
+    if (!tableName) {
+      throw new Error('tableName is required');
+    }
 
     return this.withDatabase(async () => {
       let sql = `SELECT COUNT(*) as count FROM memories WHERE type = $1 AND "roomId" = $2`;
@@ -1389,7 +1424,9 @@ export class PostgresDatabaseAdapter
           });
           return false;
         } finally {
-          if (client) client.release();
+          if (client) {
+            client.release();
+          }
         }
       } catch (error) {
         elizaLogger.error('Database connection error in setCache', error);

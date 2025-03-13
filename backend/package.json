@@ -1,6 +1,7 @@
 {
   "name": "backend",
   "version": "0.0.1",
+  "module": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "bun run --watch src/index.ts",
@@ -11,8 +12,8 @@
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",
     "@elizaos/core": "^0.25.6-alpha.1",
-    "@elizaos/plugin-evm": "^0.25.6-alpha.1",
     "@elysiajs/cors": "^1.2.0",
+    "bun-types": "latest",
     "elysia": "latest",
     "viem": "^2.23.6",
     "yargs": "^17.7.2",
@@ -20,11 +21,9 @@
   },
   "devDependencies": {
     "@types/yargs": "^17.0.33",
-    "bun-types": "latest",
     "dotenv": "^16.4.7"
   },
   "engines": {
     "node": ">=22"
-  },
-  "module": "src/index.js"
+  }
 }

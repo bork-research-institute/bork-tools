@@ -1,0 +1,93 @@
+---
+description: Senior backend developer (eliza)
+globs: backend/**/*.ts
+alwaysApply: false
+---
+---
+description: Senior backend developer
+globs: backend/**/*.ts
+---
+ # Backend Development Guidelines
+
+## Project Overview
+This backend project uses:
+- **Bun** as the JavaScript/TypeScript runtime
+- **Elysia** as the web framework
+- **Eliza** as the AI framework
+- **Zod** for params validation
+
+## File Structure
+backend/
+├── src/
+│ ├── types/ # Type definitions (commons are in there)
+│ │ ├── request/ # Request type definitions
+│ │ └──response/ # Response type definitions
+│ ├── constants/ # Constants and configuration values
+│ ├── mappers/ # Data transformation functions
+│ ├── services/ # Business logic services
+│ ├── controllers/ # Request handlers
+│ ├── middleware/ # Middleware functions
+│ ├── utils/ # Utility functions
+│ ├── eliza/ # Eliza AI framework integration
+│ └── config/ # Configuration management
+└── tests/ # Test files
+
+
+## Naming Conventions
+
+- **Files**: Use kebab-case for all filenames (e.g., `user-service.ts`, `auth-middleware.ts`)
+- **Functions**: Use camelCase for function names
+- **Types/Interfaces**: Use PascalCase for type and interface names
+- **Constants**: Use UPPER_SNAKE_CASE for constants
+
+## Code Organization
+
+1. **One Function Per File**: Each file should ideally contain a single function or a closely related group of functions
+2. **Functional Programming**: Prefer pure functions over classes when possible
+3. **Type Safety**: Always define and use proper TypeScript types
+
+## Best Practices
+
+### Functions vs Classes
+- Use functions for most logic
+- Only use classes when:
+  - Implementing interfaces required by frameworks
+  - Managing stateful resources (like database connections)
+  - When inheritance or polymorphism is needed
+
+### Error Handling
+- Use try/catch blocks for error handling
+- Log errors with appropriate context
+- Return meaningful error responses
+
+### API Design
+- Define request/response types in the appropriate folders
+- Use consistent response formats
+- Implement proper validation for all inputs
+
+### Database Access
+- Use the database adapter pattern
+- Implement proper connection pooling and error handling
+
+### Testing
+- Write unit tests for all business logic
+- Use integration tests for API endpoints
+- Mock external dependencies
+
+## Documentation
+- Add JSDoc comments to all functions and types
+- Document API endpoints with examples
+- Keep README files up to date
+
+## Performance Considerations
+- Minimize database queries
+- Use proper indexing
+- Implement caching where appropriate
+- Consider pagination for large data sets
+
+## Security
+- Validate all user inputs with Zod
+- Implement proper authentication and authorization
+- Follow the principle of least privilege
+
+Remember that this codebase integrates with Eliza AI framework, so ensure all AI-related code follows the framework's best practices and patterns.

@@ -16,75 +16,9 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { Elysia } from 'elysia';
-import postgresAdapter from '../database';
-import { dexScreenerService } from '../services/dexscreener-service';
+import { MessageRequest } from '../types/requests/message-request';
 
-export const messageHandlerTemplate =
-  // {{goals}}
-  // "# Action Examples" is already included
-  `{{actionExamples}}
-(Action examples are for reference only. Do not use the information from them in your response.)
 
-# Knowledge
-{{knowledge}}
-
-# Task: Generate dialog and actions for the character {{agentName}}.
-About {{agentName}}:
-{{bio}}
-{{lore}}
-
-{{providers}}
-
-{{messageDirections}}
-
-{{recentMessages}}
-
-{{actions}}
-
-# Instructions: Write the next message for {{agentName}}.
-${messageCompletionFooter}`;
-
-export const hyperfiHandlerTemplate = `{{actionExamples}}
-(Action examples are for reference only. Do not use the information from them in your response.)
-
-# Knowledge
-{{knowledge}}
-
-# Task: Generate dialog and actions for the character {{agentName}}.
-About {{agentName}}:
-{{bio}}
-{{lore}}
-
-{{providers}}
-
-{{attachments}}
-
-# Capabilities
-Note that {{agentName}} is capable of reading/seeing/hearing various forms of media, including images, videos, audio, plaintext and PDFs. Recent attachments have been included above under the "Attachments" section.
-
-{{messageDirections}}
-
-{{recentMessages}}
-
-{{actions}}
-
-# Instructions: Write the next message for {{agentName}}.
-
-Response format should be formatted in a JSON block like this:
-\`\`\`json
-{ "lookAt": "{{nearby}}" or null, "emote": "{{emotes}}" or null, "say": "string" or null, "actions": (array of strings) or null }
-\`\`\`
-`;
-
-interface MessageRequest {
-  roomId?: string;
-  userId: string;
-  userName?: string;
-  name?: string;
-  text?: string;
-  agentId?: string;
-  walletAddress?: string;
-}
 
 export class ApiClient {
   public app: Elysia;
@@ -113,15 +47,8 @@ export class ApiClient {
 
     // Set up lifecycle hooks
     this.app.onStart(async () => {
-      if (this.isInitialized) {
-      } else {
-        try {
-          await postgresAdapter.init();
-          this.isInitialized = true;
-        } catch (error) {
-          elizaLogger.error('[ApiClient] Failed to initialize:', error);
-          throw error;
-        }
+      if (!this.isInitialized) {
+        this.isInitialized = true;
       }
     });
 
@@ -130,9 +57,6 @@ export class ApiClient {
       try {
         // Close all agent connections
         this.agents.clear();
-
-        // Close database connection
-        await postgresAdapter.close();
         this.isInitialized = false;
         elizaLogger.log('[ApiClient] Stopped successfully');
       } catch (error) {
@@ -143,98 +67,6 @@ export class ApiClient {
   }
 
   private setupRoutes() {
-    // Add token price check endpoint
-    this.app.post('/tokens/prices', async (context) => {
-      try {
-        elizaLogger.info('[ApiClient] Token prices endpoint called');
-        const body = context.body as {
-          chainId: string;
-          tokenAddresses: string[];
-        };
-
-        if (
-          !body.chainId ||
-          !body.tokenAddresses ||
-          !body.tokenAddresses.length
-        ) {
-          elizaLogger.error(
-            '[ApiClient] Missing required parameters in request',
-          );
-          return Response.json(
-            { error: 'Missing required parameters' },
-            { status: 400 },
-          );
-        }
-
-        const tokenPairs = await dexScreenerService.getTokenPairs(
-          body.chainId,
-          body.tokenAddresses,
-        );
-
-        // Extract native prices for each token
-        const prices = tokenPairs.reduce(
-          (acc, pair) => {
-            // Use baseToken address as the key
-            acc[pair.baseToken.address] = {
-              priceNative: pair.priceNative,
-              priceUsd: pair.priceUsd,
-              symbol: pair.baseToken.symbol,
-            };
-            return acc;
-          },
-          {} as Record<
-            string,
-            { priceNative: string; priceUsd: string; symbol: string }
-          >,
-        );
-
-        return Response.json({ prices });
-      } catch (error) {
-        elizaLogger.error('[ApiClient] Error fetching token prices:', error);
-        return Response.json(
-          {
-            error:
-              error instanceof Error ? error.message : 'Unknown error occurred',
-          },
-          { status: 500 },
-        );
-      }
-    });
-
-    // Handle both /message and /:agentId/message patterns
-    this.app.post('/message', async (context) => {
-      try {
-        elizaLogger.info('[ApiClient] Message endpoint called');
-        const body = context.body as MessageRequest;
-
-        if (!body.agentId) {
-          elizaLogger.error('[ApiClient] No agentId provided in request');
-          return Response.json(
-            { error: 'No agentId provided' },
-            { status: 400 },
-          );
-        }
-
-        const agent = this.agents.get(body.agentId);
-        if (!agent) {
-          elizaLogger.error(
-            `[ApiClient] Agent not found for ID/name: ${body.agentId}`,
-          );
-          return Response.json({ error: 'Agent not found' }, { status: 404 });
-        }
-
-        return this.handleMessage(agent, body);
-      } catch (error) {
-        elizaLogger.error('[ApiClient] Error processing message:', error);
-        return Response.json(
-          {
-            error:
-              error instanceof Error ? error.message : 'Unknown error occurred',
-          },
-          { status: 500 },
-        );
-      }
-    });
 
     // Legacy route for backward compatibility
     this.app.post('/:agentId/message', async ({ params, body }) => {
@@ -437,22 +269,4 @@ export class ApiClient {
   }
 }
 
-export const ApiClientInterface: Client = {
-  name: 'api',
-  config: {},
-  start: async (_runtime: IAgentRuntime) => {
-    elizaLogger.log('ApiClientInterface start');
-    const client = new ApiClient();
-    const serverPort = Number.parseInt(settings.SERVER_PORT || '3000');
-    client.start(serverPort);
-    return client;
-  },
-};
 
-const apiPlugin: Plugin = {
-  name: 'api',
-  description: 'API client',
-  clients: [ApiClientInterface],
-};
-
-export default apiPlugin;
