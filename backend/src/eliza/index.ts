@@ -63,7 +63,7 @@ async function startAgent(
       );
       throw new Error(`No token found for provider ${character.modelProvider}`);
     }
-    elizaLogger.info(`[Initialize] Initializing database cache`);
+    elizaLogger.info('[Initialize] Initializing database cache');
     const cache = initializeDbCache(character, db);
     const runtime = createAgent(character, db, cache, token);
     await runtime.initialize();
