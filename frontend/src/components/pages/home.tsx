@@ -1,4 +1,4 @@
-import { BarChart3, Coins, LineChart, Lock, Wallet } from 'lucide-react';
+import { BarChart3, Lock } from 'lucide-react';
 import Link from 'next/link';
 import {
   Card,
@@ -10,15 +10,6 @@ import {
 
 const tools = [
   {
-    title: 'Staking Leaderboard',
-    description:
-      'Track top stakers and monitor your position in the Bork ecosystem.',
-    icon: Coins,
-    href: '/leaderboard',
-    color: 'text-emerald-500',
-    available: true,
-  },
-  {
     title: 'X Analysis',
     description:
       'Track and analyze X (Twitter) activity of key influencers and community members.',
@@ -26,23 +17,6 @@ const tools = [
     href: '/x-analysis',
     color: 'text-blue-500',
     available: true,
-  },
-  {
-    title: 'GFM Tools',
-    description: 'Advanced trading tools for GFM operations and analysis.',
-    icon: LineChart,
-    href: '/gfm',
-    color: 'text-purple-500',
-    available: false,
-  },
-  {
-    title: 'Wallet Tools',
-    description:
-      'Manage and analyze your Bork wallet holdings and transactions.',
-    icon: Wallet,
-    href: '/wallet',
-    color: 'text-orange-500',
-    available: false,
   },
 ];
 

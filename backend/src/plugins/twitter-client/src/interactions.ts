@@ -105,7 +105,7 @@ export class TwitterInteractionClient {
       void this.handleTwitterInteractions();
       this.interactionLoopTimeout = setTimeout(
         handleTwitterInteractionsLoop,
-        Number(this.runtime.getSetting('TWITTER_POLL_INTERVAL') || 12) * 1000,
+        Number(this.runtime.getSetting('TWITTER_POLL_INTERVAL') || 60) * 1000,
       );
     };
     handleTwitterInteractionsLoop();

@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
+// biome-ignore lint/style/noNamespaceImport: <explanation>
 import * as queries from './queries';
+// biome-ignore lint/style/noNamespaceImport: <explanation>
 import * as schema from './schema';
 
 const pool = new Pool({

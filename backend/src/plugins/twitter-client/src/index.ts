@@ -35,7 +35,41 @@ export const TwitterClientInterface: ExtendedClient = {
     await validateTwitterConfig(runtime);
 
     const manager = new TwitterManager(runtime);
+
+    // Initialize client and handle authentication
+    elizaLogger.info('[Twitter Client] Initializing client');
     await manager.client.init();
+
+    // If profile fetch failed, try to authenticate with cookies
+    if (!manager.client.profile) {
+      elizaLogger.info(
+        '[Twitter Client] Profile fetch failed, attempting to authenticate',
+      );
+      const authenticated = await manager.client.authenticateWithCookies();
+      if (authenticated) {
+        elizaLogger.info(
+          '[Twitter Client] Authentication successful, retrying profile fetch',
+        );
+        await manager.client.init();
+        if (!manager.client.profile) {
+          elizaLogger.error(
+            '[Twitter Client] Still failed to fetch profile after authentication',
+          );
+          throw new Error(
+            'Failed to fetch Twitter profile after authentication',
+          );
+        }
+      } else {
+        elizaLogger.error(
+          '[Twitter Client] Failed to authenticate with Twitter',
+        );
+        throw new Error('Failed to authenticate with Twitter');
+      }
+    }
+
+    elizaLogger.info(
+      '[Twitter Client] Client initialized successfully, starting interactions',
+    );
     await manager.interaction.start();
     return manager;
   },
