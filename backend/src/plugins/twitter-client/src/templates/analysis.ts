@@ -1,4 +1,4 @@
-import { ModelClass } from '@elizaos/core';
+import { ModelClass, messageCompletionFooter } from '@elizaos/core';
 
 export interface TemplateOptions {
   modelClass?: ModelClass;
@@ -61,7 +61,8 @@ Metrics: ${JSON.stringify(public_metrics)}
 Available Topics: ${JSON.stringify(topics)}
 Current Topic Weights: ${JSON.stringify(topicWeights)}
 
-Return ONLY a valid JSON object with spam and content analysis.`;
+Return ONLY a valid JSON object with spam and content analysis.
+${messageCompletionFooter}`;
 
   return {
     context,
