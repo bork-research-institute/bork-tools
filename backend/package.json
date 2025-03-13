@@ -1,33 +1,34 @@
 {
   "name": "backend",
   "version": "0.0.1",
+  "type": "module",
+  "module": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "bun run --watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "start": "bun run dist/index.js",
     "format": "biome format --write .",
     "lint": "biome lint --write .",
     "lint:unsafe": "biome lint --write --unsafe ."
   },
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",
-    "@elizaos/core": "^0.25.6-alpha.1",
-    "@elizaos/plugin-evm": "^0.25.6-alpha.1",
+    "@elizaos/core": "^0.25.9",
     "@elysiajs/cors": "^1.2.0",
     "@instructor-ai/instructor": "^1.7.0",
     "agent-twitter-client": "^0.0.18",
     "elysia": "latest",
     "events": "^3.3.0",
-    "viem": "^2.23.6",
     "yargs": "^17.7.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/yargs": "^17.0.33",
-    "bun-types": "latest",
-    "dotenv": "^16.4.7"
+    "bun-types": "^1.2.5",
+    "tsup": "^8.4.0"
   },
   "engines": {
-    "node": ">=22"
-  },
-  "module": "src/index.js"
+    "node": "23.3.0"
+  }
 }
