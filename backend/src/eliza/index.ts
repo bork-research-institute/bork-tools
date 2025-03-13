@@ -8,7 +8,7 @@ import {
   settings,
   stringToUuid,
 } from '@elizaos/core';
-import evmPlugin from '@elizaos/plugin-evm';
+import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
 import { initializeClients } from '../clients';
 import { configureApiRoutes } from '../config/api-routes';
@@ -18,7 +18,6 @@ import {
   parseArguments,
 } from '../config/index';
 import { PostgresDatabaseAdapter } from '../plugins/adapter-postgres';
-import { ApiClient } from './api';
 import { character } from './character';
 
 export function createAgent(
@@ -28,7 +27,7 @@ export function createAgent(
   token: string,
 ) {
   // Use type assertion to handle plugin version mismatch
-  const plugins = [evmPlugin as unknown as Plugin];
+  const plugins = [];
 
   return new AgentRuntime({
     databaseAdapter: db,
@@ -64,7 +63,7 @@ async function startAgent(
       );
       throw new Error(`No token found for provider ${character.modelProvider}`);
     }
-
+    elizaLogger.info(`[Initialize] Initializing database cache`);
     const cache = initializeDbCache(character, db);
     const runtime = createAgent(character, db, cache, token);
     await runtime.initialize();
@@ -86,6 +85,7 @@ async function startAgent(
 }
 
 export const startAgents = async () => {
+  console.log('Starting agents initialization');
   elizaLogger.info('[Initialize] Starting agents initialization');
   const directClient = new ApiClient();
   configureApiRoutes(directClient.app);
@@ -98,6 +98,7 @@ export const startAgents = async () => {
   if (charactersArg) {
     characters = await loadCharacters(charactersArg);
   }
+  elizaLogger.info('[Initialize] Loading database adapter');
   let db: (IDatabaseAdapter & IDatabaseCacheAdapter) | undefined;
   try {
     db = new PostgresDatabaseAdapter({
@@ -112,6 +113,7 @@ export const startAgents = async () => {
     throw error;
   }
 
+  elizaLogger.info('[Initialize] Starting agents');
   try {
     for (const character of characters) {
       await startAgent(character, directClient as ApiClient, db);
@@ -125,7 +127,6 @@ export const startAgents = async () => {
   directClient.startAgent = async (character: Character) => {
     return startAgent(character, directClient, db);
   };
-
   directClient.start(serverPort);
 
   // Handle graceful shutdown

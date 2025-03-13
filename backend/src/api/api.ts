@@ -1,24 +1,19 @@
 import {
   type Character,
-  type Client,
   type Content,
   type IAgentRuntime,
   type Memory,
   ModelClass,
-  type Plugin,
   type State,
   composeContext,
   elizaLogger,
   generateMessageResponse,
   getEmbeddingZeroVector,
-  messageCompletionFooter,
-  settings,
   stringToUuid,
 } from '@elizaos/core';
 import { Elysia } from 'elysia';
-import { MessageRequest } from '../types/requests/message-request';
-
-
+import { messageHandlerTemplate } from '../templates/base-templates';
+import type { MessageRequest } from '../types/requests/message-request';
 
 export class ApiClient {
   public app: Elysia;
@@ -46,19 +41,20 @@ export class ApiClient {
     this.setupRoutes();
 
     // Set up lifecycle hooks
-    this.app.onStart(async () => {
+    this.app.onStart(({ server }) => {
+      elizaLogger.info(`[ApiClient] Running at ${server?.url}:${server?.port}`);
       if (!this.isInitialized) {
         this.isInitialized = true;
       }
     });
 
     this.app.onStop(async () => {
-      elizaLogger.log('[ApiClient] Stopping...');
+      elizaLogger.info('[ApiClient] Stopping...');
       try {
         // Close all agent connections
         this.agents.clear();
         this.isInitialized = false;
-        elizaLogger.log('[ApiClient] Stopped successfully');
+        elizaLogger.info('[ApiClient] Stopped successfully');
       } catch (error) {
         elizaLogger.error('[ApiClient] Error during shutdown:', error);
         throw error;
@@ -67,7 +63,6 @@ export class ApiClient {
   }
 
   private setupRoutes() {
-
     // Legacy route for backward compatibility
     this.app.post('/:agentId/message', async ({ params, body }) => {
       try {
@@ -247,7 +242,7 @@ export class ApiClient {
   }
 
   public start(port: number) {
-    elizaLogger.log(`[ApiClient] Starting server on port ${port}`);
+    elizaLogger.info(`[ApiClient] Starting server on port ${port}`);
     this.server = this.app.listen(port, () => {
       elizaLogger.success(
         `REST API bound to 0.0.0.0:${port}. If running locally, access it at http://localhost:${port}.`,
@@ -256,17 +251,15 @@ export class ApiClient {
   }
 
   public async stop() {
-    elizaLogger.log('[ApiClient] Stop method called');
+    elizaLogger.info('[ApiClient] Stop method called');
     if (this.server) {
-      elizaLogger.log('[ApiClient] Closing server...');
+      elizaLogger.info('[ApiClient] Closing server...');
       // @ts-ignore - Elysia's server type doesn't include close method, but it exists at runtime
       this.server.close(() => {
-        elizaLogger.log('[ApiClient] Server closed successfully');
+        elizaLogger.info('[ApiClient] Server closed successfully');
       });
     } else {
-      elizaLogger.log('[ApiClient] No server to stop');
+      elizaLogger.info('[ApiClient] No server to stop');
     }
   }
 }
-
-

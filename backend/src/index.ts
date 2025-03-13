@@ -1,5 +1,4 @@
 import { elizaLogger } from '@elizaos/core';
-import './config/env'; // Load environment variables
 import { startAgents } from './eliza';
 
 startAgents().catch((error) => {
