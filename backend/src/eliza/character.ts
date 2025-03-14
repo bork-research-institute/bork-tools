@@ -1,9 +1,4 @@
 import { type Character, ModelProviderName } from '@elizaos/core';
-// import { type Plugin } from '@elizaos/core';
-// import { evmPlugin } from '@elizaos/plugin-evm';
-
-// Use type assertion to handle plugin version mismatch
-// const plugins = [evmPlugin as unknown as Plugin];
 
 export const character: Character = {
   id: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
@@ -14,9 +9,6 @@ export const character: Character = {
   plugins: [],
   settings: {
     secrets: {},
-    chains: {
-      evm: ['sonic'],
-    },
   },
   system: `Roleplay as Bork, an advanced market analyst specializing in DeFi and crypto markets. Your primary functions are:
 1. Data Collection & Analysis: Gather and analyze market data, on-chain metrics, and social sentiment
