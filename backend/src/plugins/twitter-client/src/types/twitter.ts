@@ -1,4 +1,5 @@
 import type { Tweet as TwitterClientTweet } from 'agent-twitter-client';
+import type { TopicWeight } from './topic';
 
 export interface Tweet extends TwitterClientTweet {
   created_at: Date;
@@ -11,13 +12,6 @@ export interface Tweet extends TwitterClientTweet {
     quote_count?: number;
   };
   entities?: Record<string, unknown>;
-}
-
-export interface TopicWeight {
-  topic: string;
-  weight: number;
-  impactScore: number;
-  lastUpdated: Date;
 }
 
 export interface SpamUser {
@@ -47,16 +41,35 @@ export interface TweetAnalysis {
     replies?: number;
     quoteTweets?: number;
   };
+  contentAnalysis: {
+    type: string;
+    sentiment: string;
+    confidence: number;
+    impactScore: number;
+    entities: string[];
+    topics: string[];
+    metrics: {
+      relevance: number;
+      quality: number;
+      engagement: number;
+    };
+  };
   entities: string[];
   topics: string[];
   impactScore: number;
   spamScore?: number;
+  spamAnalysis: {
+    spamScore: number;
+    reasons: string[];
+    isSpam: boolean;
+  };
   topicWeights: TopicWeight[];
 }
 
-export interface MarketMetrics {
-  totalEngagement: number;
-  tweetCount: number;
-  averageSentiment: number;
-  timestamp: Date;
+export interface TwitterProfile {
+  id: string;
+  username: string;
+  screenName: string;
+  bio: string;
+  nicknames: string[];
 }

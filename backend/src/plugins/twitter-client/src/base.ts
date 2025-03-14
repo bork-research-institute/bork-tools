@@ -12,8 +12,8 @@ import {
   type SearchMode,
   type Tweet,
 } from 'agent-twitter-client';
-import type { TwitterProfile } from './lib/types';
 import { RequestQueue } from './request-queue';
+import type { TwitterProfile } from './types/twitter';
 
 interface TwitterCookie {
   key: string;
