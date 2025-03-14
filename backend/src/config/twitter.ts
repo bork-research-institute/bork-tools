@@ -16,9 +16,10 @@ export const TWITTER_CONFIG = {
       max: 30,
     },
     tweetLimits: {
-      targetAccounts: 20,
-      qualityTweetsPerAccount: 5,
-      accountsToProcess: 3,
+      targetAccounts: 20, // Initial number of tweets to fetch per account for filtering
+      qualityTweetsPerAccount: 5, // Maximum number of high-quality tweets to keep per account
+      accountsToProcess: 3, // Number of random accounts to process in each cycle
+      searchResults: 20, // Number of tweets to fetch for search queries
     },
     engagementThresholds: {
       minLikes: 10,

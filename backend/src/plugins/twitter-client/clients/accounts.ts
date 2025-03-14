@@ -2,8 +2,12 @@ import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 import { TWITTER_CONFIG } from '../../../config/twitter';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
-import { updateMarketMetrics } from '../lib/utils/tweet-processing';
-import { processAndStoreTweet } from '../lib/utils/tweet-processing';
+import { storeMentions } from '../lib/utils/mentions-processing';
+import {
+  processAndStoreTweet,
+  updateMarketMetrics,
+} from '../lib/utils/tweet-processing';
+import { updateYapsData } from '../lib/utils/yaps-processing';
 import { KaitoService } from '../services/kaito.service';
 import type { TwitterService } from '../services/twitter.service';
 
@@ -88,7 +92,7 @@ export class TwitterAccountsClient {
       );
 
       // Update Yaps data before processing tweets
-      await this.updateYapsData(accountsToProcess);
+      await updateYapsData(accountsToProcess);
 
       const allTweets = [];
       for (const accountToProcess of accountsToProcess) {
@@ -157,6 +161,10 @@ export class TwitterAccountsClient {
 
       // Process filtered tweets
       for (const tweet of allTweets) {
+        // First process mentions
+        await storeMentions(tweet);
+
+        // Then process the tweet itself
         await processAndStoreTweet(
           this.runtime,
           this.twitterService,
@@ -267,44 +275,6 @@ export class TwitterAccountsClient {
         '[TwitterAccounts] Error initializing target accounts:',
         error,
       );
-    }
-  }
-
-  private async updateYapsData(
-    accounts: Array<{ userId: string; username: string }>,
-  ) {
-    elizaLogger.info(
-      '[TwitterAccounts] Updating Yaps data for target accounts',
-    );
-
-    try {
-      const yapsData = await this.kaitoService.getYapsForAccounts(accounts);
-
-      for (const [username, yaps] of yapsData.entries()) {
-        await tweetQueries.upsertYapsData({
-          userId: yaps.user_id,
-          username: yaps.username,
-          yapsAll: yaps.yaps_all,
-          yapsL24h: yaps.yaps_l24h,
-          yapsL48h: yaps.yaps_l48h,
-          yapsL7d: yaps.yaps_l7d,
-          yapsL30d: yaps.yaps_l30d,
-          yapsL3m: yaps.yaps_l3m,
-          yapsL6m: yaps.yaps_l6m,
-          yapsL12m: yaps.yaps_l12m,
-          lastUpdated: new Date(),
-        });
-
-        elizaLogger.info(
-          `[TwitterAccounts] Updated Yaps data for ${username}`,
-          {
-            yapsAll: yaps.yaps_all,
-            yapsL30d: yaps.yaps_l30d,
-          },
-        );
-      }
-    } catch (error) {
-      elizaLogger.error('[TwitterAccounts] Error updating Yaps data:', error);
     }
   }
 }

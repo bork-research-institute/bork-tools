@@ -85,6 +85,8 @@ export class TwitterSearchClient {
           TWITTER_CONFIG.search.tweetLimits.searchResults,
           SearchMode.Top,
           '[TwitterSearch]',
+          TWITTER_CONFIG.search.parameters,
+          TWITTER_CONFIG.search.engagementThresholds,
         );
 
       if (!filteredTweets.length) {
