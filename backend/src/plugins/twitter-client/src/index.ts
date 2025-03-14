@@ -2,13 +2,16 @@ import { type Client, type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { ClientBase } from './base.js';
 import { validateTwitterConfig } from './config/env.js';
 import { TwitterInteractionClient } from './interactions.js';
+import { TwitterSearchClient } from './search.js';
 
 class TwitterManager {
   client: ClientBase;
+  search: TwitterSearchClient;
   interaction: TwitterInteractionClient;
 
   constructor(runtime: IAgentRuntime) {
     this.client = new ClientBase(runtime);
+    this.search = new TwitterSearchClient(runtime);
     this.interaction = new TwitterInteractionClient(this.client, runtime);
   }
 
@@ -19,6 +22,9 @@ class TwitterManager {
     }
     if (this.client?.stop) {
       await this.client.stop();
+    }
+    if (this.search?.stop) {
+      await this.search.stop();
     }
   }
 }
@@ -35,7 +41,42 @@ export const TwitterClientInterface: ExtendedClient = {
     await validateTwitterConfig(runtime);
 
     const manager = new TwitterManager(runtime);
+
+    // Initialize client and handle authentication
+    elizaLogger.info('[Twitter Client] Initializing client');
     await manager.client.init();
+
+    // If profile fetch failed, try to authenticate with cookies
+    if (!manager.client.profile) {
+      elizaLogger.info(
+        '[Twitter Client] Profile fetch failed, attempting to authenticate',
+      );
+      const authenticated = await manager.client.authenticateWithCookies();
+      if (authenticated) {
+        elizaLogger.info(
+          '[Twitter Client] Authentication successful, retrying profile fetch',
+        );
+        await manager.client.init();
+        if (!manager.client.profile) {
+          elizaLogger.error(
+            '[Twitter Client] Still failed to fetch profile after authentication',
+          );
+          throw new Error(
+            'Failed to fetch Twitter profile after authentication',
+          );
+        }
+      } else {
+        elizaLogger.error(
+          '[Twitter Client] Failed to authenticate with Twitter',
+        );
+        throw new Error('Failed to authenticate with Twitter');
+      }
+    }
+
+    elizaLogger.info(
+      '[Twitter Client] Client initialized successfully, starting search and interactions',
+    );
+    await manager.search.start();
     await manager.interaction.start();
     return manager;
   },

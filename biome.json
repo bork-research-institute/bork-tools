@@ -28,16 +28,13 @@
       "recommended": true,
       "correctness": {
         "noConstantMathMinMaxClamp": "error",
-        "noNodejsModules": "error",
         "noUnusedImports": "error",
         "noUnusedPrivateClassMembers": "error",
         "noUnusedVariables": "error",
         "useArrayLiterals": "error"
       },
-      "nursery": {},
       "style": {
         "noImplicitBoolean": "error",
-        "noNamespace": "error",
         "noNegationElse": "error",
         "noParameterProperties": "error",
         "noShoutyConstants": "error",

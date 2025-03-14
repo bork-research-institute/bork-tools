@@ -7,6 +7,7 @@ import type {
   ConsciousnessStream,
   Log,
   StreamSetting,
+  TopicWeightRow,
   Tweet,
 } from './schema';
 
@@ -186,6 +187,143 @@ export const tweetQueries = {
       'sending',
       tweetIds,
     ]);
+  },
+
+  insertTweetAnalysis: async (
+    tweetId: string,
+    type: string,
+    sentiment: string,
+    confidence: number,
+    metrics: Record<string, unknown>,
+    entities: string[],
+    topics: string[],
+    impactScore: number,
+    createdAt: Date,
+    authorId: string,
+    tweetText: string,
+    publicMetrics: Record<string, unknown>,
+    tweetEntities: Record<string, unknown>,
+  ) => {
+    try {
+      await db.query(
+        `INSERT INTO tweet_analysis (
+          tweet_id, type, sentiment, confidence, metrics, 
+          entities, topics, impact_score, created_at, 
+          author_id, tweet_text, public_metrics, raw_entities
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ON CONFLICT (tweet_id) DO UPDATE SET
+          metrics = EXCLUDED.metrics,
+          impact_score = EXCLUDED.impact_score`,
+        [
+          tweetId,
+          type,
+          sentiment,
+          confidence,
+          JSON.stringify(metrics),
+          JSON.stringify(entities),
+          JSON.stringify(topics),
+          impactScore,
+          createdAt,
+          authorId,
+          tweetText,
+          JSON.stringify(publicMetrics),
+          JSON.stringify(tweetEntities),
+        ],
+      );
+    } catch (error) {
+      elizaLogger.error('Error inserting tweet analysis:', error);
+      throw error;
+    }
+  },
+
+  insertMarketMetrics: async (metrics: Record<string, unknown>) => {
+    try {
+      await db.query(
+        'INSERT INTO market_metrics (metrics, timestamp) VALUES ($1, NOW())',
+        [JSON.stringify(metrics)],
+      );
+    } catch (error) {
+      elizaLogger.error('Error inserting market metrics:', error);
+      throw error;
+    }
+  },
+
+  getSpamUser: async (userId: string) => {
+    try {
+      const { rows } = await db.query(
+        'SELECT * FROM spam_users WHERE user_id = $1',
+        [userId],
+      );
+      return rows[0] || null;
+    } catch (error) {
+      elizaLogger.error('Error fetching spam user:', error);
+      throw error;
+    }
+  },
+
+  updateSpamUser: async (
+    userId: string,
+    spamScore: number,
+    violations: string[],
+  ) => {
+    try {
+      const now = new Date();
+      await db.query(
+        `INSERT INTO spam_users (
+          user_id, spam_score, last_tweet_date, tweet_count, violations, updated_at
+        ) VALUES ($1, $2, $3, 1, $4, $5)
+        ON CONFLICT (user_id) DO UPDATE SET
+          spam_score = $2,
+          last_tweet_date = $3,
+          tweet_count = spam_users.tweet_count + 1,
+          violations = spam_users.violations || $4,
+          updated_at = $5`,
+        [userId, spamScore, now, JSON.stringify(violations), now],
+      );
+    } catch (error) {
+      elizaLogger.error('Error updating spam user:', error);
+      throw error;
+    }
+  },
+
+  getTopicWeights: async (): Promise<TopicWeightRow[]> => {
+    const result = await db.query(
+      'SELECT * FROM topic_weights ORDER BY weight DESC',
+    );
+    return result.rows;
+  },
+
+  updateTopicWeight: async (
+    topic: string,
+    weight: number,
+    impactScore: number,
+    seedWeight: number,
+  ): Promise<void> => {
+    await db.query(
+      `INSERT INTO topic_weights (topic, weight, impact_score, last_updated, seed_weight)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
+       ON CONFLICT (topic) 
+       DO UPDATE SET 
+         weight = $2,
+         impact_score = $3,
+         last_updated = CURRENT_TIMESTAMP`,
+      [topic, weight, impactScore, seedWeight],
+    );
+  },
+
+  initializeTopicWeights: async (topics: string[]): Promise<void> => {
+    const seedWeights = topics.map((topic) => ({
+      topic,
+      weight: 0.5,
+      impactScore: 0.5,
+      seedWeight: 0.5,
+    }));
+
+    await Promise.all(
+      seedWeights.map(({ topic, weight, impactScore, seedWeight }) =>
+        tweetQueries.updateTopicWeight(topic, weight, impactScore, seedWeight),
+      ),
+    );
   },
 };
 

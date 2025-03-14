@@ -12,8 +12,8 @@ import {
   type SearchMode,
   type Tweet,
 } from 'agent-twitter-client';
-import type { TwitterProfile } from './lib/types';
 import { RequestQueue } from './request-queue';
+import type { TwitterProfile } from './types/twitter';
 
 interface TwitterCookie {
   key: string;
@@ -63,6 +63,102 @@ export class ClientBase extends EventEmitter {
 
   async init(): Promise<void> {
     elizaLogger.info('[Twitter Client] Twitter client initializing');
+    const username = this.runtime.getSetting('TWITTER_USERNAME');
+    if (!username) {
+      elizaLogger.error('[Twitter Client] No Twitter username configured');
+      return;
+    }
+
+    // Try to load cached cookies first
+    const cachedCookies = await this.getCachedCookies(username);
+    if (cachedCookies && cachedCookies.length > 0) {
+      elizaLogger.info(
+        `[Twitter Client] Found ${cachedCookies.length} cached cookies for ${username}`,
+      );
+      await this.setCookiesFromArray(cachedCookies);
+      elizaLogger.info('[Twitter Client] Successfully set cached cookies');
+
+      // Verify the cookies are still valid by trying to fetch profile
+      this.profile = await this.fetchProfile(username);
+      if (this.profile) {
+        elizaLogger.info(
+          '[Twitter Client] Successfully verified cached cookies',
+        );
+        return;
+      }
+      elizaLogger.warn(
+        '[Twitter Client] Cached cookies appear to be invalid, will re-authenticate',
+      );
+    }
+
+    // If no valid cached cookies, authenticate
+    elizaLogger.info(
+      '[Twitter Client] No valid cached cookies found, will need to authenticate',
+    );
+    const authenticated = await this.authenticateWithCookies();
+    if (!authenticated) {
+      elizaLogger.error('[Twitter Client] Failed to authenticate with Twitter');
+      return;
+    }
+
+    // Verify authentication by trying to fetch profile
+    this.profile = await this.fetchProfile(username);
+    if (!this.profile) {
+      elizaLogger.error('[Twitter Client] Failed to fetch Twitter profile');
+      return;
+    }
+    elizaLogger.info(
+      '[Twitter Client] Successfully authenticated and fetched profile',
+    );
+  }
+
+  async authenticateWithCookies(): Promise<boolean> {
+    try {
+      const username = this.runtime.getSetting('TWITTER_USERNAME');
+      if (!username) {
+        elizaLogger.error(
+          '[Twitter Client] No Twitter username configured for authentication',
+        );
+        return false;
+      }
+
+      elizaLogger.info('[Twitter Client] Attempting to get fresh cookies');
+
+      // If no cookies, try to authenticate
+      elizaLogger.info(
+        '[Twitter Client] No existing cookies, attempting to authenticate',
+      );
+      const password = this.runtime.getSetting('TWITTER_PASSWORD');
+      if (!password) {
+        elizaLogger.error('[Twitter Client] No Twitter password configured');
+        return false;
+      }
+
+      await this.twitterClient.login(username, password);
+      elizaLogger.info('[Twitter Client] Successfully authenticated');
+
+      // Get the new cookies after successful authentication
+      const newCookies = await this.twitterClient.getCookies();
+      if (newCookies && newCookies.length > 0) {
+        elizaLogger.info(
+          `[Twitter Client] Successfully obtained ${newCookies.length} new cookies`,
+        );
+        await this.cacheCookies(username, newCookies);
+        elizaLogger.info('[Twitter Client] Successfully cached new cookies');
+        return true;
+      }
+
+      elizaLogger.error(
+        '[Twitter Client] Failed to obtain cookies after authentication',
+      );
+      return false;
+    } catch (error) {
+      elizaLogger.error(
+        '[Twitter Client] Error during cookie authentication:',
+        error,
+      );
+      return false;
+    }
   }
 
   async cacheTweet(tweet: Tweet): Promise<void> {
@@ -171,24 +267,37 @@ export class ClientBase extends EventEmitter {
     cursor?: string,
   ): Promise<QueryTweetsResponse> {
     try {
-      const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ tweets: [] }), 10000),
+      const timeoutPromise = new Promise<QueryTweetsResponse>((resolve) =>
+        setTimeout(() => resolve({ tweets: [] }), 30000),
       );
 
       try {
-        const result = await this.requestQueue.add(
-          async () =>
-            await Promise.race([
-              this.twitterClient.fetchSearchTweets(
-                query,
-                maxTweets,
-                searchMode,
-                cursor,
-              ),
-              timeoutPromise,
-            ]),
-        );
-        return (result ?? { tweets: [] }) as QueryTweetsResponse;
+        const result = await this.requestQueue.add(async () => {
+          // First try to get fresh cookies
+          const cookies = await this.twitterClient.getCookies();
+          if (cookies && cookies.length > 0) {
+            await this.setCookiesFromArray(cookies);
+          }
+
+          return await Promise.race([
+            this.twitterClient.fetchSearchTweets(
+              query,
+              maxTweets,
+              searchMode,
+              cursor,
+            ),
+            timeoutPromise,
+          ]);
+        });
+
+        if (!result || !('tweets' in result) || result.tweets.length === 0) {
+          elizaLogger.warn(
+            `[Twitter Client] No tweets found for query: ${query}`,
+          );
+          return { tweets: [] };
+        }
+
+        return result as QueryTweetsResponse;
       } catch (error) {
         elizaLogger.error('Error fetching search tweets:', error);
         return { tweets: [] };
@@ -200,6 +309,7 @@ export class ClientBase extends EventEmitter {
   }
 
   async setCookiesFromArray(cookiesArray: TwitterCookie[]): Promise<void> {
+    elizaLogger.info(`[Twitter Client] Setting ${cookiesArray.length} cookies`);
     const cookieStrings = cookiesArray.map(
       (cookie) =>
         `${cookie.key}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}; ${
@@ -209,6 +319,9 @@ export class ClientBase extends EventEmitter {
         }`,
     );
     await this.twitterClient.setCookies(cookieStrings);
+    elizaLogger.info(
+      '[Twitter Client] Successfully set cookies on Twitter client',
+    );
   }
 
   async cacheMentions(mentions: Tweet[]): Promise<void> {
