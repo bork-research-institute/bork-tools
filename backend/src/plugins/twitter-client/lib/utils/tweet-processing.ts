@@ -1,14 +1,18 @@
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import {
+  type IAgentRuntime,
+  type Memory,
+  ModelClass,
+  composeContext,
+  elizaLogger,
+  generateMessageResponse,
+  stringToUuid,
+} from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries.js';
 import type { TwitterService } from '../../services/twitter.service';
-import type { TopicWeightRow } from '../twitter.js';
-
-export interface SpamData {
-  spamScore: number;
-  tweetCount: number;
-  violations: string[];
-}
+import { tweetAnalysisTemplate } from '../../templates/analysis';
+import type { TopicWeightRow } from '../../types/topic.js';
+import type { SpamUser } from '../../types/twitter.js';
 
 export interface ProcessedTweet extends Tweet {
   created_at: Date;
@@ -25,44 +29,92 @@ export interface ProcessedTweet extends Tweet {
   };
 }
 
-export function processTweet(tweet: Tweet): ProcessedTweet {
-  return {
-    ...tweet,
-    created_at: new Date(tweet.timestamp * 1000),
-    author_id: tweet.userId,
-    text: tweet.text || '',
-    public_metrics: {
-      like_count: tweet.likes || 0,
-      retweet_count: tweet.retweets || 0,
-      reply_count: tweet.replies || 0,
-    },
-    entities: {
-      hashtags: tweet.hashtags || [],
-      mentions: (tweet.mentions || []).map((mention) => ({
-        username: mention.username,
-        id: mention.id,
-      })),
-      urls: tweet.urls || [],
-    },
-  };
-}
-
 export async function processAndStoreTweet(
-  _runtime: IAgentRuntime,
+  runtime: IAgentRuntime,
   twitterService: TwitterService,
   tweet: Tweet,
+  topicWeights: TopicWeightRow[],
 ): Promise<void> {
   try {
     // Store tweet in cache
     await twitterService.cacheTweet(tweet);
 
-    // Store in database
+    elizaLogger.info(
+      `[Tweet Processing] Starting analysis for tweet ${tweet.id} from @${tweet.userId}`,
+      {
+        text:
+          tweet.text?.substring(0, 100) +
+          (tweet.text?.length > 100 ? '...' : ''),
+        metrics: {
+          likes: tweet.likes,
+          retweets: tweet.retweets,
+          replies: tweet.replies,
+        },
+      },
+    );
+
+    // Perform comprehensive analysis
+    const template = tweetAnalysisTemplate({
+      text: tweet.text || '',
+      public_metrics: {
+        like_count: tweet.likes || 0,
+        retweet_count: tweet.retweets || 0,
+        reply_count: tweet.replies || 0,
+      },
+      topics: runtime.character.topics || [],
+      topicWeights: topicWeights.map((tw) => ({
+        topic: tw.topic,
+        weight: tw.weight,
+      })),
+    });
+
+    const context = composeContext({
+      state: await runtime.composeState(
+        {
+          content: { text: tweet.text },
+          userId: stringToUuid(tweet.userId),
+          agentId: runtime.agentId,
+          roomId: stringToUuid(`${tweet.id}-${runtime.agentId}`),
+        } as Memory,
+        {
+          twitterService,
+          twitterUserName: runtime.getSetting('TWITTER_USERNAME'),
+          currentPost: tweet.text,
+        },
+      ),
+      template: template.context,
+    });
+
+    elizaLogger.debug('[Tweet Processing] Generated context:', {
+      contextLength: context.length,
+      hasTemplate: Boolean(template.context),
+      modelClass: template.modelClass,
+    });
+
+    const analysis = await generateMessageResponse({
+      runtime,
+      context,
+      modelClass: ModelClass.LARGE,
+    });
+
+    if (!analysis || !analysis.text) {
+      throw new Error('Invalid analysis response structure');
+    }
+
+    const parsedAnalysis = JSON.parse(analysis.text);
+
+    // Validate required fields
+    if (!parsedAnalysis.spamAnalysis || !parsedAnalysis.contentAnalysis) {
+      throw new Error('Invalid analysis format - missing required fields');
+    }
+
+    // Store tweet in database with analysis
     await tweetQueries.saveTweetObject({
       id: tweet.id,
       content: tweet.text || '',
-      status: 'analyzed',
+      status: parsedAnalysis.spamAnalysis.isSpam ? 'spam' : 'analyzed',
       createdAt: new Date(tweet.timestamp * 1000),
-      agentId: _runtime.agentId,
+      agentId: runtime.agentId,
       mediaType: 'text',
       mediaUrl: tweet.permanentUrl,
       homeTimeline: {
@@ -80,14 +132,64 @@ export async function processAndStoreTweet(
       },
     });
 
+    // Store analysis in database
+    await tweetQueries.insertTweetAnalysis(
+      tweet.id,
+      parsedAnalysis.contentAnalysis.type,
+      parsedAnalysis.contentAnalysis.sentiment,
+      parsedAnalysis.contentAnalysis.confidence,
+      {
+        likes: tweet.likes || 0,
+        retweets: tweet.retweets || 0,
+        replies: tweet.replies || 0,
+        spamScore: parsedAnalysis.spamAnalysis.spamScore,
+        spamViolations: parsedAnalysis.spamAnalysis.reasons,
+        ...parsedAnalysis.contentAnalysis.metrics,
+      },
+      parsedAnalysis.contentAnalysis.entities,
+      parsedAnalysis.contentAnalysis.topics,
+      parsedAnalysis.contentAnalysis.impactScore,
+      new Date(tweet.timestamp * 1000),
+      tweet.userId,
+      tweet.text || '',
+      {
+        likes: tweet.likes || 0,
+        retweets: tweet.retweets || 0,
+        replies: tweet.replies || 0,
+      },
+      {
+        hashtags: tweet.hashtags || [],
+        mentions: tweet.mentions || [],
+        urls: tweet.urls || [],
+        topicWeights: topicWeights.map((tw) => ({
+          topic: tw.topic,
+          weight: tw.weight,
+        })),
+      },
+    );
+
+    // Update topic weights if not spam
+    if (!parsedAnalysis.spamAnalysis.isSpam && topicWeights.length > 0) {
+      await updateTopicWeights(
+        topicWeights,
+        parsedAnalysis.contentAnalysis.topics || [],
+        parsedAnalysis.contentAnalysis.impactScore || 0.5,
+        '[Tweet Processing]',
+      );
+    }
+
     elizaLogger.info(
       `[Tweet Processing] Successfully processed tweet ${tweet.id}`,
     );
   } catch (error) {
-    elizaLogger.error(
-      `[Tweet Processing] Error processing tweet ${tweet.id}:`,
-      error,
-    );
+    elizaLogger.error('[Tweet Processing] Error processing tweet:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      tweetId: tweet.id,
+      userId: tweet.userId,
+      text:
+        tweet.text?.substring(0, 100) + (tweet.text?.length > 100 ? '...' : ''),
+    });
   }
 }
 
@@ -124,14 +226,30 @@ export async function updateMarketMetrics(tweets: Tweet[]): Promise<void> {
   }
 }
 
-export async function getUserSpamData(_authorId: string): Promise<SpamData> {
-  // This is a placeholder implementation
-  // In a real implementation, you would analyze the user's tweets, behavior, etc.
-  return {
-    spamScore: Math.random(), // Placeholder random score
-    tweetCount: 0,
-    violations: [],
-  };
+export async function getUserSpamData(
+  userId: string,
+  context: string,
+): Promise<SpamUser> {
+  try {
+    const spamUser = await tweetQueries.getSpamUser(userId);
+    if (!spamUser) {
+      return null;
+    }
+
+    return {
+      userId: spamUser.user_id,
+      spamScore: spamUser.spam_score,
+      lastTweetDate: new Date(spamUser.last_tweet_date),
+      tweetCount: spamUser.tweet_count,
+      violations: spamUser.violations,
+    };
+  } catch (error) {
+    elizaLogger.error(
+      `${context} Error getting spam data for user ${userId}:`,
+      error,
+    );
+    return null;
+  }
 }
 
 export async function updateUserSpamData(

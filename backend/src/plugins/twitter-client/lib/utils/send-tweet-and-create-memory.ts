@@ -1,15 +1,18 @@
 import {
   type Content,
   type Memory,
+  type UUID,
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
 import type { TwitterService } from '../../services/twitter.service';
 
-export async function sendTweet(
+export async function sendTweetAndCreateMemory(
   twitterService: TwitterService,
   response: Content,
-  roomId: string,
+  roomId: UUID,
+  agentId: UUID,
+  userId: UUID,
   inReplyToId?: string,
 ): Promise<Memory[]> {
   const memories: Memory[] = [];
@@ -23,8 +26,8 @@ export async function sendTweet(
   try {
     const tweet = await twitterService.sendTweet(text, inReplyToId);
     const memory: Memory = {
-      id: stringToUuid(tweet.id),
-      agentId: stringToUuid(roomId),
+      id: stringToUuid(`${tweet.id}-${agentId}`),
+      agentId,
       content: {
         text: tweet.text,
         source: 'twitter',
@@ -32,8 +35,8 @@ export async function sendTweet(
         inReplyTo: inReplyToId ? stringToUuid(inReplyToId) : undefined,
       },
       createdAt: tweet.timestamp * 1000,
-      roomId: stringToUuid(roomId),
-      userId: stringToUuid(tweet.userId),
+      roomId,
+      userId,
     };
     memories.push(memory);
   } catch (error) {

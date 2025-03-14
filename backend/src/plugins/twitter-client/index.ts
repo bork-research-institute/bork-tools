@@ -25,8 +25,9 @@ export class TwitterClient implements ClientInstance {
 
     const twitterUsername = this.runtime.getSetting('TWITTER_USERNAME');
     const twitterPassword = this.runtime.getSetting('TWITTER_PASSWORD');
+    const twitterEmail = this.runtime.getSetting('TWITTER_EMAIL');
 
-    if (!twitterUsername || !twitterPassword) {
+    if (!twitterUsername || !twitterPassword || !twitterEmail) {
       elizaLogger.error(
         '[TwitterClient] Twitter credentials not found in settings',
       );
@@ -36,14 +37,18 @@ export class TwitterClient implements ClientInstance {
     try {
       elizaLogger.info('[TwitterClient] Creating Twitter client');
       const twitterClient = new Scraper();
-      await twitterClient.login(twitterUsername, twitterPassword);
 
-      elizaLogger.info('[TwitterClient] Authenticated Twitter client');
-      // Initialize the Twitter service with the authenticated client
+      // Initialize the Twitter service with the unauthenticated client
+      // TwitterAuthService will handle authentication
       this.twitterService = new TwitterService(twitterClient, this.runtime);
-      await this.twitterService.initialize();
+      const initialized = await this.twitterService.initialize();
+
+      if (!initialized) {
+        throw new Error('Failed to initialize Twitter service');
+      }
 
       elizaLogger.info('[TwitterClient] Initialized Twitter service');
+
       // Set target users if configured
       const targetUsers = this.runtime.getSetting('TWITTER_TARGET_USERS');
       if (targetUsers) {
@@ -74,7 +79,8 @@ export class TwitterClient implements ClientInstance {
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
     } catch (error) {
       elizaLogger.error(
-        `[TwitterClient] Error starting Twitter client: ${error}`,
+        '[TwitterClient] Error starting Twitter client:',
+        error,
       );
       throw error;
     }

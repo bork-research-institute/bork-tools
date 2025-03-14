@@ -8,18 +8,17 @@ import { TwitterSpamService } from './twitter-spam.service';
 
 export class TwitterService {
   private readonly authService: TwitterAuthService;
-  private readonly requestService: TwitterRequestService;
   private readonly cacheService: TwitterCacheService;
   private readonly spamService: TwitterSpamService;
-  private readonly twitterClient: Scraper;
+  private requestService: TwitterRequestService;
   private targetUsers: string[] = [];
 
   constructor(twitterClient: Scraper, runtime: IAgentRuntime) {
-    this.twitterClient = twitterClient;
     this.authService = new TwitterAuthService(twitterClient, runtime);
-    this.requestService = new TwitterRequestService(twitterClient);
     this.cacheService = new TwitterCacheService(runtime);
     this.spamService = new TwitterSpamService();
+    // Initialize requestService with unauthenticated client, will update after auth
+    this.requestService = new TwitterRequestService(twitterClient);
   }
 
   public async initialize(): Promise<boolean> {
@@ -31,6 +30,11 @@ export class TwitterService {
       );
       return false;
     }
+
+    // Update requestService to use the authenticated client
+    this.requestService = new TwitterRequestService(
+      this.authService.getClient(),
+    );
     return true;
   }
 
@@ -114,7 +118,7 @@ export class TwitterService {
     }
 
     // Get user profile to get userId
-    const profile = await this.twitterClient.getProfile(username);
+    const profile = await this.authService.getClient().getProfile(username);
     if (!profile?.userId) {
       elizaLogger.error(
         `[TwitterService] Could not find user profile for ${username}`,
@@ -181,7 +185,12 @@ export class TwitterService {
     response: string,
   ): Promise<void> {
     const responseInfo = `Context:\n\n${context}\n\nSelected Post: ${tweetId} - ${tweet.username}: ${tweet.text}\nAgent's Output:\n${response}`;
-    await this.cacheService.cacheResponseInfo(tweetId, responseInfo);
+    await this.cacheService.cacheResponseInfo(
+      tweetId,
+      responseInfo,
+      tweet,
+      response,
+    );
   }
 
   public clearSpamCache(): void {

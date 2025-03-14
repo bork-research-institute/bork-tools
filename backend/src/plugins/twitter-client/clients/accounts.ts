@@ -97,9 +97,15 @@ export class TwitterAccountsClient {
         return;
       }
 
+      const topicWeights = await tweetQueries.getTopicWeights();
       // Process filtered tweets
       for (const tweet of allTweets) {
-        await processAndStoreTweet(this.runtime, this.twitterService, tweet);
+        await processAndStoreTweet(
+          this.runtime,
+          this.twitterService,
+          tweet,
+          topicWeights,
+        );
       }
 
       // Update market metrics with non-spam tweets

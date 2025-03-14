@@ -15,7 +15,8 @@ import {
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 import { startTweetReviewEngine } from '../../bork-extensions/src/index';
-import { sendTweet, wait } from '../lib/utils';
+import { wait } from '../lib/utils';
+import { sendTweetAndCreateMemory } from '../lib/utils/send-tweet-and-create-memory';
 import type { TwitterService } from '../services/twitter.service';
 import {
   twitterMessageHandlerTemplate,
@@ -389,11 +390,12 @@ Text: ${tweet.text}
     if (response.text) {
       try {
         const callback: HandlerCallback = async (response: Content) => {
-          const memories = await sendTweet(
+          const memories = await sendTweetAndCreateMemory(
             this.twitterService,
             response,
             message.roomId,
-            this.runtime.getSetting('TWITTER_USERNAME'),
+            message.agentId,
+            message.userId,
             tweet.id,
           );
           return memories;

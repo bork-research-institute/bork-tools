@@ -31,7 +31,7 @@ export class TwitterSpamService {
     await Promise.all(
       uniqueAuthors.map(async (authorId) => {
         try {
-          const spamData = await this.getSpamData(authorId, context);
+          const spamData = await this.getSpamData(authorId);
           if (spamData && spamData.spamScore > this.spamThreshold) {
             spamUsers.add(authorId);
             elizaLogger.debug(
@@ -77,10 +77,7 @@ export class TwitterSpamService {
     };
   }
 
-  private async getSpamData(
-    authorId: string,
-    context: string,
-  ): Promise<SpamData | undefined> {
+  private async getSpamData(authorId: string): Promise<SpamData | undefined> {
     // Check cache first
     const cached = this.spamCache.get(authorId);
     if (cached) {
@@ -88,7 +85,7 @@ export class TwitterSpamService {
     }
 
     try {
-      const spamData = await getUserSpamData(authorId, context);
+      const spamData = await getUserSpamData(authorId, '[TwitterSpamService]');
       if (spamData) {
         // Cache the result
         this.spamCache.set(authorId, spamData);
