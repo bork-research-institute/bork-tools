@@ -78,3 +78,15 @@ export interface TwitterProfile {
 }
 
 export type Profile = TwitterClientProfile;
+
+export interface TwitterSearchParams {
+  excludeReplies: boolean;
+  excludeRetweets: boolean;
+  filterLevel: 'none' | 'low' | 'medium' | 'high';
+}
+
+export interface TwitterEngagementThresholds {
+  minLikes: number;
+  minRetweets: number;
+  minReplies: number;
+}

@@ -4,16 +4,19 @@ import { TWITTER_CONFIG } from '../../../config/twitter';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { updateMarketMetrics } from '../lib/utils/tweet-processing';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing';
+import { KaitoService } from '../services/kaito.service';
 import type { TwitterService } from '../services/twitter.service';
 
 export class TwitterAccountsClient {
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
+  private readonly kaitoService: KaitoService;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
     this.runtime = runtime;
+    this.kaitoService = new KaitoService();
   }
 
   async start(): Promise<void> {
@@ -28,7 +31,7 @@ export class TwitterAccountsClient {
     }
     await this.initializeTargetAccounts();
 
-    this.onReady();
+    this.onReady(topicWeights);
   }
 
   async stop(): Promise<void> {
@@ -39,20 +42,20 @@ export class TwitterAccountsClient {
     }
   }
 
-  private onReady() {
-    this.monitorTargetAccountsLoop();
+  private onReady(topicWeights) {
+    this.monitorTargetAccountsLoop(topicWeights);
   }
 
-  private monitorTargetAccountsLoop() {
-    this.monitorTargetAccounts();
+  private monitorTargetAccountsLoop(topicWeights) {
+    this.monitorTargetAccounts(topicWeights);
     const { min, max } = TWITTER_CONFIG.search.searchInterval;
     this.monitoringTimeout = setTimeout(
-      () => this.monitorTargetAccountsLoop(),
+      () => this.monitorTargetAccountsLoop(topicWeights),
       (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000,
     );
   }
 
-  private async monitorTargetAccounts() {
+  private async monitorTargetAccounts(topicWeights) {
     elizaLogger.info('[TwitterAccounts] Starting target account monitoring');
     try {
       // Check if target accounts exist, initialize if needed
@@ -65,26 +68,81 @@ export class TwitterAccountsClient {
         return;
       }
 
+      // Randomly select accounts to process based on config
+      const accountsToProcess = [];
+      const availableAccounts = [...targetAccounts];
+      const numAccountsToProcess = Math.min(
+        TWITTER_CONFIG.search.tweetLimits.accountsToProcess,
+        availableAccounts.length,
+      );
+
+      for (let i = 0; i < numAccountsToProcess; i++) {
+        const randomIndex = Math.floor(
+          Math.random() * availableAccounts.length,
+        );
+        accountsToProcess.push(availableAccounts.splice(randomIndex, 1)[0]);
+      }
+
+      elizaLogger.info(
+        `[TwitterAccounts] Processing ${accountsToProcess.length} accounts (randomly selected from ${targetAccounts.length} total accounts): ${accountsToProcess.map((a) => a.username).join(', ')}`,
+      );
+
+      // Update Yaps data before processing tweets
+      await this.updateYapsData(accountsToProcess);
+
       const allTweets = [];
-      for (const account of targetAccounts) {
+      for (const accountToProcess of accountsToProcess) {
         try {
           const { tweets: accountTweets, spammedTweets } =
             await this.twitterService.searchTweets(
-              `from:${account.username}`,
+              `from:${accountToProcess.username}`,
               TWITTER_CONFIG.search.tweetLimits.targetAccounts,
               SearchMode.Latest,
               '[TwitterAccounts]',
+              TWITTER_CONFIG.search.parameters,
+              TWITTER_CONFIG.search.engagementThresholds,
             );
 
           elizaLogger.info(
-            `[TwitterAccounts] Fetched ${accountTweets.length} tweets from ${account.username}`,
+            `[TwitterAccounts] Fetched ${accountTweets.length} tweets from ${accountToProcess.username}`,
             { spammedTweets },
           );
 
-          allTweets.push(...accountTweets);
+          // Collect most recent tweets that meet engagement criteria
+          let processedCount = 0;
+          const thresholds = TWITTER_CONFIG.search.engagementThresholds;
+
+          for (const tweet of accountTweets) {
+            if (
+              tweet.likes >= thresholds.minLikes &&
+              tweet.retweets >= thresholds.minRetweets &&
+              tweet.replies >= thresholds.minReplies
+            ) {
+              allTweets.push(tweet);
+              processedCount++;
+
+              if (
+                processedCount >=
+                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount
+              ) {
+                break;
+              }
+            }
+          }
+
+          elizaLogger.info(
+            `[TwitterAccounts] Selected ${processedCount} tweets meeting criteria from ${accountTweets.length} fetched tweets for ${accountToProcess.username}`,
+            {
+              minLikes: thresholds.minLikes,
+              minRetweets: thresholds.minRetweets,
+              minReplies: thresholds.minReplies,
+              maxQualityTweets:
+                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount,
+            },
+          );
         } catch (error) {
           elizaLogger.error(
-            `[TwitterAccounts] Error fetching tweets from ${account.username}:`,
+            `[TwitterAccounts] Error fetching tweets from ${accountToProcess.username}:`,
             error instanceof Error ? error.message : String(error),
           );
         }
@@ -92,12 +150,11 @@ export class TwitterAccountsClient {
 
       if (allTweets.length === 0) {
         elizaLogger.warn(
-          '[TwitterAccounts] No tweets found from target accounts',
+          '[TwitterAccounts] No tweets found from any target accounts',
         );
         return;
       }
 
-      const topicWeights = await tweetQueries.getTopicWeights();
       // Process filtered tweets
       for (const tweet of allTweets) {
         await processAndStoreTweet(
@@ -210,6 +267,44 @@ export class TwitterAccountsClient {
         '[TwitterAccounts] Error initializing target accounts:',
         error,
       );
+    }
+  }
+
+  private async updateYapsData(
+    accounts: Array<{ userId: string; username: string }>,
+  ) {
+    elizaLogger.info(
+      '[TwitterAccounts] Updating Yaps data for target accounts',
+    );
+
+    try {
+      const yapsData = await this.kaitoService.getYapsForAccounts(accounts);
+
+      for (const [username, yaps] of yapsData.entries()) {
+        await tweetQueries.upsertYapsData({
+          userId: yaps.user_id,
+          username: yaps.username,
+          yapsAll: yaps.yaps_all,
+          yapsL24h: yaps.yaps_l24h,
+          yapsL48h: yaps.yaps_l48h,
+          yapsL7d: yaps.yaps_l7d,
+          yapsL30d: yaps.yaps_l30d,
+          yapsL3m: yaps.yaps_l3m,
+          yapsL6m: yaps.yaps_l6m,
+          yapsL12m: yaps.yaps_l12m,
+          lastUpdated: new Date(),
+        });
+
+        elizaLogger.info(
+          `[TwitterAccounts] Updated Yaps data for ${username}`,
+          {
+            yapsAll: yaps.yaps_all,
+            yapsL30d: yaps.yaps_l30d,
+          },
+        );
+      }
+    } catch (error) {
+      elizaLogger.error('[TwitterAccounts] Error updating Yaps data:', error);
     }
   }
 }

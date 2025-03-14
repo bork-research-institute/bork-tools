@@ -39,6 +39,93 @@ export interface TargetAccount {
   source: string;
 }
 
+export interface YapsData {
+  id: number;
+  userId: string;
+  username: string;
+  yapsAll: number;
+  yapsL24h: number;
+  yapsL48h: number;
+  yapsL7d: number;
+  yapsL30d: number;
+  yapsL3m: number;
+  yapsL6m: number;
+  yapsL12m: number;
+  lastUpdated: Date;
+  createdAt: Date;
+}
+
+export const yapsQueries = {
+  async upsertYapsData(
+    data: Omit<YapsData, 'id' | 'createdAt'>,
+  ): Promise<void> {
+    const query = `
+      INSERT INTO yaps (
+        user_id,
+        username,
+        yaps_all,
+        yaps_l24h,
+        yaps_l48h,
+        yaps_l7d,
+        yaps_l30d,
+        yaps_l3m,
+        yaps_l6m,
+        yaps_l12m,
+        last_updated
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        username = EXCLUDED.username,
+        yaps_all = EXCLUDED.yaps_all,
+        yaps_l24h = EXCLUDED.yaps_l24h,
+        yaps_l48h = EXCLUDED.yaps_l48h,
+        yaps_l7d = EXCLUDED.yaps_l7d,
+        yaps_l30d = EXCLUDED.yaps_l30d,
+        yaps_l3m = EXCLUDED.yaps_l3m,
+        yaps_l6m = EXCLUDED.yaps_l6m,
+        yaps_l12m = EXCLUDED.yaps_l12m,
+        last_updated = EXCLUDED.last_updated
+    `;
+
+    await db.query(query, [
+      data.userId,
+      data.username,
+      data.yapsAll,
+      data.yapsL24h,
+      data.yapsL48h,
+      data.yapsL7d,
+      data.yapsL30d,
+      data.yapsL3m,
+      data.yapsL6m,
+      data.yapsL12m,
+      data.lastUpdated,
+    ]);
+  },
+
+  async getYapsData(userId: string): Promise<YapsData | null> {
+    const query = `
+      SELECT *
+      FROM yaps
+      WHERE user_id = $1
+    `;
+
+    const result = await db.query(query, [userId]);
+    return result.rows[0] || null;
+  },
+
+  async getYapsForAccounts(userIds: string[]): Promise<YapsData[]> {
+    const query = `
+      SELECT *
+      FROM yaps
+      WHERE user_id = ANY($1)
+    `;
+
+    const result = await db.query(query, [userIds]);
+    return result.rows;
+  },
+};
+
 export const tweetQueries = {
   getPendingTweets: async (): Promise<Tweet[]> => {
     try {
@@ -88,10 +175,23 @@ export const tweetQueries = {
   saveTweetObject: async (tweet: Tweet) => {
     try {
       const result = await db.query(
-        'INSERT INTO tweets (id, content, status, created_at, scheduled_for, sent_at, error, agent_id, prompt, home_timeline, new_tweet_content, media_type, media_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id',
+        `INSERT INTO tweets (
+          id, tweet_id, content, text, status, created_at, scheduled_for, sent_at, 
+          error, agent_id, prompt, bookmark_count, conversation_id, hashtags, html,
+          in_reply_to_status_id, is_quoted, is_pin, is_reply, is_retweet, is_self_thread,
+          likes, name, mentions, permanent_url, photos, quoted_status_id, replies,
+          retweets, retweeted_status_id, timestamp, urls, user_id, username, views,
+          sensitive_content, media_type, media_url, home_timeline, new_tweet_content
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+          $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
+        ) RETURNING id`,
         [
           tweet.id,
+          tweet.tweet_id,
           tweet.content,
+          tweet.text || tweet.content,
           tweet.status,
           tweet.createdAt,
           tweet.scheduledFor,
@@ -99,10 +199,35 @@ export const tweetQueries = {
           tweet.error,
           tweet.agentId,
           tweet.prompt,
-          tweet.homeTimeline,
-          tweet.newTweetContent,
+          tweet.bookmarkCount,
+          tweet.conversationId,
+          tweet.hashtags,
+          tweet.html,
+          tweet.inReplyToStatusId,
+          tweet.isQuoted,
+          tweet.isPin,
+          tweet.isReply,
+          tweet.isRetweet,
+          tweet.isSelfThread,
+          tweet.likes,
+          tweet.name,
+          JSON.stringify(tweet.mentions),
+          tweet.permanentUrl,
+          JSON.stringify(tweet.photos),
+          tweet.quotedStatusId,
+          tweet.replies,
+          tweet.retweets,
+          tweet.retweetedStatusId,
+          tweet.timestamp,
+          tweet.urls,
+          tweet.userId,
+          tweet.username,
+          tweet.views,
+          tweet.sensitiveContent,
           tweet.mediaType,
           tweet.mediaUrl,
+          tweet.homeTimeline ? JSON.stringify(tweet.homeTimeline) : null,
+          tweet.newTweetContent,
         ],
       );
       return result.rows[0];
@@ -121,7 +246,9 @@ export const tweetQueries = {
   ) => {
     const tweet: Tweet = {
       id: uuidv4(),
+      tweet_id: uuidv4(), // Generate a temporary tweet_id for internal tweets
       content,
+      text: content,
       agentId,
       scheduledFor,
       status: 'pending',
@@ -133,24 +260,79 @@ export const tweetQueries = {
       prompt: null,
       mediaType: 'text',
       mediaUrl: null,
+      hashtags: [],
+      isQuoted: false,
+      isPin: false,
+      isReply: false,
+      isRetweet: false,
+      isSelfThread: false,
+      likes: 0,
+      mentions: [],
+      permanentUrl: '',
+      photos: [],
+      replies: 0,
+      retweets: 0,
+      timestamp: Math.floor(Date.now() / 1000),
+      urls: [],
+      userId: agentId,
+      username: '',
+      sensitiveContent: false,
     };
     try {
       const result = await db.query(
-        'INSERT INTO tweets (id, content, agent_id, scheduled_for, status, home_timeline, new_tweet_content, created_at, sent_at, error, prompt, media_type, media_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
+        `INSERT INTO tweets (
+          id, tweet_id, content, text, status, created_at, scheduled_for, sent_at, 
+          error, agent_id, prompt, bookmark_count, conversation_id, hashtags, html,
+          in_reply_to_status_id, is_quoted, is_pin, is_reply, is_retweet, is_self_thread,
+          likes, name, mentions, permanent_url, photos, quoted_status_id, replies,
+          retweets, retweeted_status_id, timestamp, urls, user_id, username, views,
+          sensitive_content, media_type, media_url, home_timeline, new_tweet_content
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+          $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
+        ) RETURNING *`,
         [
           tweet.id,
+          tweet.tweet_id,
           tweet.content,
-          tweet.agentId,
-          tweet.scheduledFor,
+          tweet.text,
           tweet.status,
-          tweet.homeTimeline,
-          tweet.newTweetContent,
           tweet.createdAt,
+          tweet.scheduledFor,
           tweet.sentAt,
           tweet.error,
+          tweet.agentId,
           tweet.prompt,
+          tweet.bookmarkCount,
+          tweet.conversationId,
+          tweet.hashtags,
+          tweet.html,
+          tweet.inReplyToStatusId,
+          tweet.isQuoted,
+          tweet.isPin,
+          tweet.isReply,
+          tweet.isRetweet,
+          tweet.isSelfThread,
+          tweet.likes,
+          tweet.name,
+          JSON.stringify(tweet.mentions),
+          tweet.permanentUrl,
+          JSON.stringify(tweet.photos),
+          tweet.quotedStatusId,
+          tweet.replies,
+          tweet.retweets,
+          tweet.retweetedStatusId,
+          tweet.timestamp,
+          tweet.urls,
+          tweet.userId,
+          tweet.username,
+          tweet.views,
+          tweet.sensitiveContent,
           tweet.mediaType,
           tweet.mediaUrl,
+          tweet.homeTimeline ? JSON.stringify(tweet.homeTimeline) : null,
+          tweet.newTweetContent,
         ],
       );
       return result.rows[0];
@@ -231,31 +413,80 @@ export const tweetQueries = {
     tweetText: string,
     publicMetrics: Record<string, unknown>,
     tweetEntities: Record<string, unknown>,
+    spamAnalysis: {
+      spamScore: number;
+      reasons: string[];
+      isSpam: boolean;
+      confidenceMetrics: {
+        linguisticRisk: number;
+        topicMismatch: number;
+        engagementAnomaly: number;
+        promotionalIntent: number;
+      };
+    },
+    contentMetrics: {
+      relevance: number;
+      quality: number;
+      engagement: number;
+      authenticity: number;
+      valueAdd: number;
+    },
   ) => {
     try {
       await db.query(
         `INSERT INTO tweet_analysis (
           tweet_id, type, sentiment, confidence, metrics, 
           entities, topics, impact_score, created_at, 
-          author_id, tweet_text, public_metrics, raw_entities
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          author_id, tweet_text, public_metrics, raw_entities,
+          spam_score, spam_reasons, is_spam,
+          linguistic_risk, topic_mismatch, engagement_anomaly, promotional_intent,
+          content_relevance, content_quality, content_engagement,
+          content_authenticity, content_value_add
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+          $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+        )
         ON CONFLICT (tweet_id) DO UPDATE SET
           metrics = EXCLUDED.metrics,
-          impact_score = EXCLUDED.impact_score`,
+          impact_score = EXCLUDED.impact_score,
+          spam_score = EXCLUDED.spam_score,
+          spam_reasons = EXCLUDED.spam_reasons,
+          is_spam = EXCLUDED.is_spam,
+          linguistic_risk = EXCLUDED.linguistic_risk,
+          topic_mismatch = EXCLUDED.topic_mismatch,
+          engagement_anomaly = EXCLUDED.engagement_anomaly,
+          promotional_intent = EXCLUDED.promotional_intent,
+          content_relevance = EXCLUDED.content_relevance,
+          content_quality = EXCLUDED.content_quality,
+          content_engagement = EXCLUDED.content_engagement,
+          content_authenticity = EXCLUDED.content_authenticity,
+          content_value_add = EXCLUDED.content_value_add`,
         [
           tweetId,
           type,
           sentiment,
           confidence,
           JSON.stringify(metrics),
-          JSON.stringify(entities),
-          JSON.stringify(topics),
+          entities,
+          topics,
           impactScore,
           createdAt,
           authorId,
           tweetText,
           JSON.stringify(publicMetrics),
           JSON.stringify(tweetEntities),
+          spamAnalysis.spamScore,
+          spamAnalysis.reasons,
+          spamAnalysis.isSpam,
+          spamAnalysis.confidenceMetrics.linguisticRisk,
+          spamAnalysis.confidenceMetrics.topicMismatch,
+          spamAnalysis.confidenceMetrics.engagementAnomaly,
+          spamAnalysis.confidenceMetrics.promotionalIntent,
+          contentMetrics.relevance,
+          contentMetrics.quality,
+          contentMetrics.engagement,
+          contentMetrics.authenticity,
+          contentMetrics.valueAdd,
         ],
       );
     } catch (error) {
@@ -473,6 +704,23 @@ export const tweetQueries = {
       account.source,
     ]);
   },
+
+  findTweetByTweetId: async (tweet_id: string): Promise<Tweet | null> => {
+    try {
+      const result = await db.query<Tweet>(
+        'SELECT * FROM tweets WHERE tweet_id = $1 LIMIT 1',
+        [tweet_id],
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      elizaLogger.error(
+        `[Tweet Queries] Error finding tweet by tweet ID: ${error}`,
+      );
+      throw error;
+    }
+  },
+
+  ...yapsQueries,
 };
 
 export const agentSettingQueries = {
@@ -719,5 +967,103 @@ export const logQueries = {
       'INSERT INTO logs (id, user_id, body, type, room_id, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
       [log.id, log.userId, log.body, log.type, log.roomId, log.createdAt],
     );
+  },
+};
+
+export const userMentionQueries = {
+  upsertMentionRelationship: async (
+    sourceUsername: string,
+    targetUsername: string,
+    tweetId: string,
+    timestamp: Date,
+  ): Promise<void> => {
+    try {
+      // First try to update existing relationship
+      await db.query(
+        `INSERT INTO user_mentions_relationship 
+         (source_username, target_username, first_mention_at, last_mention_at, tweet_ids)
+         VALUES ($1, $2, $3, $3, ARRAY[$4])
+         ON CONFLICT (source_username, target_username) 
+         DO UPDATE SET
+           mention_count = user_mentions_relationship.mention_count + 1,
+           last_mention_at = $3,
+           tweet_ids = array_append(user_mentions_relationship.tweet_ids, $4),
+           relationship_strength = LEAST(1.0, user_mentions_relationship.relationship_strength + 0.1)`,
+        [sourceUsername, targetUsername, timestamp, tweetId],
+      );
+
+      // Check if there's a reverse relationship and update mutual flag
+      const reverseResult = await db.query(
+        `SELECT id FROM user_mentions_relationship 
+         WHERE source_username = $1 AND target_username = $2`,
+        [targetUsername, sourceUsername],
+      );
+
+      if (reverseResult.rows.length > 0) {
+        // Update both relationships to be mutual
+        await db.query(
+          `UPDATE user_mentions_relationship 
+           SET is_mutual = true 
+           WHERE (source_username = $1 AND target_username = $2)
+           OR (source_username = $2 AND target_username = $1)`,
+          [sourceUsername, targetUsername],
+        );
+      }
+    } catch (error) {
+      elizaLogger.error('Error upserting mention relationship:', error);
+      throw error;
+    }
+  },
+
+  getMutualMentions: async (
+    username: string,
+  ): Promise<Array<{ username: string; strength: number }>> => {
+    try {
+      const result = await db.query(
+        `SELECT target_username as username, relationship_strength as strength
+         FROM user_mentions_relationship
+         WHERE source_username = $1 AND is_mutual = true
+         ORDER BY relationship_strength DESC`,
+        [username],
+      );
+      return result.rows;
+    } catch (error) {
+      elizaLogger.error('Error getting mutual mentions:', error);
+      throw error;
+    }
+  },
+
+  getStrongRelationships: async (
+    minStrength = 0.5,
+  ): Promise<
+    Array<{ sourceUsername: string; targetUsername: string; strength: number }>
+  > => {
+    try {
+      const result = await db.query(
+        `SELECT source_username, target_username, relationship_strength as strength
+         FROM user_mentions_relationship
+         WHERE relationship_strength >= $1
+         ORDER BY relationship_strength DESC`,
+        [minStrength],
+      );
+      return result.rows;
+    } catch (error) {
+      elizaLogger.error('Error getting strong relationships:', error);
+      throw error;
+    }
+  },
+
+  decayRelationships: async (): Promise<void> => {
+    try {
+      // Decay relationships that haven't been updated in 30 days
+      await db.query(
+        `UPDATE user_mentions_relationship
+         SET relationship_strength = GREATEST(0.1, relationship_strength * 0.9)
+         WHERE last_mention_at < NOW() - INTERVAL '30 days'`,
+      );
+    } catch (error) {
+      elizaLogger.error('Error decaying relationships:', error);
+      throw error;
+    }
   },
 };
