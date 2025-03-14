@@ -9,9 +9,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { tweetQueries } from '../../../../bork-extensions/src/db/queries.js';
 import type { ClientBase } from '../../base.js';
 import { tweetAnalysisTemplate } from '../../templates/analysis.js';
-import type { MarketMetrics, SpamUser, Tweet } from '../twitter.js';
-import type { TopicWeightRow, TweetAnalysis } from '../types.js';
-import { convertToTopicWeight } from '../types.js';
+import { convertToTopicWeight } from '../twitter.js';
+import type {
+  MarketMetrics,
+  SpamUser,
+  TopicWeightRow,
+  Tweet,
+  TweetAnalysis,
+} from '../twitter.js';
 
 export async function processAndStoreTweet(
   client: ClientBase,

@@ -4,7 +4,6 @@ import { TWITTER_CONFIG } from '../../../config/twitter.js';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { ClientBase } from './base';
 import type { Tweet } from './lib/twitter.js';
-import type {} from './lib/types.js';
 import {
   getUserSpamData,
   processAndStoreTweet,
