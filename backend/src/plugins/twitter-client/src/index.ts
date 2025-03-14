@@ -1,4 +1,5 @@
 import { type Client, type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { TwitterAccountsClient } from './accounts.js';
 import { ClientBase } from './base.js';
 import { validateTwitterConfig } from './config/env.js';
 import { TwitterInteractionClient } from './interactions.js';
@@ -7,11 +8,13 @@ import { TwitterSearchClient } from './search.js';
 class TwitterManager {
   client: ClientBase;
   search: TwitterSearchClient;
+  accounts: TwitterAccountsClient;
   interaction: TwitterInteractionClient;
 
   constructor(runtime: IAgentRuntime) {
     this.client = new ClientBase(runtime);
     this.search = new TwitterSearchClient(runtime);
+    this.accounts = new TwitterAccountsClient(runtime);
     this.interaction = new TwitterInteractionClient(this.client, runtime);
   }
 
@@ -22,6 +25,9 @@ class TwitterManager {
     }
     if (this.client?.stop) {
       await this.client.stop();
+    }
+    if (this.accounts?.stop) {
+      await this.search.stop();
     }
     if (this.search?.stop) {
       await this.search.stop();
@@ -76,6 +82,7 @@ export const TwitterClientInterface: ExtendedClient = {
     elizaLogger.info(
       '[Twitter Client] Client initialized successfully, starting search and interactions',
     );
+    await manager.accounts.start();
     await manager.search.start();
     await manager.interaction.start();
     return manager;

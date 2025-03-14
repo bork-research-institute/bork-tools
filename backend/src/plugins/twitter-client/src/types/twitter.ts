@@ -1,4 +1,7 @@
-import type { Tweet as TwitterClientTweet } from 'agent-twitter-client';
+import type {
+  Profile as TwitterClientProfile,
+  Tweet as TwitterClientTweet,
+} from 'agent-twitter-client';
 import type { TopicWeight } from './topic';
 
 export interface Tweet extends TwitterClientTweet {
@@ -73,3 +76,5 @@ export interface TwitterProfile {
   bio: string;
   nicknames: string[];
 }
+
+export type Profile = TwitterClientProfile;
