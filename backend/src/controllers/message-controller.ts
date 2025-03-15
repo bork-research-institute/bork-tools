@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { type Elysia, t } from 'elysia';
-import type { MessageService } from '../services/message-service';
+import type { MessageService } from '../plugins/injective-client/services/message-service';
 import { messageRequestSchema } from '../types/requests/message-request';
 import { errorResponseSchema } from '../types/responses/error-response';
 import { messageResponseSchema } from '../types/responses/message-response';

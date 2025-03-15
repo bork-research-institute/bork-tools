@@ -8,7 +8,7 @@ import {
   type MarketHistoryItem,
   type MarketHistoryResponse,
   TimeResolution,
-} from '../types/responses/market-history';
+} from '../types/market-history';
 
 /**
  * Service for interacting with the Injective Protocol's market data

@@ -73,7 +73,7 @@ export class TwitterClient implements ClientInstance {
       );
 
       await this.accountsClient.start();
-      // await this.searchClient.start();
+      await this.searchClient.start();
       // await this.interactionClient.start();
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');

@@ -11,7 +11,7 @@
     "format": "biome format --write .",
     "lint": "biome lint --write .",
     "lint:unsafe": "biome lint --write --unsafe .",
-    "test:market": "bun run src/scripts/test-market-analysis.ts"
+    "test:market": "bun run src/plugins/injective-client/test/test-market-analysis.ts"
   },
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",

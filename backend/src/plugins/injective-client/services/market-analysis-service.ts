@@ -12,13 +12,13 @@ import {
   type SpotTrade,
 } from '@injectivelabs/sdk-ts';
 import type { OrderSide } from '@injectivelabs/ts-types';
-import type { TimeResolution } from '../types/responses/market-history';
+import type { TimeResolution } from '../types/market-history';
 import type {
   LiquidityAnalysis,
   MarketAnalysis,
   OrderBookAnalysis,
   TechnicalAnalysis,
-} from '../types/responses/technical-analysis';
+} from '../types/technical-analysis';
 
 export interface TimeframeConfig {
   type: 'spot' | 'derivatives';
