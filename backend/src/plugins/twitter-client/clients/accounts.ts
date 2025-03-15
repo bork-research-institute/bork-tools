@@ -72,23 +72,53 @@ export class TwitterAccountsClient {
         return;
       }
 
-      // Randomly select accounts to process based on config
+      // Get yaps data for all accounts to calculate weights
+      const userIds = targetAccounts.map((account) => account.userId);
+      const yapsData = await tweetQueries.getYapsForAccounts(userIds);
+
+      // Create weighted selection array with base weight of 1, adding yaps_l24h score
+      const weightedAccounts = targetAccounts.map((account) => {
+        const accountYaps = yapsData.find(
+          (yaps) => yaps.userId === account.userId,
+        );
+        const weight = 1 + (accountYaps?.yapsL24h || 0);
+        return { account, weight };
+      });
+
+      // Calculate total weight
+      const totalWeight = weightedAccounts.reduce(
+        (sum, { weight }) => sum + weight,
+        0,
+      );
+
+      // Select accounts using weighted random selection
       const accountsToProcess = [];
-      const availableAccounts = [...targetAccounts];
+      const availableAccounts = [...weightedAccounts];
       const numAccountsToProcess = Math.min(
         TWITTER_CONFIG.search.tweetLimits.accountsToProcess,
         availableAccounts.length,
       );
 
       for (let i = 0; i < numAccountsToProcess; i++) {
-        const randomIndex = Math.floor(
-          Math.random() * availableAccounts.length,
-        );
-        accountsToProcess.push(availableAccounts.splice(randomIndex, 1)[0]);
+        let randomWeight = Math.random() * totalWeight;
+        let selectedIndex = 0;
+
+        // Find the account that corresponds to the random weight
+        for (let j = 0; j < availableAccounts.length; j++) {
+          randomWeight -= availableAccounts[j].weight;
+          if (randomWeight <= 0) {
+            selectedIndex = j;
+            break;
+          }
+        }
+
+        // Add selected account and remove it from available pool
+        accountsToProcess.push(availableAccounts[selectedIndex].account);
+        availableAccounts.splice(selectedIndex, 1);
       }
 
       elizaLogger.info(
-        `[TwitterAccounts] Processing ${accountsToProcess.length} accounts (randomly selected from ${targetAccounts.length} total accounts): ${accountsToProcess.map((a) => a.username).join(', ')}`,
+        `[TwitterAccounts] Processing ${accountsToProcess.length} accounts (weighted random selection from ${targetAccounts.length} total accounts): ${accountsToProcess.map((a) => a.username).join(', ')}`,
       );
 
       // Update Yaps data before processing tweets
