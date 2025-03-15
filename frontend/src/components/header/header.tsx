@@ -1,11 +1,15 @@
 'use client';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { ChevronDown, PocketKnife, Wallet } from 'lucide-react';
+import { ChevronDown, Egg, Lock, Wallet } from 'lucide-react';
 import { trimAddress } from '../../lib/utils/trim-address';
 import '@solana/wallet-adapter-react-ui/styles.css';
+import { getChainStats } from '@/lib/services/defillama';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { METADATA } from '../../lib/constants/metadata';
+import { ChainStats } from '../chain-stats';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -14,119 +18,103 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-type NavigationItem = {
-  name: string;
-  href?: string;
-  items?: NavigationItem[];
-};
-
-type Navigation = {
-  [key: string]: NavigationItem[];
-};
-
-const navigation: Navigation = {
-  published: [
-    { name: 'Bork Staking Leaderboard', href: '/leaderboard' },
-    { name: 'X Analysis', href: '/x-analysis' },
-  ],
-  researching: [
-    {
-      name: 'GFM Tools',
-      items: [
-        { name: 'Bonding Curve Launch', href: '/gfm/bonding-curve' },
-        { name: 'Chef Launch', href: '/gfm/chef' },
-        { name: 'GFM Volume Bot', href: '/gfm/volume-bot' },
-        { name: 'GFM Micro Trading', href: '/gfm/micro-trading' },
-        { name: 'GFM Bundled Buy', href: '/gfm/bundled-buy' },
-        { name: 'GFM Bundled Sell', href: '/gfm/bundled-sell' },
-        {
-          name: 'GFM New Address Buy ^makers',
-          href: '/gfm/new-address-buy-makers',
-        },
-        {
-          name: 'GFM New Address Buy ^holders',
-          href: '/gfm/new-address-buy-holders',
-        },
-        { name: 'GFM Anti-MEV Volume Bot', href: '/gfm/anti-mev-volume-bot' },
-        { name: 'GFM Sell and Bundled Buy', href: '/gfm/sell-bundled-buy' },
-      ],
-    },
-  ],
-};
+const chains = [
+  {
+    name: 'Injective',
+    available: true,
+    logo: '/assets/injective-logo.webp',
+  },
+  {
+    name: 'Solana',
+    available: false,
+    logo: '/assets/solana-logo.png',
+  },
+] as const;
 
 export function Header() {
   const { setVisible } = useWalletModal();
   const { connected, disconnect, publicKey } = useWallet();
+  const [selectedChain, setSelectedChain] = useState(chains[0]);
+  const [chainStats, setChainStats] = useState<{
+    price: number;
+    volume24h: number;
+    volumeChange24h: number;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      if (selectedChain.available) {
+        const stats = await getChainStats(selectedChain.name);
+        setChainStats(stats);
+      }
+    }
+    fetchStats();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, [selectedChain]);
 
   return (
     <header className="border-emerald-400/20 border-b bg-[#020617]/80">
       <div className="mx-auto max-w-7xl px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center">
             <Link
               href="/"
               className="flex items-center justify-center space-x-2 font-bold text-2xl text-white hover:opacity-80 transition-opacity"
             >
-              <PocketKnife className="h-6 w-6" />
+              <Egg className="h-6 w-6" />
               <h1>{METADATA.title?.toString()}</h1>
               <span className="ml-1 rounded-md bg-emerald-400/10 px-2 py-0.5 text-sm">
                 ALPHA
               </span>
             </Link>
-            <nav className="flex items-center space-x-4">
-              {Object.entries(navigation).map(([section, items]) => (
-                <div key={section} className="relative">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild={true}>
-                      <Button variant="ghost" className="text-white capitalize">
-                        {section}
-                        <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 bg-[#020617] border-emerald-400/20">
-                      {items.map((item) =>
-                        item.items ? (
-                          <DropdownMenu key={item.name}>
-                            <DropdownMenuTrigger asChild={true}>
-                              <DropdownMenuItem className="text-white hover:bg-emerald-400/10">
-                                {item.name}
-                                <ChevronDown className="ml-auto h-4 w-4" />
-                              </DropdownMenuItem>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56 bg-[#020617] border-emerald-400/20">
-                              {item.items.map((subItem) => (
-                                <DropdownMenuItem
-                                  key={subItem.name}
-                                  asChild={true}
-                                >
-                                  <Link
-                                    href={subItem.href || '#'}
-                                    className="text-white hover:bg-emerald-400/10"
-                                  >
-                                    {subItem.name}
-                                  </Link>
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : (
-                          <DropdownMenuItem key={item.name} asChild={true}>
-                            <Link
-                              href={item.href || '#'}
-                              className="text-white hover:bg-emerald-400/10"
-                            >
-                              {item.name}
-                            </Link>
-                          </DropdownMenuItem>
-                        ),
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </nav>
           </div>
           <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
+              {chainStats && <ChainStats {...chainStats} />}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild={true}>
+                  <Button variant="ghost" className="text-white">
+                    <Image
+                      src={selectedChain.logo}
+                      alt={selectedChain.name}
+                      width={20}
+                      height={20}
+                      className="mr-2"
+                    />
+                    {selectedChain.name}
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-48 bg-[#020617] border-emerald-400/20">
+                  {chains.map((chain) => (
+                    <DropdownMenuItem
+                      key={chain.name}
+                      disabled={!chain.available}
+                      className="text-white hover:bg-emerald-400/10 cursor-pointer"
+                      onClick={() => chain.available && setSelectedChain(chain)}
+                    >
+                      <span className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                          <Image
+                            src={chain.logo}
+                            alt={chain.name}
+                            width={20}
+                            height={20}
+                            className="mr-2"
+                          />
+                          {chain.name}
+                        </div>
+                        {!chain.available && (
+                          <Lock className="h-4 w-4 text-gray-500" />
+                        )}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Button
               className="flex w-48 items-center justify-center space-x-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-white transition-all duration-200 hover:bg-emerald-400/20"
               type="button"

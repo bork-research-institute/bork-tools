@@ -5,13 +5,15 @@ const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
-export function getClientEnv() {
+export type ClientEnv = z.infer<typeof clientEnvSchema>;
+
+export function getClientEnv(): ClientEnv {
   // Access runtime config
   const envParse = clientEnvSchema.safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   });
-  
+
   if (!envParse.success) {
     console.error(
       '❌ Invalid client environment variables:',
