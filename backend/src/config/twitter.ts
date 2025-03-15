@@ -1,7 +1,12 @@
 export const TWITTER_CONFIG = {
-  targetAccounts: ['borkinstitute', 'CoinDesk'] as const,
-
-  influencerAccounts: ['melondotdev'] as const,
+  targetAccounts: [
+    'elonmusk',
+    'melondotdev',
+    'theflamesolana',
+    'citadelwolff',
+    '0xMert_',
+    'aeyakovenko',
+  ] as const,
 
   search: {
     maxRetries: 5,

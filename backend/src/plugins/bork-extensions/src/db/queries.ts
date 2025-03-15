@@ -11,6 +11,34 @@ import type {
   Tweet,
 } from './schema';
 
+export interface TargetAccount {
+  username: string;
+  userId: string;
+  displayName: string;
+  description: string;
+  followersCount: number;
+  followingCount: number;
+  friendsCount: number;
+  mediaCount: number;
+  statusesCount: number;
+  likesCount: number;
+  listedCount: number;
+  tweetsCount: number;
+  isPrivate: boolean;
+  isVerified: boolean;
+  isBlueVerified: boolean;
+  joinedAt: Date | null;
+  location: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  websiteUrl: string | null;
+  canDm: boolean;
+  createdAt: Date;
+  lastUpdated: Date;
+  isActive: boolean;
+  source: string;
+}
+
 export const tweetQueries = {
   getPendingTweets: async (): Promise<Tweet[]> => {
     try {
@@ -324,6 +352,126 @@ export const tweetQueries = {
         tweetQueries.updateTopicWeight(topic, weight, impactScore, seedWeight),
       ),
     );
+  },
+
+  async getTargetAccounts(): Promise<TargetAccount[]> {
+    const query = `
+      SELECT * FROM target_accounts 
+      WHERE is_active = true 
+      ORDER BY created_at DESC
+    `;
+    const result = await db.query(query);
+    return result.rows.map((row) => ({
+      username: row.username,
+      userId: row.user_id,
+      displayName: row.display_name,
+      description: row.description,
+      followersCount: row.followers_count,
+      followingCount: row.following_count,
+      friendsCount: row.friends_count,
+      mediaCount: row.media_count,
+      statusesCount: row.statuses_count,
+      likesCount: row.likes_count,
+      listedCount: row.listed_count,
+      tweetsCount: row.tweets_count,
+      isPrivate: row.is_private,
+      isVerified: row.is_verified,
+      isBlueVerified: row.is_blue_verified,
+      joinedAt: row.joined_at,
+      location: row.location || '',
+      avatarUrl: row.avatar_url,
+      bannerUrl: row.banner_url,
+      websiteUrl: row.website_url,
+      canDm: row.can_dm,
+      createdAt: row.created_at,
+      lastUpdated: row.last_updated,
+      isActive: row.is_active,
+      source: row.source,
+    }));
+  },
+
+  async insertTargetAccount(account: TargetAccount): Promise<void> {
+    const query = `
+      INSERT INTO target_accounts (
+        username,
+        user_id,
+        display_name,
+        description,
+        followers_count,
+        following_count,
+        friends_count,
+        media_count,
+        statuses_count,
+        likes_count,
+        listed_count,
+        tweets_count,
+        is_private,
+        is_verified,
+        is_blue_verified,
+        joined_at,
+        location,
+        avatar_url,
+        banner_url,
+        website_url,
+        can_dm,
+        created_at,
+        last_updated,
+        is_active,
+        source
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+      ON CONFLICT (username) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        display_name = EXCLUDED.display_name,
+        description = EXCLUDED.description,
+        followers_count = EXCLUDED.followers_count,
+        following_count = EXCLUDED.following_count,
+        friends_count = EXCLUDED.friends_count,
+        media_count = EXCLUDED.media_count,
+        statuses_count = EXCLUDED.statuses_count,
+        likes_count = EXCLUDED.likes_count,
+        listed_count = EXCLUDED.listed_count,
+        tweets_count = EXCLUDED.tweets_count,
+        is_private = EXCLUDED.is_private,
+        is_verified = EXCLUDED.is_verified,
+        is_blue_verified = EXCLUDED.is_blue_verified,
+        joined_at = EXCLUDED.joined_at,
+        location = EXCLUDED.location,
+        avatar_url = EXCLUDED.avatar_url,
+        banner_url = EXCLUDED.banner_url,
+        website_url = EXCLUDED.website_url,
+        can_dm = EXCLUDED.can_dm,
+        last_updated = EXCLUDED.last_updated,
+        is_active = EXCLUDED.is_active,
+        source = EXCLUDED.source
+    `;
+
+    await db.query(query, [
+      account.username,
+      account.userId,
+      account.displayName,
+      account.description,
+      account.followersCount,
+      account.followingCount,
+      account.friendsCount,
+      account.mediaCount,
+      account.statusesCount,
+      account.likesCount,
+      account.listedCount,
+      account.tweetsCount,
+      account.isPrivate,
+      account.isVerified,
+      account.isBlueVerified,
+      account.joinedAt,
+      account.location,
+      account.avatarUrl,
+      account.bannerUrl,
+      account.websiteUrl,
+      account.canDm,
+      account.createdAt,
+      account.lastUpdated,
+      account.isActive,
+      account.source,
+    ]);
   },
 };
 
