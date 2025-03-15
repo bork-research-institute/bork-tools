@@ -182,3 +182,70 @@ export const unlocks: UnlockData[] = [
     value: '$3.3M',
   },
 ];
+
+export interface TrendingTweet {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorUsername: string;
+  authorAvatar: string;
+  content: string;
+  createdAt: string;
+  metrics: {
+    likes: number;
+    retweets: number;
+    comments: number;
+  };
+  engagementScore?: number;
+}
+
+export const mockTrendingTweets: TrendingTweet[] = [
+  {
+    id: '1',
+    authorId: '123',
+    authorName: 'Vitalik Buterin',
+    authorUsername: 'vitalikbuterin',
+    authorAvatar:
+      'https://pbs.twimg.com/profile_images/977496875887558661/L86xyLF4_400x400.jpg',
+    content:
+      'Layer 2 rollups are the future of Ethereum scaling. The ecosystem is growing rapidly and I am excited to see what is next! 🚀',
+    createdAt: '2024-03-15T10:00:00Z',
+    metrics: {
+      likes: 15000,
+      retweets: 3000,
+      comments: 1200,
+    },
+  },
+  {
+    id: '2',
+    authorId: '456',
+    authorName: 'Ethereum',
+    authorUsername: 'ethereum',
+    authorAvatar:
+      'https://pbs.twimg.com/profile_images/1641876585744093184/4hAYh6YB_400x400.jpg',
+    content:
+      'The Dencun upgrade is now live on mainnet! This brings proto-danksharding (EIP-4844) to Ethereum, significantly reducing L2 transaction costs. 🎉',
+    createdAt: '2024-03-14T15:30:00Z',
+    metrics: {
+      likes: 12000,
+      retweets: 2500,
+      comments: 800,
+    },
+  },
+  {
+    id: '3',
+    authorId: '789',
+    authorName: 'Ethereum Foundation',
+    authorUsername: 'EF_Events',
+    authorAvatar:
+      'https://pbs.twimg.com/profile_images/1240306124837203968/65z5oYhT_400x400.jpg',
+    content:
+      "Join us for the next Ethereum Foundation DevCon! Early bird tickets now available. Don't miss out on the biggest Ethereum developer conference. 🎟️",
+    createdAt: '2024-03-13T18:45:00Z',
+    metrics: {
+      likes: 8000,
+      retweets: 1500,
+      comments: 600,
+    },
+  },
+];

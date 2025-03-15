@@ -1,9 +1,11 @@
 'use client';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { ChevronDown, Egg, Lock, Wallet } from 'lucide-react';
+import { ChevronDown, Egg, Lock, Plus, Wallet } from 'lucide-react';
 import { trimAddress } from '../../lib/utils/trim-address';
 import '@solana/wallet-adapter-react-ui/styles.css';
+import { type PanelId, panelConfigs } from '@/lib/config/metrics';
+import { usePanels } from '@/lib/contexts/PanelContext';
 import { getChainStats } from '@/lib/services/defillama';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -40,6 +42,12 @@ export function Header() {
     volume24h: number;
     volumeChange24h: number;
   } | null>(null);
+
+  const { visiblePanels, handleAddPanel } = usePanels();
+
+  const availablePanels = Object.entries(panelConfigs).filter(
+    ([id]) => !visiblePanels.has(id as PanelId),
+  );
 
   useEffect(() => {
     async function fetchStats() {
@@ -115,6 +123,39 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild={true}>
+                <Button
+                  variant="outline"
+                  className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Panel
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-black border-white/10"
+              >
+                {availablePanels.map(([id, config]) => (
+                  <DropdownMenuItem
+                    key={id}
+                    onClick={() => handleAddPanel(id as PanelId)}
+                    className="text-white cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      {config.icon}
+                      <span>{config.title}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+                {availablePanels.length === 0 && (
+                  <DropdownMenuItem disabled={true} className="text-gray-500">
+                    No panels available
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               className="flex w-48 items-center justify-center space-x-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-white transition-all duration-200 hover:bg-emerald-400/20"
               type="button"
