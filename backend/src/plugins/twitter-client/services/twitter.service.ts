@@ -1,6 +1,10 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { type Scraper, SearchMode, type Tweet } from 'agent-twitter-client';
 import type { TwitterProfile } from '../types/twitter';
+import type {
+  TwitterEngagementThresholds,
+  TwitterSearchParams,
+} from '../types/twitter';
 import { TwitterAuthService } from './twitter-auth.service';
 import { TwitterCacheService } from './twitter-cache.service';
 import { TwitterRequestService } from './twitter-request.service';
@@ -47,6 +51,8 @@ export class TwitterService {
     maxTweets: number,
     searchMode: SearchMode = SearchMode.Latest,
     context = '[TwitterService]',
+    searchParams?: TwitterSearchParams,
+    engagementThresholds?: TwitterEngagementThresholds,
   ): Promise<{
     tweets: Tweet[];
     spammedTweets: number;
@@ -56,6 +62,8 @@ export class TwitterService {
       context,
       maxTweets,
       searchMode,
+      searchParams,
+      engagementThresholds,
     });
 
     const searchResults = await this.requestService.fetchSearchTweets(
@@ -73,9 +81,34 @@ export class TwitterService {
       return { tweets: [], spammedTweets: 0, spamUsers: new Set() };
     }
 
+    // Filter tweets based on engagement thresholds
+    let filteredByEngagement = searchResults.tweets;
+    if (engagementThresholds) {
+      filteredByEngagement = searchResults.tweets.filter(
+        (tweet) =>
+          tweet.likes >= engagementThresholds.minLikes &&
+          tweet.retweets >= engagementThresholds.minRetweets &&
+          tweet.replies >= engagementThresholds.minReplies,
+      );
+    }
+
+    // Apply search parameters
+    let filteredByParams = filteredByEngagement;
+    if (searchParams) {
+      filteredByParams = filteredByEngagement.filter((tweet) => {
+        if (searchParams.excludeReplies && tweet.inReplyToStatusId) {
+          return false;
+        }
+        if (searchParams.excludeRetweets && tweet.isRetweet) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     // Filter spam tweets
     const { filteredTweets, spammedTweets, spamUsers } =
-      await this.spamService.filterSpamTweets(searchResults.tweets, context);
+      await this.spamService.filterSpamTweets(filteredByParams, context);
 
     // Cache filtered tweets
     await Promise.all(

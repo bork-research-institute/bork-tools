@@ -2,7 +2,7 @@ import { getEmbeddingZeroVector } from '@elizaos/core';
 import type { Content, Memory, UUID } from '@elizaos/core';
 import { stringToUuid } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import type { ClientBase } from '../base';
+import type { TwitterService } from '../services/twitter.service';
 
 const MAX_TWEET_LENGTH = 280; // Updated to Twitter's current character limit
 
@@ -25,70 +25,35 @@ export const isValidTweet = (tweet: Tweet): boolean => {
 };
 
 export async function sendTweet(
-  client: ClientBase,
+  twitterService: TwitterService,
   content: Content,
   roomId: UUID,
-  twitterUsername: string,
-  inReplyTo: string,
-  mediaData: {
-    data: Buffer;
-    mediaType: string;
-  }[] = [],
+  agentId: UUID,
+  inReplyTo?: string,
 ): Promise<Memory[]> {
   const tweetChunks = splitTweetContent(content.text);
   const sentTweets: Tweet[] = [];
   let previousTweetId = inReplyTo;
 
   for (const chunk of tweetChunks) {
-    const result = await client.requestQueue.add(
-      async () =>
-        await client.twitterClient.sendTweet(
-          chunk.trim(),
-          previousTweetId,
-          mediaData,
-        ),
-    );
-    const body = await result.json();
-
-    // if we have a response
-    if (body?.data?.create_tweet?.tweet_results?.result) {
-      // Parse the response
-      const tweetResult = body.data.create_tweet.tweet_results.result;
-      const finalTweet: Tweet = {
-        id: tweetResult.rest_id,
-        text: tweetResult.legacy.full_text,
-        conversationId: tweetResult.legacy.conversation_id_str,
-        timestamp: new Date(tweetResult.legacy.created_at).getTime() / 1000,
-        userId: tweetResult.legacy.user_id_str,
-        inReplyToStatusId: tweetResult.legacy.in_reply_to_status_id_str,
-        permanentUrl: `https://twitter.com/${twitterUsername}/status/${tweetResult.rest_id}`,
-        hashtags: [],
-        mentions: [],
-        photos: tweetResult.photos,
-        thread: [],
-        urls: [],
-        videos: [],
-      };
-      sentTweets.push(finalTweet);
-      previousTweetId = finalTweet.id;
-    } else {
-      console.error('Error sending chunk', chunk, 'repsonse:', body);
-    }
+    const tweet = await twitterService.sendTweet(chunk.trim(), previousTweetId);
+    sentTweets.push(tweet);
+    previousTweetId = tweet.id;
 
     // Wait a bit between tweets to avoid rate limiting issues
     await wait(1000, 2000);
   }
 
   const memories: Memory[] = sentTweets.map((tweet) => ({
-    id: stringToUuid(`${tweet.id}-${client.runtime.agentId}`),
-    agentId: client.runtime.agentId,
-    userId: client.runtime.agentId,
+    id: stringToUuid(`${tweet.id}-${agentId}`),
+    agentId,
+    userId: agentId,
     content: {
       text: tweet.text,
       source: 'twitter',
       url: tweet.permanentUrl,
       inReplyTo: tweet.inReplyToStatusId
-        ? stringToUuid(`${tweet.inReplyToStatusId}-${client.runtime.agentId}`)
+        ? stringToUuid(`${tweet.inReplyToStatusId}-${agentId}`)
         : undefined,
     },
     roomId,

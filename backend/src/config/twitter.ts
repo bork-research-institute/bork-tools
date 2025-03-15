@@ -12,13 +12,28 @@ export const TWITTER_CONFIG = {
     maxRetries: 5,
     retryDelay: 10000,
     searchInterval: {
-      min: 60, // minutes
-      max: 120, // minutes
+      min: 15,
+      max: 30,
     },
     tweetLimits: {
-      targetAccounts: 10,
-      influencerAccounts: 5,
-      searchResults: 20,
+      targetAccounts: 20, // Initial number of tweets to fetch per account for filtering
+      qualityTweetsPerAccount: 5, // Maximum number of high-quality tweets to keep per account
+      accountsToProcess: 3, // Number of random accounts to process in each cycle
+      searchResults: 20, // Number of tweets to fetch for search queries
+    },
+    engagementThresholds: {
+      minLikes: 10,
+      minRetweets: 1,
+      minReplies: 1,
+    },
+    parameters: {
+      excludeReplies: true,
+      excludeRetweets: true,
+      filterLevel: 'low', // 'none' | 'low' | 'medium' | 'high'
     },
   },
 } as const;
+
+export type TwitterSearchParams = typeof TWITTER_CONFIG.search.parameters;
+export type TwitterEngagementThresholds =
+  typeof TWITTER_CONFIG.search.engagementThresholds;

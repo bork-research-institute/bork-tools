@@ -3,7 +3,6 @@ import { SearchMode } from 'agent-twitter-client';
 import { TWITTER_CONFIG } from '../../../config/twitter.js';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing.js';
-import { updateMarketMetrics } from '../lib/utils/tweet-processing.js';
 import type { TwitterService } from '../services/twitter.service.js';
 
 export class TwitterSearchClient {
@@ -85,6 +84,8 @@ export class TwitterSearchClient {
           TWITTER_CONFIG.search.tweetLimits.searchResults,
           SearchMode.Top,
           '[TwitterSearch]',
+          TWITTER_CONFIG.search.parameters,
+          TWITTER_CONFIG.search.engagementThresholds,
         );
 
       if (!filteredTweets.length) {
@@ -108,9 +109,6 @@ export class TwitterSearchClient {
           topicWeights,
         );
       }
-
-      // Update market metrics with non-spam tweets
-      await updateMarketMetrics(filteredTweets);
 
       elizaLogger.info('[TwitterSearch] Successfully processed search results');
     } catch (error) {
