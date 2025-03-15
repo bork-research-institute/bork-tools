@@ -3,10 +3,7 @@ import { SearchMode } from 'agent-twitter-client';
 import { TWITTER_CONFIG } from '../../../config/twitter';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { storeMentions } from '../lib/utils/mentions-processing';
-import {
-  processAndStoreTweet,
-  updateMarketMetrics,
-} from '../lib/utils/tweet-processing';
+import { processAndStoreTweet } from '../lib/utils/tweet-processing';
 import { updateYapsData } from '../lib/utils/yaps-processing';
 import { KaitoService } from '../services/kaito.service';
 import type { TwitterService } from '../services/twitter.service';
@@ -202,9 +199,6 @@ export class TwitterAccountsClient {
           topicWeights,
         );
       }
-
-      // Update market metrics with non-spam tweets
-      await updateMarketMetrics(allTweets);
 
       elizaLogger.info(
         '[TwitterAccounts] Successfully processed target account tweets',
