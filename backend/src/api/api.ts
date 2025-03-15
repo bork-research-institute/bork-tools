@@ -1,7 +1,7 @@
 import { type Character, type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { Elysia } from 'elysia';
 import { MessageController } from '../controllers/message-controller';
-import { MessageService } from '../plugins/injective-client/services/message-service';
+import { MessageService } from '../services/message-service';
 
 export class ApiClient {
   public app: Elysia;
