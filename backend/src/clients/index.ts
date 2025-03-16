@@ -1,5 +1,5 @@
 import type { Character, ClientInstance, IAgentRuntime } from '@elizaos/core';
-import { startInjectiveClient } from '../plugins/injective-client';
+// import { startInjectiveClient } from '../plugins/injective-client';
 import { startTwitterClient } from '../plugins/twitter-client';
 
 export async function initializeClients(
@@ -13,10 +13,10 @@ export async function initializeClients(
     clients.push(twitterClient);
   }
 
-  if (runtime.getSetting('INJECTIVE_ENABLED') === 'true') {
-    const injectiveClient = await startInjectiveClient(runtime);
-    clients.push(injectiveClient);
-  }
+  // if (runtime.getSetting('INJECTIVE_ENABLED') === 'true') {
+  //   const injectiveClient = await startInjectiveClient(runtime);
+  //   clients.push(injectiveClient);
+  // }
 
   return clients;
 }

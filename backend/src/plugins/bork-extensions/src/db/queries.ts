@@ -1,5 +1,9 @@
 import { elizaLogger, stringToUuid } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
+import type {
+  TwitterConfig,
+  TwitterConfigRow,
+} from '../twitter-extensions/types/config';
 import { db } from './index';
 import type {
   AgentPrompt,
@@ -172,64 +176,120 @@ export const tweetQueries = {
     }
   },
 
-  saveTweetObject: async (tweet: Tweet) => {
+  async saveTweetObject({
+    id,
+    tweet_id,
+    content,
+    text,
+    status,
+    createdAt,
+    agentId,
+    mediaType,
+    mediaUrl,
+    bookmarkCount,
+    conversationId,
+    hashtags,
+    html,
+    inReplyToStatusId,
+    isQuoted,
+    isPin,
+    isReply,
+    isRetweet,
+    isSelfThread,
+    isThreadMerged,
+    hasReplies,
+    threadSize,
+    replyCount,
+    likes,
+    name,
+    mentions,
+    permanentUrl,
+    photos,
+    quotedStatusId,
+    replies,
+    retweets,
+    retweetedStatusId,
+    timestamp,
+    urls,
+    userId,
+    username,
+    views,
+    sensitiveContent,
+    homeTimeline,
+  }) {
+    const query = `
+      INSERT INTO tweets (
+        id, tweet_id, content, text, status, created_at, agent_id,
+        media_type, media_url, bookmark_count, conversation_id,
+        hashtags, html, in_reply_to_status_id, is_quoted, is_pin,
+        is_reply, is_retweet, is_self_thread, is_thread_merged,
+        has_replies, thread_size, reply_count, likes, name, mentions,
+        permanent_url, photos, quoted_status_id, replies, retweets,
+        retweeted_status_id, timestamp, urls, user_id, username,
+        views, sensitive_content, home_timeline
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 
+        $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, 
+        $22, $23, $24, $25, $26::jsonb, $27, $28::jsonb, $29, $30, 
+        $31, $32, $33, $34::text[], $35, $36, $37, $38, $39::jsonb
+      )
+      ON CONFLICT (tweet_id) DO UPDATE
+      SET
+        content = EXCLUDED.content,
+        text = EXCLUDED.text,
+        status = EXCLUDED.status,
+        is_thread_merged = EXCLUDED.is_thread_merged,
+        has_replies = EXCLUDED.has_replies,
+        thread_size = EXCLUDED.thread_size,
+        reply_count = EXCLUDED.reply_count
+      RETURNING *;
+    `;
+
+    const values = [
+      id,
+      tweet_id,
+      content,
+      text,
+      status,
+      createdAt,
+      agentId,
+      mediaType,
+      mediaUrl,
+      bookmarkCount,
+      conversationId,
+      Array.isArray(hashtags) ? hashtags : [], // Ensure array for PostgreSQL
+      html,
+      inReplyToStatusId,
+      isQuoted,
+      isPin,
+      isReply,
+      isRetweet,
+      isSelfThread,
+      isThreadMerged,
+      hasReplies,
+      threadSize,
+      replyCount,
+      likes,
+      name,
+      JSON.stringify(Array.isArray(mentions) ? mentions : []), // Convert to JSON string
+      permanentUrl,
+      JSON.stringify(Array.isArray(photos) ? photos : []), // Convert to JSON string
+      quotedStatusId,
+      replies,
+      retweets,
+      retweetedStatusId,
+      timestamp,
+      Array.isArray(urls) ? urls : [], // Ensure array for PostgreSQL
+      userId,
+      username,
+      views,
+      sensitiveContent,
+      JSON.stringify(homeTimeline), // Convert to JSON string
+    ];
+
     try {
-      const result = await db.query(
-        `INSERT INTO tweets (
-          id, tweet_id, content, text, status, created_at, scheduled_for, sent_at, 
-          error, agent_id, prompt, bookmark_count, conversation_id, hashtags, html,
-          in_reply_to_status_id, is_quoted, is_pin, is_reply, is_retweet, is_self_thread,
-          likes, name, mentions, permanent_url, photos, quoted_status_id, replies,
-          retweets, retweeted_status_id, timestamp, urls, user_id, username, views,
-          sensitive_content, media_type, media_url, home_timeline, new_tweet_content
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-          $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
-        ) RETURNING id`,
-        [
-          tweet.id,
-          tweet.tweet_id,
-          tweet.content,
-          tweet.text || tweet.content,
-          tweet.status,
-          tweet.createdAt,
-          tweet.scheduledFor,
-          tweet.sentAt,
-          tweet.error,
-          tweet.agentId,
-          tweet.prompt,
-          tweet.bookmarkCount,
-          tweet.conversationId,
-          tweet.hashtags,
-          tweet.html,
-          tweet.inReplyToStatusId,
-          tweet.isQuoted,
-          tweet.isPin,
-          tweet.isReply,
-          tweet.isRetweet,
-          tweet.isSelfThread,
-          tweet.likes,
-          tweet.name,
-          JSON.stringify(tweet.mentions),
-          tweet.permanentUrl,
-          JSON.stringify(tweet.photos),
-          tweet.quotedStatusId,
-          tweet.replies,
-          tweet.retweets,
-          tweet.retweetedStatusId,
-          tweet.timestamp,
-          tweet.urls,
-          tweet.userId,
-          tweet.username,
-          tweet.views,
-          tweet.sensitiveContent,
-          tweet.mediaType,
-          tweet.mediaUrl,
-          tweet.homeTimeline ? JSON.stringify(tweet.homeTimeline) : null,
-          tweet.newTweetContent,
-        ],
-      );
+      const result = await db.query(query, values);
       return result.rows[0];
     } catch (error) {
       elizaLogger.error('Error saving tweet:', error);
@@ -671,6 +731,7 @@ export const tweetQueries = {
         banner_url = EXCLUDED.banner_url,
         website_url = EXCLUDED.website_url,
         can_dm = EXCLUDED.can_dm,
+        created_at = EXCLUDED.created_at,
         last_updated = EXCLUDED.last_updated,
         is_active = EXCLUDED.is_active,
         source = EXCLUDED.source
@@ -1065,5 +1126,176 @@ export const userMentionQueries = {
       elizaLogger.error('Error decaying relationships:', error);
       throw error;
     }
+  },
+};
+
+export const twitterConfigQueries = {
+  async getConfig(username: string): Promise<TwitterConfig | null> {
+    try {
+      const result = await db.query(
+        'SELECT * FROM twitter_configs WHERE username = $1',
+        [username],
+      );
+
+      if (result.rows.length === 0) {
+        // Try to get default config
+        const defaultResult = await db.query(
+          'SELECT * FROM twitter_configs WHERE username = $1',
+          ['default'],
+        );
+        if (defaultResult.rows.length === 0) {
+          return null;
+        }
+        const row = defaultResult.rows[0];
+        return twitterConfigQueries.mapRowToConfig(row);
+      }
+
+      const row = result.rows[0];
+      return twitterConfigQueries.mapRowToConfig(row);
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterConfigQueries] Error fetching config:',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  },
+
+  async updateConfig(
+    username: string,
+    config: Partial<TwitterConfig>,
+  ): Promise<void> {
+    try {
+      const setClauses: string[] = [];
+      const values: (string | number | boolean | string[])[] = [username];
+      let paramCount = 1;
+
+      if (config.targetAccounts) {
+        setClauses.push(`target_accounts = $${++paramCount}`);
+        values.push(config.targetAccounts);
+      }
+
+      if (config.search) {
+        if (config.search.maxRetries !== undefined) {
+          setClauses.push(`max_retries = $${++paramCount}`);
+          values.push(config.search.maxRetries);
+        }
+        if (config.search.retryDelay !== undefined) {
+          setClauses.push(`retry_delay = $${++paramCount}`);
+          values.push(config.search.retryDelay);
+        }
+        if (config.search.searchInterval) {
+          if (config.search.searchInterval.min !== undefined) {
+            setClauses.push(`search_interval_min = $${++paramCount}`);
+            values.push(config.search.searchInterval.min);
+          }
+          if (config.search.searchInterval.max !== undefined) {
+            setClauses.push(`search_interval_max = $${++paramCount}`);
+            values.push(config.search.searchInterval.max);
+          }
+        }
+        if (config.search.tweetLimits) {
+          if (config.search.tweetLimits.targetAccounts !== undefined) {
+            setClauses.push(`tweet_limit_target_accounts = $${++paramCount}`);
+            values.push(config.search.tweetLimits.targetAccounts);
+          }
+          if (config.search.tweetLimits.qualityTweetsPerAccount !== undefined) {
+            setClauses.push(
+              `tweet_limit_quality_per_account = $${++paramCount}`,
+            );
+            values.push(config.search.tweetLimits.qualityTweetsPerAccount);
+          }
+          if (config.search.tweetLimits.accountsToProcess !== undefined) {
+            setClauses.push(
+              `tweet_limit_accounts_to_process = $${++paramCount}`,
+            );
+            values.push(config.search.tweetLimits.accountsToProcess);
+          }
+          if (config.search.tweetLimits.searchResults !== undefined) {
+            setClauses.push(`tweet_limit_search_results = $${++paramCount}`);
+            values.push(config.search.tweetLimits.searchResults);
+          }
+        }
+        if (config.search.engagementThresholds) {
+          if (config.search.engagementThresholds.minLikes !== undefined) {
+            setClauses.push(`min_likes = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minLikes);
+          }
+          if (config.search.engagementThresholds.minRetweets !== undefined) {
+            setClauses.push(`min_retweets = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minRetweets);
+          }
+          if (config.search.engagementThresholds.minReplies !== undefined) {
+            setClauses.push(`min_replies = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minReplies);
+          }
+        }
+        if (config.search.parameters) {
+          if (config.search.parameters.excludeReplies !== undefined) {
+            setClauses.push(`exclude_replies = $${++paramCount}`);
+            values.push(config.search.parameters.excludeReplies);
+          }
+          if (config.search.parameters.excludeRetweets !== undefined) {
+            setClauses.push(`exclude_retweets = $${++paramCount}`);
+            values.push(config.search.parameters.excludeRetweets);
+          }
+          if (config.search.parameters.filterLevel !== undefined) {
+            setClauses.push(`filter_level = $${++paramCount}`);
+            values.push(config.search.parameters.filterLevel);
+          }
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return;
+      }
+
+      const query = `
+        INSERT INTO twitter_configs (username, ${setClauses
+          .map((_, i) => Object.keys(config)[i])
+          .join(', ')})
+        VALUES ($1, ${setClauses.map((_, i) => `$${i + 2}`).join(', ')})
+        ON CONFLICT (username) 
+        DO UPDATE SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      `;
+
+      await db.query(query, values);
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterConfigQueries] Error updating config:',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  },
+
+  mapRowToConfig(row: TwitterConfigRow): TwitterConfig {
+    return {
+      targetAccounts: row.target_accounts,
+      search: {
+        maxRetries: row.max_retries,
+        retryDelay: row.retry_delay,
+        searchInterval: {
+          min: row.search_interval_min,
+          max: row.search_interval_max,
+        },
+        tweetLimits: {
+          targetAccounts: row.tweet_limit_target_accounts,
+          qualityTweetsPerAccount: row.tweet_limit_quality_per_account,
+          accountsToProcess: row.tweet_limit_accounts_to_process,
+          searchResults: row.tweet_limit_search_results,
+        },
+        engagementThresholds: {
+          minLikes: row.min_likes,
+          minRetweets: row.min_retweets,
+          minReplies: row.min_replies,
+        },
+        parameters: {
+          excludeReplies: row.exclude_replies,
+          excludeRetweets: row.exclude_retweets,
+          filterLevel: row.filter_level,
+        },
+      },
+    };
   },
 };

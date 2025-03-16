@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { getUserSpamData } from '../lib/utils/tweet-processing';
+import { getUserSpamData } from '../lib/utils/spam-processing';
 
 export interface SpamData {
   spamScore: number;
@@ -85,7 +85,7 @@ export class TwitterSpamService {
     }
 
     try {
-      const spamData = await getUserSpamData(authorId, '[TwitterSpamService]');
+      const spamData = await getUserSpamData(authorId);
       if (spamData) {
         // Cache the result
         this.spamCache.set(authorId, spamData);

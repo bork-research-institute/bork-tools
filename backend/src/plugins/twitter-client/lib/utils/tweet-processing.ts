@@ -7,34 +7,21 @@ import {
   generateMessageResponse,
   stringToUuid,
 } from '@elizaos/core';
-import type { Tweet } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../bork-extensions/src/db/queries.js';
-import type { TwitterService } from '../../services/twitter.service';
+import { tweetQueries } from '../../../bork-extensions/src/db/queries';
+import type { TwitterService } from '../../services/twitter-service';
 import { tweetAnalysisTemplate } from '../../templates/analysis';
 import type { TweetAnalysis } from '../../types/analysis';
-import type { TopicWeightRow } from '../../types/topic.js';
-import type { SpamUser } from '../../types/twitter.js';
-
-export interface ProcessedTweet extends Tweet {
-  created_at: Date;
-  author_id: string;
-  public_metrics: {
-    like_count: number;
-    retweet_count: number;
-    reply_count: number;
-  };
-  entities: {
-    hashtags: string[];
-    mentions: Array<{ username: string; id: string }>;
-    urls: string[];
-  };
-}
+import type { TopicWeightRow } from '../../types/topic';
+import type { MergedTweet } from '../../types/twitter';
+import { updateUserSpamData } from './spam-processing';
+import { extractJsonFromText } from './text-processing';
+import { updateTopicWeights } from './topic-processing';
 
 export async function processAndStoreTweet(
   runtime: IAgentRuntime,
   twitterService: TwitterService,
-  tweet: Tweet,
+  tweet: MergedTweet,
   topicWeights: TopicWeightRow[],
 ): Promise<void> {
   try {
@@ -57,15 +44,15 @@ export async function processAndStoreTweet(
     // Generate ID for the tweet
     const dbId = uuidv4();
 
-    // Pass original text to analysis, don't strip mentions
+    // Use the merged text for analysis
     const textForAnalysis = tweet.text || '';
 
-    // First store the tweet object
+    // First store the tweet object with both merged and original content
     await tweetQueries.saveTweetObject({
       id: dbId,
       tweet_id: tweet.id,
-      content: tweet.text || '',
-      text: tweet.text || '',
+      content: textForAnalysis, // Store the full merged content
+      text: tweet.originalText || tweet.text || '', // Store the original tweet text
       status: 'pending',
       createdAt: new Date(tweet.timestamp * 1000),
       agentId: runtime.agentId,
@@ -73,7 +60,7 @@ export async function processAndStoreTweet(
       mediaUrl: tweet.permanentUrl,
       bookmarkCount: tweet.bookmarkCount,
       conversationId: tweet.conversationId,
-      hashtags: tweet.hashtags || [],
+      hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [], // Ensure array
       html: tweet.html,
       inReplyToStatusId: tweet.inReplyToStatusId,
       isQuoted: tweet.isQuoted || false,
@@ -81,20 +68,26 @@ export async function processAndStoreTweet(
       isReply: tweet.isReply || false,
       isRetweet: tweet.isRetweet || false,
       isSelfThread: tweet.isSelfThread || false,
+      isThreadMerged: tweet.isThreadMerged || false,
+      hasReplies: tweet.hasReplies || false,
+      threadSize: tweet.threadSize || 0,
+      replyCount: tweet.replyCount || 0,
       likes: tweet.likes || 0,
       name: tweet.name,
-      mentions: (tweet.mentions || []).map((mention) => ({
-        username: mention.username || '',
-        id: mention.id || '',
-      })),
+      mentions: Array.isArray(tweet.mentions)
+        ? tweet.mentions.map((mention) => ({
+            username: mention.username || '',
+            id: mention.id || '',
+          }))
+        : [], // Ensure array and proper structure
       permanentUrl: tweet.permanentUrl || '',
-      photos: tweet.photos || [],
+      photos: Array.isArray(tweet.photos) ? tweet.photos : [], // Ensure array
       quotedStatusId: tweet.quotedStatusId,
       replies: tweet.replies || 0,
       retweets: tweet.retweets || 0,
       retweetedStatusId: tweet.retweetedStatusId,
       timestamp: tweet.timestamp,
-      urls: tweet.urls || [],
+      urls: Array.isArray(tweet.urls) ? tweet.urls : [], // Ensure array
       userId: tweet.userId || '',
       username: tweet.username || '',
       views: tweet.views,
@@ -106,12 +99,14 @@ export async function processAndStoreTweet(
           replies: tweet.replies || 0,
         },
         entities: {
-          hashtags: tweet.hashtags || [],
-          mentions: (tweet.mentions || []).map((mention) => ({
-            username: mention.username || '',
-            id: mention.id || '',
-          })),
-          urls: tweet.urls || [],
+          hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [], // Ensure array
+          mentions: Array.isArray(tweet.mentions)
+            ? tweet.mentions.map((mention) => ({
+                username: mention.username || '',
+                id: mention.id || '',
+              }))
+            : [], // Ensure array and proper structure
+          urls: Array.isArray(tweet.urls) ? tweet.urls : [], // Ensure array
         },
       },
     });
@@ -119,9 +114,14 @@ export async function processAndStoreTweet(
     elizaLogger.info(
       `[Tweet Processing] Starting analysis for tweet ${tweet.id} from @${tweet.userId}`,
       {
-        text:
-          tweet.text?.substring(0, 100) +
-          (tweet.text?.length > 100 ? '...' : ''),
+        originalText:
+          tweet.originalText?.substring(0, 100) +
+          (tweet.originalText?.length > 100 ? '...' : ''),
+        mergedTextLength: textForAnalysis.length,
+        isThreadMerged: tweet.isThreadMerged,
+        hasReplies: tweet.hasReplies,
+        threadSize: tweet.threadSize,
+        replyCount: tweet.replyCount,
         metrics: {
           likes: tweet.likes,
           retweets: tweet.retweets,
@@ -315,9 +315,14 @@ export async function processAndStoreTweet(
         replies: tweet.replies || 0,
       },
       {
-        hashtags: tweet.hashtags || [],
-        mentions: tweet.mentions || [],
-        urls: tweet.urls || [],
+        hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
+        mentions: Array.isArray(tweet.mentions)
+          ? tweet.mentions.map((mention) => ({
+              username: mention.username || '',
+              id: mention.id || '',
+            }))
+          : [],
+        urls: Array.isArray(tweet.urls) ? tweet.urls : [],
         topicWeights: topicWeights.map((tw) => ({
           topic: tw.topic,
           weight: tw.weight,
@@ -351,188 +356,6 @@ export async function processAndStoreTweet(
       userId: tweet.userId,
       text:
         tweet.text?.substring(0, 100) + (tweet.text?.length > 100 ? '...' : ''),
-    });
-  }
-}
-
-export async function updateMarketMetrics(tweets: Tweet[]): Promise<void> {
-  try {
-    const metrics = {
-      totalEngagement: tweets.reduce(
-        (sum, tweet) =>
-          sum +
-          (tweet.likes || 0) +
-          (tweet.retweets || 0) +
-          (tweet.replies || 0),
-        0,
-      ),
-      tweetCount: tweets.length,
-      averageSentiment: 0.5, // Default neutral sentiment
-      timestamp: new Date(),
-    };
-
-    await tweetQueries.insertMarketMetrics({
-      ...metrics,
-      [metrics.timestamp.toISOString()]: metrics,
-    });
-
-    elizaLogger.info(
-      `[Tweet Processing] Updated market metrics for ${tweets.length} tweets`,
-      metrics,
-    );
-  } catch (error) {
-    elizaLogger.error(
-      '[Tweet Processing] Error updating market metrics:',
-      error,
-    );
-  }
-}
-
-export async function getUserSpamData(
-  userId: string,
-  context: string,
-): Promise<SpamUser> {
-  try {
-    const spamUser = await tweetQueries.getSpamUser(userId);
-    if (!spamUser) {
-      return null;
-    }
-
-    return {
-      userId: spamUser.user_id,
-      spamScore: spamUser.spam_score,
-      lastTweetDate: new Date(spamUser.last_tweet_date),
-      tweetCount: spamUser.tweet_count,
-      violations: spamUser.violations,
-    };
-  } catch (error) {
-    elizaLogger.error(
-      `${context} Error getting spam data for user ${userId}:`,
-      error,
-    );
-    return null;
-  }
-}
-
-export async function updateUserSpamData(
-  userId: string,
-  spamScore: number,
-  violations: string[],
-  logPrefix = '[Tweet Processing]',
-): Promise<void> {
-  try {
-    await tweetQueries.updateSpamUser(userId, spamScore, violations);
-    elizaLogger.info(`${logPrefix} Updated spam data for user ${userId}`);
-  } catch (error) {
-    elizaLogger.error(
-      `${logPrefix} Error updating spam data for user ${userId}:`,
-      error,
-    );
-  }
-}
-
-export async function updateTopicWeights(
-  currentWeights: TopicWeightRow[],
-  relevantTopics: string[],
-  impactScore: number,
-  logPrefix = '[Tweet Processing]',
-): Promise<TopicWeightRow[]> {
-  try {
-    // Update weights based on relevance and impact
-    const updatedWeights = currentWeights.map((weight) => {
-      const isRelevant = relevantTopics.includes(weight.topic);
-      const newWeight = isRelevant
-        ? Math.min(1, weight.weight + 0.1 * impactScore)
-        : Math.max(0, weight.weight - 0.05);
-
-      return {
-        ...weight,
-        weight: newWeight,
-        impact_score: isRelevant ? impactScore : weight.impact_score,
-        last_updated: new Date(),
-      };
-    });
-
-    // Store updated weights in database
-    await Promise.all(
-      updatedWeights.map(({ topic, weight, impact_score, seed_weight }) =>
-        tweetQueries.updateTopicWeight(
-          topic,
-          weight,
-          impact_score,
-          seed_weight,
-        ),
-      ),
-    );
-
-    return updatedWeights;
-  } catch (error) {
-    elizaLogger.error(`${logPrefix} Error updating topic weights:`, error);
-    return currentWeights;
-  }
-}
-
-export function extractJsonFromText(text: string): string {
-  try {
-    // First try direct parsing after aggressive trimming
-    const trimmedText = text.trim().replace(/^\s+|\s+$/g, '');
-    JSON.parse(trimmedText);
-    return trimmedText;
-  } catch {
-    // If direct parsing fails, try to extract JSON object
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const extractedJson = jsonMatch[0]
-        .replace(/^\s+|\s+$/g, '') // Remove all leading/trailing whitespace
-        .replace(/\s+/g, ' ') // Normalize internal spaces
-        .replace(/\{\s+/, '{') // Remove spaces after opening brace
-        .replace(/\s+\}/, '}') // Remove spaces before closing brace
-        .replace(/\[\s+/, '[') // Remove spaces after opening bracket
-        .replace(/\s+\]/, ']') // Remove spaces before closing bracket
-        .replace(/,\s+/, ',') // Remove spaces after commas
-        .replace(/:\s+/, ':') // Remove spaces after colons
-        .trim();
-
-      try {
-        // Validate the extracted JSON
-        JSON.parse(extractedJson);
-        return extractedJson;
-      } catch {
-        // If extraction fails, return a default valid JSON
-        return JSON.stringify({
-          spamAnalysis: {
-            spamScore: 0.5,
-            reasons: [],
-            isSpam: false,
-          },
-          contentAnalysis: {
-            type: 'unknown',
-            sentiment: 'neutral',
-            confidence: 0.5,
-            impactScore: 0.5,
-            entities: [],
-            topics: [],
-            metrics: {},
-          },
-        });
-      }
-    }
-    // If no JSON found, return default
-    return JSON.stringify({
-      spamAnalysis: {
-        spamScore: 0.5,
-        reasons: [],
-        isSpam: false,
-      },
-      contentAnalysis: {
-        type: 'unknown',
-        sentiment: 'neutral',
-        confidence: 0.5,
-        impactScore: 0.5,
-        entities: [],
-        topics: [],
-        metrics: {},
-      },
     });
   }
 }
