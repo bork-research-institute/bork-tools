@@ -1,13 +1,14 @@
+'use client';
+
 import { mockMindshareData } from '@/mocks/metricsData';
-import { Brain } from 'lucide-react';
 import { useMemo } from 'react';
 import { Panel } from './Panel';
 
 interface MindsharePanelProps {
-  onClose: () => void;
+  maxHeight?: string;
 }
 
-export function MindsharePanel({ onClose }: MindsharePanelProps) {
+export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   const mindshareData = useMemo(() => {
     const totalWeight = mockMindshareData.reduce(
       (sum, item) => sum + item.weight,
@@ -22,26 +23,22 @@ export function MindsharePanel({ onClose }: MindsharePanelProps) {
   }, []);
 
   const getBackgroundColor = (percentage: number) => {
-    // Dark red color scheme
-    return `rgb(${Math.min(255, 120 + percentage * 8)}, 20, 60)`;
+    return `rgba(16, 185, 129, ${Math.min(0.4, 0.1 + percentage * 0.02)})`;
   };
 
   const getTextColor = (percentage: number) => {
-    return percentage > 2 ? 'text-white' : 'text-white/70';
+    return percentage > 2 ? 'text-white' : 'text-emerald-400/60';
   };
 
   return (
-    <Panel
-      title="Topic Mindshare"
-      icon={<Brain className="h-3.5 w-3.5" />}
-      className="border border-white/[0.08] bg-black/40 backdrop-blur-sm hover:border-white/[0.12] transition-colors"
-      onClose={onClose}
-    >
-      <div className="grid grid-cols-4 gap-1 p-2 h-[calc(100%-2rem)]">
+    <Panel maxHeight={maxHeight}>
+      <div className="grid grid-cols-4 gap-1">
         {mindshareData.map((item) => (
           <div
             key={item.topic}
-            className={`flex flex-col items-center justify-center p-2 rounded ${getTextColor(item.percentage)}`}
+            className={`flex flex-col items-center justify-center p-2 rounded ${getTextColor(
+              item.percentage,
+            )}`}
             style={{
               backgroundColor: getBackgroundColor(item.percentage),
               aspectRatio: '1',
@@ -50,7 +47,7 @@ export function MindsharePanel({ onClose }: MindsharePanelProps) {
             <div className="text-xs font-medium text-center truncate w-full">
               {item.topic}
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-lg font-bold text-emerald-400">
               {item.percentage.toFixed(1)}%
             </div>
           </div>

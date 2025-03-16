@@ -1,77 +1,170 @@
+'use client';
+
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  type LeaderboardEntry,
+  type TimeFrame,
+  yapsService,
+} from '@/lib/services/yaps';
 import { cn } from '@/lib/utils';
-import { mockKaitoLeaderboard } from '@/mocks/metricsData';
-import { Trophy } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Panel } from './Panel';
 
 interface KaitoLeaderboardProps {
-  onClose: () => void;
+  maxHeight?: string;
 }
 
-export function KaitoLeaderboard({ onClose }: KaitoLeaderboardProps) {
-  const getBackgroundColor = (rank: number) => {
+const timeFrameOptions: { value: TimeFrame; label: string }[] = [
+  { value: 'all', label: 'All Time' },
+  { value: '24h', label: 'Last 24h' },
+  { value: '7d', label: 'Last 7 Days' },
+  { value: '30d', label: 'Last 30 Days' },
+  { value: '3m', label: 'Last 3 Months' },
+  { value: '6m', label: 'Last 6 Months' },
+  { value: '12m', label: 'Last 12 Months' },
+];
+
+const SKELETON_ITEMS = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
+
+export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('all');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch leaderboard data
+  useEffect(() => {
+    async function fetchLeaderboard() {
+      setIsLoading(true);
+      try {
+        const data = await yapsService.getLeaderboard(
+          10,
+          timeFrame,
+          debouncedSearch,
+        );
+        setLeaderboard(data);
+      } catch (error) {
+        console.error('Failed to fetch leaderboard:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchLeaderboard();
+  }, [timeFrame, debouncedSearch]);
+
+  const getBackgroundColor = (rank: number): string => {
     if (rank === 1) {
-      return 'bg-gradient-to-r from-yellow-900/50 to-yellow-600/50';
+      return 'bg-amber-500/20';
     }
     if (rank === 2) {
-      return 'bg-gradient-to-r from-gray-700/50 to-gray-400/50';
+      return 'bg-slate-400/20';
     }
     if (rank === 3) {
-      return 'bg-gradient-to-r from-amber-900/50 to-amber-600/50';
+      return 'bg-orange-900/20';
     }
-    return 'bg-black/40';
+    return 'bg-white/5';
   };
 
-  const getRankColor = (rank: number) => {
+  const getRankColor = (rank: number): string => {
     if (rank === 1) {
-      return 'text-yellow-500';
+      return 'text-amber-500';
     }
     if (rank === 2) {
-      return 'text-gray-400';
+      return 'text-slate-400';
     }
     if (rank === 3) {
-      return 'text-amber-600';
+      return 'text-orange-700';
     }
-    return 'text-gray-500';
+    return 'text-white/40';
   };
 
   return (
-    <Panel
-      title="Yaps Leaderboard"
-      icon={<Trophy className="h-3.5 w-3.5" />}
-      className="border border-white/[0.08] bg-black/40 backdrop-blur-sm hover:border-white/[0.12] transition-colors"
-      onClose={onClose}
-    >
-      <div className="flex flex-col h-[calc(100%-2rem)]">
-        <div className="flex-1 space-y-1">
-          {mockKaitoLeaderboard.map((user) => (
-            <div
-              key={user.username}
-              className={cn(
-                'flex items-center gap-3 p-2 rounded transition-colors',
-                getBackgroundColor(user.rank),
-              )}
-            >
+    <Panel maxHeight={maxHeight}>
+      <div className="space-y-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1"
+          />
+          <Select
+            value={timeFrame}
+            onValueChange={(value: TimeFrame) => setTimeFrame(value)}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {timeFrameOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          {isLoading ? (
+            SKELETON_ITEMS.map((key) => (
               <div
+                key={`skeleton-${key}`}
+                className="flex items-center gap-3 p-2 rounded bg-white/5 animate-pulse"
+              >
+                <div className="w-6 h-4 bg-white/10 rounded" />
+                <div className="flex-1 h-4 bg-white/10 rounded" />
+                <div className="w-20 h-4 bg-white/10 rounded" />
+              </div>
+            ))
+          ) : leaderboard.length > 0 ? (
+            leaderboard.map((user) => (
+              <div
+                key={user.username}
                 className={cn(
-                  'w-6 text-center font-bold',
-                  getRankColor(user.rank),
+                  'flex items-center gap-3 p-2 rounded transition-colors',
+                  getBackgroundColor(user.rank),
                 )}
               >
-                #{user.rank}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">
-                  {user.username}
+                <div
+                  className={cn(
+                    'w-6 text-center font-bold shrink-0',
+                    getRankColor(user.rank),
+                  )}
+                >
+                  #{user.rank}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-white/90 truncate">
+                    {user.username.toLowerCase()}
+                  </div>
+                </div>
+                <div className="text-sm font-medium text-white/60 shrink-0">
+                  {user.yaps.toFixed(1).toLocaleString()} yaps
                 </div>
               </div>
-              <div className="text-sm font-medium text-white">
-                {user.yaps.toLocaleString()} yaps
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="text-xs text-center text-gray-500 mt-2 pb-2">
-          Powered by Kaito
+            ))
+          ) : (
+            <div className="text-center text-white/60 py-4">No users found</div>
+          )}
         </div>
       </div>
     </Panel>
