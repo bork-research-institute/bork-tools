@@ -12,12 +12,25 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
       return;
     }
 
-    // Get all mentions from both text and metadata
+    // Get mentions from the original tweet text
     const textMentions = extractMentionsFromText(tweet.text || '');
+
+    // Get mentions from thread content (tweets before this one)
+    const threadMentions = (tweet.thread || [])
+      .filter((t) => t.timestamp <= tweet.timestamp) // Only include tweets before or equal to current tweet
+      .flatMap((t) => extractMentionsFromText(t.text || ''));
+
+    // Get mentions from metadata, but only for the original tweet
     const metadataMentions = (tweet.mentions || [])
       .map((m) => m.username)
       .filter(Boolean);
-    const allMentions = new Set([...textMentions, ...metadataMentions]);
+
+    // Combine all mentions, excluding duplicates
+    const allMentions = new Set([
+      ...textMentions,
+      ...threadMentions,
+      ...metadataMentions,
+    ]);
 
     // Create a map of usernames to IDs from metadata (for target account storage)
     const usernameToId = new Map(
@@ -28,6 +41,7 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
 
     elizaLogger.info('[Mentions Processing] Processing mentions:', {
       textMentions,
+      threadMentions,
       metadataMentions,
       totalUnique: allMentions.size,
       fromUsername: tweet.username,
@@ -46,6 +60,9 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
             // Get Twitter ID if available from metadata
             const lowercaseUsername = username.toLowerCase();
             const twitterId = usernameToId.get(lowercaseUsername);
+
+            // Convert tweet timestamp to Date
+            const tweetDate = new Date(tweet.timestamp * 1000);
 
             // Add to target accounts with Twitter ID when available
             await tweetQueries.insertTargetAccount({
@@ -70,7 +87,7 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
               bannerUrl: null,
               websiteUrl: null,
               canDm: false,
-              createdAt: new Date(),
+              createdAt: tweetDate,
               lastUpdated: new Date(),
               isActive: true,
               source: 'mention',
@@ -81,7 +98,7 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
               tweet.username,
               username,
               tweet.id,
-              new Date(tweet.timestamp * 1000),
+              tweetDate,
             );
 
             elizaLogger.debug(

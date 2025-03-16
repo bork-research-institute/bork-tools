@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries.js';
-import { KaitoService } from '../../services/kaito.service';
+import { KaitoService } from '../../services/kaito-service.js';
 
 const kaitoService = new KaitoService();
 

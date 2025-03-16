@@ -5,7 +5,7 @@ import {
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
-import type { TwitterService } from '../../services/twitter.service';
+import type { TwitterService } from '../../services/twitter-service';
 
 export async function sendTweetAndCreateMemory(
   twitterService: TwitterService,

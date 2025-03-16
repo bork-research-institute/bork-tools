@@ -4,6 +4,18 @@ import type {
 } from 'agent-twitter-client';
 import type { TopicWeight } from './topic';
 
+export interface ExtendedTweet extends TwitterClientTweet {
+  isThreadMerged?: boolean;
+  hasReplies?: boolean;
+  threadSize?: number;
+  replyCount?: number;
+  topReplies?: Array<{ username: string; text: string }>;
+}
+
+export interface MergedTweet extends ExtendedTweet {
+  originalText?: string;
+}
+
 export interface Tweet extends TwitterClientTweet {
   created_at: Date;
   author_id: string;
@@ -15,6 +27,21 @@ export interface Tweet extends TwitterClientTweet {
     quote_count?: number;
   };
   entities?: Record<string, unknown>;
+}
+
+export interface ProcessedTweet extends Tweet {
+  created_at: Date;
+  author_id: string;
+  public_metrics: {
+    like_count: number;
+    retweet_count: number;
+    reply_count: number;
+  };
+  entities: {
+    hashtags: string[];
+    mentions: Array<{ username: string; id: string }>;
+    urls: string[];
+  };
 }
 
 export interface SpamUser {

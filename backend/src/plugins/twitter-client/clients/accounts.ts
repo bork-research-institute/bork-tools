@@ -1,14 +1,15 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { TWITTER_CONFIG } from '../../../config/twitter';
-import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
+import { tweetQueries } from '../../bork-extensions/src/db/queries';
 import { storeMentions } from '../lib/utils/mentions-processing';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing';
 import { updateYapsData } from '../lib/utils/yaps-processing';
-import { KaitoService } from '../services/kaito.service';
-import type { TwitterService } from '../services/twitter.service';
+import { KaitoService } from '../services/kaito-service';
+import { TwitterConfigService } from '../services/twitter-config-service';
+import type { TwitterService } from '../services/twitter-service';
 
 export class TwitterAccountsClient {
+  private twitterConfigService: TwitterConfigService;
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
   private readonly kaitoService: KaitoService;
@@ -16,6 +17,7 @@ export class TwitterAccountsClient {
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
+    this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
     this.kaitoService = new KaitoService();
   }
@@ -23,16 +25,9 @@ export class TwitterAccountsClient {
   async start(): Promise<void> {
     elizaLogger.info('[TwitterAccounts] Starting accounts client');
 
-    const topicWeights = await tweetQueries.getTopicWeights();
-    if (!topicWeights.length) {
-      elizaLogger.error(
-        '[TwitterAccounts] Topic weights need to be initialized',
-      );
-      throw new Error('Topic weights need to be initialized');
-    }
     await this.initializeTargetAccounts();
 
-    this.onReady(topicWeights);
+    await this.onReady();
   }
 
   async stop(): Promise<void> {
@@ -43,21 +38,31 @@ export class TwitterAccountsClient {
     }
   }
 
-  private onReady(topicWeights) {
-    this.monitorTargetAccountsLoop(topicWeights);
+  private async onReady() {
+    await this.monitorTargetAccountsLoop();
   }
 
-  private monitorTargetAccountsLoop(topicWeights) {
-    this.monitorTargetAccounts(topicWeights);
-    const { min, max } = TWITTER_CONFIG.search.searchInterval;
+  private async monitorTargetAccountsLoop() {
+    this.monitorTargetAccounts();
     this.monitoringTimeout = setTimeout(
-      () => this.monitorTargetAccountsLoop(topicWeights),
-      (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000,
+      () => this.monitorTargetAccountsLoop(),
+      Number(this.runtime.getSetting('TWITTER_POLL_INTERVAL') || 60) * 1000,
     );
   }
 
-  private async monitorTargetAccounts(topicWeights) {
+  private async monitorTargetAccounts() {
     elizaLogger.info('[TwitterAccounts] Starting target account monitoring');
+
+    const config = await this.twitterConfigService.getConfig();
+
+    const topicWeights = await tweetQueries.getTopicWeights();
+    if (!topicWeights.length) {
+      elizaLogger.error(
+        '[TwitterAccounts] Topic weights need to be initialized',
+      );
+      throw new Error('Topic weights need to be initialized');
+    }
+
     try {
       // Check if target accounts exist, initialize if needed
       const targetAccounts = await tweetQueries.getTargetAccounts();
@@ -92,7 +97,7 @@ export class TwitterAccountsClient {
       const accountsToProcess = [];
       const availableAccounts = [...weightedAccounts];
       const numAccountsToProcess = Math.min(
-        TWITTER_CONFIG.search.tweetLimits.accountsToProcess,
+        config.search.tweetLimits.accountsToProcess,
         availableAccounts.length,
       );
 
@@ -127,11 +132,11 @@ export class TwitterAccountsClient {
           const { tweets: accountTweets, spammedTweets } =
             await this.twitterService.searchTweets(
               `from:${accountToProcess.username}`,
-              TWITTER_CONFIG.search.tweetLimits.targetAccounts,
+              config.search.tweetLimits.targetAccounts,
               SearchMode.Latest,
               '[TwitterAccounts]',
-              TWITTER_CONFIG.search.parameters,
-              TWITTER_CONFIG.search.engagementThresholds,
+              config.search.parameters,
+              config.search.engagementThresholds,
             );
 
           elizaLogger.info(
@@ -141,7 +146,7 @@ export class TwitterAccountsClient {
 
           // Collect most recent tweets that meet engagement criteria
           let processedCount = 0;
-          const thresholds = TWITTER_CONFIG.search.engagementThresholds;
+          const thresholds = config.search.engagementThresholds;
 
           for (const tweet of accountTweets) {
             if (
@@ -154,7 +159,7 @@ export class TwitterAccountsClient {
 
               if (
                 processedCount >=
-                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount
+                config.search.tweetLimits.qualityTweetsPerAccount
               ) {
                 break;
               }
@@ -168,7 +173,7 @@ export class TwitterAccountsClient {
               minRetweets: thresholds.minRetweets,
               minReplies: thresholds.minReplies,
               maxQualityTweets:
-                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount,
+                config.search.tweetLimits.qualityTweetsPerAccount,
             },
           );
         } catch (error) {
@@ -187,21 +192,84 @@ export class TwitterAccountsClient {
       }
 
       // Process filtered tweets
-      for (const tweet of allTweets) {
-        // First process mentions
-        await storeMentions(tweet);
+      const mergedTweets = allTweets.map((tweet) => {
+        // Start with the original tweet text
+        let mergedText = tweet.text || '';
 
-        // Then process the tweet itself
-        await processAndStoreTweet(
-          this.runtime,
-          this.twitterService,
-          tweet,
-          topicWeights,
-        );
+        // First merge thread content if it exists
+        if (tweet.thread && tweet.thread.length > 0) {
+          // Sort thread by timestamp to ensure chronological order
+          const sortedThread = tweet.thread.sort(
+            (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+          );
+
+          // Merge text from all thread tweets
+          for (const threadTweet of sortedThread) {
+            if (threadTweet.id !== tweet.id) {
+              mergedText = `${mergedText}\n\n${threadTweet.text || ''}`;
+            }
+          }
+        }
+
+        // Then add top replies if they exist
+        if (tweet.topReplies && tweet.topReplies.length > 0) {
+          mergedText = `${mergedText}\n\n--- Top Replies ---\n`;
+
+          // Add each top reply with author info
+          for (const reply of tweet.topReplies) {
+            mergedText = `${mergedText}\n@${reply.username || 'unknown'}: ${reply.text || ''}\n`;
+          }
+        }
+
+        // Create a new tweet object with merged content
+        return {
+          ...tweet,
+          text: mergedText,
+          originalText: tweet.text, // Keep original text for reference
+          isThreadMerged: tweet.thread?.length > 0,
+          hasReplies: tweet.topReplies?.length > 0,
+          threadSize: tweet.thread?.length || 0,
+          replyCount: tweet.topReplies?.length || 0,
+        };
+      });
+
+      elizaLogger.info(
+        `[TwitterAccounts] Merged ${mergedTweets.length} tweets with their threads and replies`,
+      );
+
+      // Now process each merged tweet
+      for (const tweet of mergedTweets) {
+        try {
+          // Process mentions from the original tweet only
+          await storeMentions(tweet);
+
+          // Process and store the merged tweet
+          await processAndStoreTweet(
+            this.runtime,
+            this.twitterService,
+            tweet,
+            topicWeights,
+          );
+
+          elizaLogger.info(
+            `[TwitterAccounts] Processed tweet ${tweet.id} with ${tweet.threadSize} thread tweets and ${tweet.replyCount} replies`,
+            {
+              isThreadMerged: tweet.isThreadMerged,
+              hasReplies: tweet.hasReplies,
+              textLength: tweet.text.length,
+              originalTextLength: tweet.originalText.length,
+            },
+          );
+        } catch (error) {
+          elizaLogger.error(
+            `[TwitterAccounts] Error processing tweet ${tweet.id}:`,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
 
       elizaLogger.info(
-        '[TwitterAccounts] Successfully processed target account tweets',
+        '[TwitterAccounts] Successfully processed all merged tweets',
       );
     } catch (error) {
       elizaLogger.error(
@@ -212,6 +280,7 @@ export class TwitterAccountsClient {
   }
 
   private async initializeTargetAccounts(): Promise<void> {
+    const config = await this.twitterConfigService.getConfig();
     try {
       elizaLogger.info(
         '[TwitterAccounts] Checking target accounts initialization',
@@ -231,7 +300,7 @@ export class TwitterAccountsClient {
       );
 
       // Get target accounts from config
-      const targetAccounts = TWITTER_CONFIG.targetAccounts;
+      const targetAccounts = config.targetAccounts;
 
       // Initialize each account with basic metadata
       for (const username of targetAccounts) {
