@@ -113,3 +113,9 @@ export interface SocialMetrics {
     authenticity: number;
   };
 }
+
+export interface TopicMindshare {
+  topic: string;
+  weight: number; // How often the topic is mentioned
+  impactScore: number; // How much influence/impact the topic has
+}

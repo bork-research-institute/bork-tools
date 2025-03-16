@@ -4,6 +4,7 @@ import type {
   NewsItem,
   PriceData,
   SocialMetrics,
+  TopicMindshare,
   Tweet,
   UnlockData,
 } from '../types/metrics';
@@ -247,5 +248,132 @@ export const mockTrendingTweets: TrendingTweet[] = [
       retweets: 1500,
       comments: 600,
     },
+  },
+];
+
+export interface UserRelationship {
+  source_username: string;
+  target_username: string;
+  mention_count: number;
+}
+
+export const mockUserRelationships: UserRelationship[] = [
+  { source_username: 'alice', target_username: 'bob', mention_count: 45 },
+  { source_username: 'bob', target_username: 'charlie', mention_count: 38 },
+  { source_username: 'charlie', target_username: 'david', mention_count: 32 },
+  { source_username: 'david', target_username: 'alice', mention_count: 28 },
+  { source_username: 'eve', target_username: 'alice', mention_count: 25 },
+  { source_username: 'frank', target_username: 'bob', mention_count: 22 },
+  { source_username: 'grace', target_username: 'alice', mention_count: 20 },
+  { source_username: 'henry', target_username: 'charlie', mention_count: 18 },
+  { source_username: 'ivy', target_username: 'david', mention_count: 16 },
+  { source_username: 'jack', target_username: 'eve', mention_count: 15 },
+  { source_username: 'kelly', target_username: 'frank', mention_count: 14 },
+  { source_username: 'liam', target_username: 'grace', mention_count: 13 },
+  { source_username: 'mia', target_username: 'henry', mention_count: 12 },
+  { source_username: 'noah', target_username: 'ivy', mention_count: 11 },
+  { source_username: 'olivia', target_username: 'jack', mention_count: 10 },
+  { source_username: 'peter', target_username: 'kelly', mention_count: 9 },
+  { source_username: 'quinn', target_username: 'liam', mention_count: 8 },
+  { source_username: 'rachel', target_username: 'mia', mention_count: 7 },
+  { source_username: 'sam', target_username: 'noah', mention_count: 6 },
+  { source_username: 'tara', target_username: 'olivia', mention_count: 5 },
+  { source_username: 'uma', target_username: 'peter', mention_count: 4 },
+  { source_username: 'victor', target_username: 'quinn', mention_count: 3 },
+  { source_username: 'wendy', target_username: 'rachel', mention_count: 2 },
+  { source_username: 'xander', target_username: 'sam', mention_count: 1 },
+  { source_username: 'yara', target_username: 'tara', mention_count: 1 },
+];
+
+export const mockMindshareData: TopicMindshare[] = [
+  { topic: 'DeFi', weight: 85, impactScore: 92 },
+  { topic: 'NFTs', weight: 72, impactScore: 78 },
+  { topic: 'Layer 2', weight: 68, impactScore: 88 },
+  { topic: 'Gaming', weight: 65, impactScore: 75 },
+  { topic: 'DAOs', weight: 58, impactScore: 82 },
+  { topic: 'Privacy', weight: 52, impactScore: 85 },
+  { topic: 'Staking', weight: 48, impactScore: 72 },
+  { topic: 'Governance', weight: 45, impactScore: 80 },
+  { topic: 'Interoperability', weight: 42, impactScore: 86 },
+  { topic: 'Oracles', weight: 38, impactScore: 78 },
+  { topic: 'MEV', weight: 35, impactScore: 70 },
+  { topic: 'Tokenomics', weight: 32, impactScore: 76 },
+  { topic: 'Security', weight: 30, impactScore: 95 },
+  { topic: 'Scaling', weight: 28, impactScore: 88 },
+  { topic: 'Identity', weight: 25, impactScore: 82 },
+  { topic: 'Bridges', weight: 22, impactScore: 75 },
+  { topic: 'Regulation', weight: 20, impactScore: 90 },
+  { topic: 'Sustainability', weight: 18, impactScore: 72 },
+  { topic: 'Social', weight: 15, impactScore: 65 },
+  { topic: 'Infrastructure', weight: 12, impactScore: 85 },
+];
+
+export interface KaitoUser {
+  username: string;
+  avatar: string;
+  yaps: number;
+  rank: number;
+}
+
+export const mockKaitoLeaderboard: KaitoUser[] = [
+  {
+    username: '0xGabey',
+    avatar: 'https://example.com/avatar1.jpg',
+    yaps: 389,
+    rank: 1,
+  },
+  {
+    username: 'zerebro',
+    avatar: 'https://example.com/avatar2.jpg',
+    yaps: 317,
+    rank: 2,
+  },
+  {
+    username: 'ansem',
+    avatar: 'https://example.com/avatar3.jpg',
+    yaps: 306,
+    rank: 3,
+  },
+  {
+    username: 'Hustle',
+    avatar: 'https://example.com/avatar4.jpg',
+    yaps: 226,
+    rank: 4,
+  },
+  {
+    username: 'Venice',
+    avatar: 'https://example.com/avatar5.jpg',
+    yaps: 195,
+    rank: 5,
+  },
+  {
+    username: 'Send...',
+    avatar: 'https://example.com/avatar6.jpg',
+    yaps: 164,
+    rank: 6,
+  },
+  {
+    username: 'Satan',
+    avatar: 'https://example.com/avatar7.jpg',
+    yaps: 143,
+    rank: 7,
+  },
+  {
+    username: 'norm...',
+    avatar: 'https://example.com/avatar8.jpg',
+    yaps: 129,
+    rank: 8,
+  },
+  {
+    username: 'Agen...',
+    avatar: 'https://example.com/avatar9.jpg',
+    yaps: 116,
+    rank: 9,
+  },
+  {
+    username: 'XAVI',
+    avatar: 'https://example.com/avatar10.jpg',
+    yaps: 98,
+    rank: 10,
   },
 ];

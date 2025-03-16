@@ -20,7 +20,6 @@ type SortConfig = {
 
 const columns: { key: keyof MarketStat; label: string }[] = [
   { key: 'symbol', label: 'Symbol' },
-  { key: 'name', label: 'Name' },
   { key: 'price', label: 'Price' },
   { key: 'change24h', label: '24h Change' },
   { key: 'rsi', label: 'RSI' },

@@ -20,7 +20,13 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-const chains = [
+type Chain = {
+  name: 'Injective' | 'Solana';
+  available: boolean;
+  logo: string;
+};
+
+const chains: Chain[] = [
   {
     name: 'Injective',
     available: true,
@@ -28,15 +34,15 @@ const chains = [
   },
   {
     name: 'Solana',
-    available: false,
+    available: true,
     logo: '/assets/solana-logo.png',
   },
-] as const;
+];
 
 export function Header() {
   const { setVisible } = useWalletModal();
   const { connected, disconnect, publicKey } = useWallet();
-  const [selectedChain, setSelectedChain] = useState(chains[0]);
+  const [selectedChain, setSelectedChain] = useState<Chain>(chains[0]);
   const [chainStats, setChainStats] = useState<{
     price: number;
     volume24h: number;
