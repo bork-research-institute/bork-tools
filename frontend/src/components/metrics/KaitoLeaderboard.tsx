@@ -34,11 +34,17 @@ const timeFrameOptions: { value: TimeFrame; label: string }[] = [
 const SKELETON_ITEMS = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
 
 export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
+  const [mounted, setMounted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Handle mounting to prevent hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -51,6 +57,10 @@ export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
 
   // Fetch leaderboard data
   useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
     async function fetchLeaderboard() {
       setIsLoading(true);
       try {
@@ -68,7 +78,7 @@ export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
     }
 
     fetchLeaderboard();
-  }, [timeFrame, debouncedSearch]);
+  }, [timeFrame, debouncedSearch, mounted]);
 
   const getBackgroundColor = (rank: number): string => {
     if (rank === 1) {
@@ -96,6 +106,32 @@ export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
     return 'text-white/40';
   };
 
+  // Show loading state during initial render
+  if (!mounted) {
+    return (
+      <Panel maxHeight={maxHeight}>
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <div className="flex-1 h-9 rounded-md bg-white/5 animate-pulse" />
+            <div className="w-[140px] h-9 rounded-md bg-white/5 animate-pulse" />
+          </div>
+          <div className="space-y-1">
+            {SKELETON_ITEMS.map((key) => (
+              <div
+                key={`skeleton-${key}`}
+                className="flex items-center gap-3 p-2 rounded bg-white/5 animate-pulse"
+              >
+                <div className="w-6 h-4 bg-white/10 rounded" />
+                <div className="flex-1 h-4 bg-white/10 rounded" />
+                <div className="w-20 h-4 bg-white/10 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <Panel maxHeight={maxHeight}>
       <div className="space-y-4">
@@ -107,7 +143,7 @@ export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
             className="flex-1"
           />
           <Select
-            value={timeFrame}
+            defaultValue={timeFrame}
             onValueChange={(value: TimeFrame) => setTimeFrame(value)}
           >
             <SelectTrigger className="w-[140px]">

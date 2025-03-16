@@ -79,4 +79,5 @@ export interface MarketAnalysis {
     direction: string;
   }>;
   technicalAnalysis: TechnicalAnalysis | null;
+  timeframe: string;
 }

@@ -22,14 +22,9 @@ export class DatabaseService {
             technical_analysis,
             order_book,
             liquidity,
-            created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6)
-          ON CONFLICT (market_id) DO UPDATE SET
-            ticker = EXCLUDED.ticker,
-            technical_analysis = EXCLUDED.technical_analysis,
-            order_book = EXCLUDED.order_book,
-            liquidity = EXCLUDED.liquidity,
-            created_at = EXCLUDED.created_at`,
+            created_at,
+            timeframe
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             analysis.marketId,
             analysis.ticker,
@@ -37,6 +32,7 @@ export class DatabaseService {
             JSON.stringify(analysis.orderBook),
             JSON.stringify(analysis.liquidity),
             new Date().toISOString(),
+            analysis.timeframe,
           ],
         );
       }
