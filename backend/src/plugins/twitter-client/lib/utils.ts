@@ -2,7 +2,7 @@ import { getEmbeddingZeroVector } from '@elizaos/core';
 import type { Content, Memory, UUID } from '@elizaos/core';
 import { stringToUuid } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import type { TwitterService } from '../services/twitter.service';
+import type { TwitterService } from '../services/twitter-service';
 
 const MAX_TWEET_LENGTH = 280; // Updated to Twitter's current character limit
 

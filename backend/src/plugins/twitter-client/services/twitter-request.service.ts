@@ -66,7 +66,95 @@ export class TwitterRequestService {
     return this.enqueueRequest(async () => {
       elizaLogger.info(`${context} Fetching search tweets for query: ${query}`);
       try {
-        return await this.twitterClient.fetchSearchTweets(query, limit, mode);
+        const searchResults = await this.twitterClient.fetchSearchTweets(
+          query,
+          limit,
+          mode,
+        );
+
+        elizaLogger.info(
+          `${context} Initial search found ${searchResults.tweets.length} tweets:`,
+          {
+            tweets: searchResults.tweets.map((t) => ({
+              id: t.id,
+              username: t.username,
+              text: `${t.text?.substring(0, 50)}...`,
+              likes: t.likes,
+              retweets: t.retweets,
+              replies: t.replies,
+              conversationId: t.conversationId,
+            })),
+          },
+        );
+
+        // For each tweet, fetch both thread and top replies
+        const tweetsWithThreadsAndReplies = await Promise.all(
+          searchResults.tweets.map(async (tweet) => {
+            let threadTweets: Tweet[] = [];
+            let topReplies: Tweet[] = [];
+
+            // Fetch the full thread if this is part of one
+            if (tweet.conversationId && tweet.conversationId !== tweet.id) {
+              const threadResults = await this.twitterClient.fetchSearchTweets(
+                `conversation_id:${tweet.conversationId}`,
+                10, // Reasonable limit for thread length
+                SearchMode.Latest,
+              );
+
+              threadTweets = threadResults.tweets.sort(
+                (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+              );
+            }
+
+            // Fetch top replies (most engaged with)
+            if (tweet.id) {
+              const repliesResults = await this.twitterClient.fetchSearchTweets(
+                `conversation_id:${tweet.id} -from:${tweet.username || ''}`, // Exclude self-replies
+                10, // Limit to top 5 replies
+                SearchMode.Top, // Use Top mode to get most engaged replies
+              );
+
+              // Sort replies by engagement (likes + retweets)
+              topReplies = repliesResults.tweets
+                .sort((a, b) => {
+                  const engagementA = (a.likes || 0) + (a.retweets || 0);
+                  const engagementB = (b.likes || 0) + (b.retweets || 0);
+                  return engagementB - engagementA;
+                })
+                .slice(0, 5); // Keep only top 5 most engaged replies
+
+              elizaLogger.info(
+                `${context} Found top replies for tweet ${tweet.id}:`,
+                {
+                  originalTweet: {
+                    id: tweet.id,
+                    username: tweet.username,
+                    text: `${tweet.text?.substring(0, 50)}...`,
+                  },
+                  topReplies: topReplies.map((r) => ({
+                    id: r.id,
+                    username: r.username,
+                    text: `${r.text?.substring(0, 50)}...`,
+                    likes: r.likes,
+                    retweets: r.retweets,
+                    engagement: (r.likes || 0) + (r.retweets || 0),
+                  })),
+                },
+              );
+            }
+
+            return {
+              ...tweet,
+              thread: threadTweets,
+              topReplies: topReplies,
+            };
+          }),
+        );
+
+        return {
+          ...searchResults,
+          tweets: tweetsWithThreadsAndReplies,
+        };
       } catch (error) {
         elizaLogger.error(`${context} Error fetching search tweets:`, error);
         throw error;

@@ -1,7 +1,13 @@
 'use client';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { ChevronDown, Egg, Lock, Plus, Wallet } from 'lucide-react';
+import {
+  BriefcaseMedical,
+  ChevronDown,
+  Lock,
+  Plus,
+  Wallet,
+} from 'lucide-react';
 import { trimAddress } from '../../lib/utils/trim-address';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import { type PanelId, panelConfigs } from '@/lib/config/metrics';
@@ -77,7 +83,7 @@ export function Header() {
               href="/"
               className="flex items-center justify-center space-x-2 font-bold text-2xl text-white hover:opacity-80 transition-opacity"
             >
-              <Egg className="h-6 w-6" />
+              <BriefcaseMedical className="h-6 w-6" />
               <h1>{METADATA.title?.toString()}</h1>
               <span className="ml-1 rounded-md bg-emerald-400/10 px-2 py-0.5 text-sm">
                 ALPHA

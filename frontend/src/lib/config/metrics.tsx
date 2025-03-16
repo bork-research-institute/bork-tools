@@ -1,6 +1,8 @@
 import {
   BarChart3,
+  Box,
   Brain,
+  Coins,
   Network,
   Newspaper,
   Trophy,
@@ -45,6 +47,18 @@ export const panelConfigs = {
     w: 1,
     h: 2,
   },
+  token_holders: {
+    title: 'Token Holder Analysis',
+    icon: <Coins className="h-4 w-4" />,
+    w: 1,
+    h: 2,
+  },
+  bundlers: {
+    title: 'Bundler Analysis',
+    icon: <Box className="h-4 w-4" />,
+    w: 1,
+    h: 2,
+  },
 } as const;
 
 export type PanelId = keyof typeof panelConfigs;
@@ -57,4 +71,6 @@ export const defaultLayout: Layout[] = [
   { i: 'kaito_leaderboard', x: 3, y: 0, w: 1, h: 2, minH: 2, maxH: 4 },
   { i: 'market', x: 0, y: 2, w: 1, h: 2, minH: 2, maxH: 4 },
   { i: 'relationships', x: 1, y: 2, w: 1, h: 2, minH: 2, maxH: 4 },
+  { i: 'token_holders', x: 2, y: 2, w: 1, h: 2, minH: 2, maxH: 4 },
+  { i: 'bundlers', x: 3, y: 2, w: 1, h: 2, minH: 2, maxH: 4 },
 ];

@@ -4,10 +4,11 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
+import { TwitterAccountDiscoveryClient } from './clients/account-discovery';
 import { TwitterAccountsClient } from './clients/accounts';
 import { TwitterInteractionClient } from './clients/interactions';
 import { TwitterSearchClient } from './clients/search';
-import { TwitterService } from './services/twitter.service';
+import { TwitterService } from './services/twitter-service';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
@@ -15,6 +16,7 @@ export class TwitterClient implements ClientInstance {
   private accountsClient: TwitterAccountsClient | null = null;
   private searchClient: TwitterSearchClient | null = null;
   private interactionClient: TwitterInteractionClient | null = null;
+  private discoveryClient: TwitterAccountDiscoveryClient | null = null;
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -71,10 +73,15 @@ export class TwitterClient implements ClientInstance {
         this.twitterService,
         this.runtime,
       );
+      this.discoveryClient = new TwitterAccountDiscoveryClient(
+        this.runtime,
+        this.twitterService,
+      );
 
       await this.accountsClient.start();
       await this.searchClient.start();
-      // await this.interactionClient.start();
+      await this.interactionClient.start();
+      await this.discoveryClient.start();
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
     } catch (error) {
@@ -90,6 +97,9 @@ export class TwitterClient implements ClientInstance {
     elizaLogger.info('[TwitterClient] Stopping Twitter client');
     try {
       // Stop all clients in reverse order
+      if (this.discoveryClient) {
+        await this.discoveryClient.stop();
+      }
       if (this.interactionClient) {
         await this.interactionClient.stop();
       }
