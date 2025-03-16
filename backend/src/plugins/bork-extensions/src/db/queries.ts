@@ -1,5 +1,9 @@
 import { elizaLogger, stringToUuid } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
+import type {
+  TwitterConfig,
+  TwitterConfigRow,
+} from '../twitter-extensions/types/config';
 import { db } from './index';
 import type {
   AgentPrompt,
@@ -1065,5 +1069,176 @@ export const userMentionQueries = {
       elizaLogger.error('Error decaying relationships:', error);
       throw error;
     }
+  },
+};
+
+export const twitterConfigQueries = {
+  async getConfig(username: string): Promise<TwitterConfig | null> {
+    try {
+      const result = await db.query(
+        'SELECT * FROM twitter_configs WHERE username = $1',
+        [username],
+      );
+
+      if (result.rows.length === 0) {
+        // Try to get default config
+        const defaultResult = await db.query(
+          'SELECT * FROM twitter_configs WHERE username = $1',
+          ['default'],
+        );
+        if (defaultResult.rows.length === 0) {
+          return null;
+        }
+        const row = defaultResult.rows[0];
+        return twitterConfigQueries.mapRowToConfig(row);
+      }
+
+      const row = result.rows[0];
+      return twitterConfigQueries.mapRowToConfig(row);
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterConfigQueries] Error fetching config:',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  },
+
+  async updateConfig(
+    username: string,
+    config: Partial<TwitterConfig>,
+  ): Promise<void> {
+    try {
+      const setClauses: string[] = [];
+      const values: (string | number | boolean | string[])[] = [username];
+      let paramCount = 1;
+
+      if (config.targetAccounts) {
+        setClauses.push(`target_accounts = $${++paramCount}`);
+        values.push(config.targetAccounts);
+      }
+
+      if (config.search) {
+        if (config.search.maxRetries !== undefined) {
+          setClauses.push(`max_retries = $${++paramCount}`);
+          values.push(config.search.maxRetries);
+        }
+        if (config.search.retryDelay !== undefined) {
+          setClauses.push(`retry_delay = $${++paramCount}`);
+          values.push(config.search.retryDelay);
+        }
+        if (config.search.searchInterval) {
+          if (config.search.searchInterval.min !== undefined) {
+            setClauses.push(`search_interval_min = $${++paramCount}`);
+            values.push(config.search.searchInterval.min);
+          }
+          if (config.search.searchInterval.max !== undefined) {
+            setClauses.push(`search_interval_max = $${++paramCount}`);
+            values.push(config.search.searchInterval.max);
+          }
+        }
+        if (config.search.tweetLimits) {
+          if (config.search.tweetLimits.targetAccounts !== undefined) {
+            setClauses.push(`tweet_limit_target_accounts = $${++paramCount}`);
+            values.push(config.search.tweetLimits.targetAccounts);
+          }
+          if (config.search.tweetLimits.qualityTweetsPerAccount !== undefined) {
+            setClauses.push(
+              `tweet_limit_quality_per_account = $${++paramCount}`,
+            );
+            values.push(config.search.tweetLimits.qualityTweetsPerAccount);
+          }
+          if (config.search.tweetLimits.accountsToProcess !== undefined) {
+            setClauses.push(
+              `tweet_limit_accounts_to_process = $${++paramCount}`,
+            );
+            values.push(config.search.tweetLimits.accountsToProcess);
+          }
+          if (config.search.tweetLimits.searchResults !== undefined) {
+            setClauses.push(`tweet_limit_search_results = $${++paramCount}`);
+            values.push(config.search.tweetLimits.searchResults);
+          }
+        }
+        if (config.search.engagementThresholds) {
+          if (config.search.engagementThresholds.minLikes !== undefined) {
+            setClauses.push(`min_likes = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minLikes);
+          }
+          if (config.search.engagementThresholds.minRetweets !== undefined) {
+            setClauses.push(`min_retweets = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minRetweets);
+          }
+          if (config.search.engagementThresholds.minReplies !== undefined) {
+            setClauses.push(`min_replies = $${++paramCount}`);
+            values.push(config.search.engagementThresholds.minReplies);
+          }
+        }
+        if (config.search.parameters) {
+          if (config.search.parameters.excludeReplies !== undefined) {
+            setClauses.push(`exclude_replies = $${++paramCount}`);
+            values.push(config.search.parameters.excludeReplies);
+          }
+          if (config.search.parameters.excludeRetweets !== undefined) {
+            setClauses.push(`exclude_retweets = $${++paramCount}`);
+            values.push(config.search.parameters.excludeRetweets);
+          }
+          if (config.search.parameters.filterLevel !== undefined) {
+            setClauses.push(`filter_level = $${++paramCount}`);
+            values.push(config.search.parameters.filterLevel);
+          }
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return;
+      }
+
+      const query = `
+        INSERT INTO twitter_configs (username, ${setClauses
+          .map((_, i) => Object.keys(config)[i])
+          .join(', ')})
+        VALUES ($1, ${setClauses.map((_, i) => `$${i + 2}`).join(', ')})
+        ON CONFLICT (username) 
+        DO UPDATE SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      `;
+
+      await db.query(query, values);
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterConfigQueries] Error updating config:',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  },
+
+  mapRowToConfig(row: TwitterConfigRow): TwitterConfig {
+    return {
+      targetAccounts: row.target_accounts,
+      search: {
+        maxRetries: row.max_retries,
+        retryDelay: row.retry_delay,
+        searchInterval: {
+          min: row.search_interval_min,
+          max: row.search_interval_max,
+        },
+        tweetLimits: {
+          targetAccounts: row.tweet_limit_target_accounts,
+          qualityTweetsPerAccount: row.tweet_limit_quality_per_account,
+          accountsToProcess: row.tweet_limit_accounts_to_process,
+          searchResults: row.tweet_limit_search_results,
+        },
+        engagementThresholds: {
+          minLikes: row.min_likes,
+          minRetweets: row.min_retweets,
+          minReplies: row.min_replies,
+        },
+        parameters: {
+          excludeReplies: row.exclude_replies,
+          excludeRetweets: row.exclude_retweets,
+          filterLevel: row.filter_level,
+        },
+      },
+    };
   },
 };

@@ -1,18 +1,20 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { TWITTER_CONFIG } from '../../../config/twitter.js';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing.js';
+import { TwitterConfigService } from '../services/twitter-config.service.js';
 import type { TwitterService } from '../services/twitter.service.js';
 
 export class TwitterSearchClient {
   private twitterService: TwitterService;
+  private twitterConfigService: TwitterConfigService;
   private readonly runtime: IAgentRuntime;
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
     this.runtime = runtime;
+    this.twitterConfigService = new TwitterConfigService(runtime);
   }
 
   async start(): Promise<void> {
@@ -22,7 +24,7 @@ export class TwitterSearchClient {
       elizaLogger.error('[TwitterSearch] Topic weights need to be initialized');
       throw new Error('Topic weights need to be initialized');
     }
-    this.onReady();
+    await this.onReady();
   }
 
   async stop(): Promise<void> {
@@ -33,13 +35,14 @@ export class TwitterSearchClient {
     }
   }
 
-  async onReady() {
-    this.engageWithSearchTermsLoop();
+  private async onReady() {
+    await this.engageWithSearchTermsLoop();
   }
 
-  private engageWithSearchTermsLoop() {
-    this.engageWithSearchTerms();
-    const { min, max } = TWITTER_CONFIG.search.searchInterval;
+  private async engageWithSearchTermsLoop() {
+    await this.engageWithSearchTerms();
+    const config = await this.twitterConfigService.getConfig();
+    const { min, max } = config.search.searchInterval;
     this.searchTimeout = setTimeout(
       () => this.engageWithSearchTermsLoop(),
       (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000,
@@ -78,14 +81,15 @@ export class TwitterSearchClient {
       elizaLogger.info('[TwitterSearch] Fetching search tweets');
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
+      const config = await this.twitterConfigService.getConfig();
       const { tweets: filteredTweets, spammedTweets } =
         await this.twitterService.searchTweets(
           selectedTopic.topic,
-          TWITTER_CONFIG.search.tweetLimits.searchResults,
+          config.search.tweetLimits.searchResults,
           SearchMode.Top,
           '[TwitterSearch]',
-          TWITTER_CONFIG.search.parameters,
-          TWITTER_CONFIG.search.engagementThresholds,
+          config.search.parameters,
+          config.search.engagementThresholds,
         );
 
       if (!filteredTweets.length) {

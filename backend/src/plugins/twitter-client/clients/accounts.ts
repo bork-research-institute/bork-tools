@@ -1,14 +1,15 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { TWITTER_CONFIG } from '../../../config/twitter';
 import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
 import { storeMentions } from '../lib/utils/mentions-processing';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing';
 import { updateYapsData } from '../lib/utils/yaps-processing';
 import { KaitoService } from '../services/kaito.service';
+import { TwitterConfigService } from '../services/twitter-config.service.js';
 import type { TwitterService } from '../services/twitter.service';
 
 export class TwitterAccountsClient {
+  private twitterConfigService: TwitterConfigService;
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
   private readonly kaitoService: KaitoService;
@@ -16,6 +17,7 @@ export class TwitterAccountsClient {
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
+    this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
     this.kaitoService = new KaitoService();
   }
@@ -32,7 +34,7 @@ export class TwitterAccountsClient {
     }
     await this.initializeTargetAccounts();
 
-    this.onReady(topicWeights);
+    await this.onReady(topicWeights);
   }
 
   async stop(): Promise<void> {
@@ -43,13 +45,14 @@ export class TwitterAccountsClient {
     }
   }
 
-  private onReady(topicWeights) {
-    this.monitorTargetAccountsLoop(topicWeights);
+  private async onReady(topicWeights) {
+    await this.monitorTargetAccountsLoop(topicWeights);
   }
 
-  private monitorTargetAccountsLoop(topicWeights) {
+  private async monitorTargetAccountsLoop(topicWeights) {
     this.monitorTargetAccounts(topicWeights);
-    const { min, max } = TWITTER_CONFIG.search.searchInterval;
+    const config = await this.twitterConfigService.getConfig();
+    const { min, max } = config.search.searchInterval;
     this.monitoringTimeout = setTimeout(
       () => this.monitorTargetAccountsLoop(topicWeights),
       (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000,
@@ -88,11 +91,13 @@ export class TwitterAccountsClient {
         0,
       );
 
+      const config = await this.twitterConfigService.getConfig();
+
       // Select accounts using weighted random selection
       const accountsToProcess = [];
       const availableAccounts = [...weightedAccounts];
       const numAccountsToProcess = Math.min(
-        TWITTER_CONFIG.search.tweetLimits.accountsToProcess,
+        config.search.tweetLimits.accountsToProcess,
         availableAccounts.length,
       );
 
@@ -127,11 +132,11 @@ export class TwitterAccountsClient {
           const { tweets: accountTweets, spammedTweets } =
             await this.twitterService.searchTweets(
               `from:${accountToProcess.username}`,
-              TWITTER_CONFIG.search.tweetLimits.targetAccounts,
+              config.search.tweetLimits.targetAccounts,
               SearchMode.Latest,
               '[TwitterAccounts]',
-              TWITTER_CONFIG.search.parameters,
-              TWITTER_CONFIG.search.engagementThresholds,
+              config.search.parameters,
+              config.search.engagementThresholds,
             );
 
           elizaLogger.info(
@@ -141,7 +146,7 @@ export class TwitterAccountsClient {
 
           // Collect most recent tweets that meet engagement criteria
           let processedCount = 0;
-          const thresholds = TWITTER_CONFIG.search.engagementThresholds;
+          const thresholds = config.search.engagementThresholds;
 
           for (const tweet of accountTweets) {
             if (
@@ -154,7 +159,7 @@ export class TwitterAccountsClient {
 
               if (
                 processedCount >=
-                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount
+                config.search.tweetLimits.qualityTweetsPerAccount
               ) {
                 break;
               }
@@ -168,7 +173,7 @@ export class TwitterAccountsClient {
               minRetweets: thresholds.minRetweets,
               minReplies: thresholds.minReplies,
               maxQualityTweets:
-                TWITTER_CONFIG.search.tweetLimits.qualityTweetsPerAccount,
+                config.search.tweetLimits.qualityTweetsPerAccount,
             },
           );
         } catch (error) {
@@ -231,7 +236,8 @@ export class TwitterAccountsClient {
       );
 
       // Get target accounts from config
-      const targetAccounts = TWITTER_CONFIG.targetAccounts;
+      const config = await this.twitterConfigService.getConfig();
+      const targetAccounts = config.targetAccounts;
 
       // Initialize each account with basic metadata
       for (const username of targetAccounts) {
