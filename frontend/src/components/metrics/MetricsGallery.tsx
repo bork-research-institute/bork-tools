@@ -12,7 +12,9 @@ import { TrendingTweetsPanel } from './TrendingTweetsPanel';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { usePanels } from '@/lib/contexts/PanelContext';
+import { BundlerPanel } from './BundlerPanel';
 import { KaitoLeaderboard } from './KaitoLeaderboard';
+import { TokenHolderPanel } from './TokenHolderPanel';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 
@@ -126,6 +128,20 @@ export function MetricsGallery() {
             <KaitoLeaderboard
               onClose={() => handleRemovePanel('kaito_leaderboard')}
             />
+          </div>
+        )}
+
+        {visiblePanels.has('token_holders') && (
+          <div key="token_holders" className="h-full">
+            <TokenHolderPanel
+              onClose={() => handleRemovePanel('token_holders')}
+            />
+          </div>
+        )}
+
+        {visiblePanels.has('bundlers') && (
+          <div key="bundlers" className="h-full">
+            <BundlerPanel onClose={() => handleRemovePanel('bundlers')} />
           </div>
         )}
       </ResponsiveGridLayout>

@@ -119,3 +119,21 @@ export interface TopicMindshare {
   weight: number; // How often the topic is mentioned
   impactScore: number; // How much influence/impact the topic has
 }
+
+export interface TokenHolder {
+  address: string;
+  balance: number;
+  percentage: number;
+  type: 'whale' | 'institution' | 'retail' | 'contract';
+  lastActivity: string;
+}
+
+export interface BundlerMetrics {
+  bundler: string;
+  successRate: number;
+  totalTxs: number;
+  avgGasPrice: number;
+  revertRate: number;
+  mevExtracted: number;
+  marketShare: number;
+}
