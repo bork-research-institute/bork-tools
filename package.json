@@ -10,7 +10,8 @@
     "install:all": "bun install"
   },
   "dependencies": {
-    "@dotenvx/dotenvx": "^1.38.5"
+    "@dotenvx/dotenvx": "^1.38.5",
+    "react-grid-layout": "^1.5.1"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",

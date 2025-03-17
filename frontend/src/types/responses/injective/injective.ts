@@ -7,6 +7,7 @@ export interface MarketStat {
   rsi: number;
   macd: number;
   volume: string;
+  spread: string;
   spreadPercentage: string;
   liquidity: string;
 }
