@@ -131,10 +131,11 @@ export const startAgents = async () => {
 
   // Handle graceful shutdown
   let isShuttingDown = false;
+
   const shutdown = async () => {
     elizaLogger.info('Shutdown handler triggered');
-    elizaLogger.debug('Stack trace:', new Error().stack);
 
+    // Prevent multiple shutdown attempts
     if (isShuttingDown) {
       elizaLogger.info('Already shutting down, skipping...');
       return;
@@ -143,27 +144,12 @@ export const startAgents = async () => {
     isShuttingDown = true;
     elizaLogger.info('Starting graceful shutdown...');
 
-    try {
-      // Close any running servers first
-      if (directClient.server) {
-        elizaLogger.info('Closing server...');
-        // @ts-ignore - Elysia's server type doesn't include close method, but it exists at runtime
-        await directClient.server.close();
-        elizaLogger.info('Server closed successfully');
-      }
+    // For debugging purposes, print a stack trace to see what triggered shutdown
+    console.trace('Shutdown stack trace');
 
-      // Then close database connection
-      if (db) {
-        elizaLogger.info('Closing database connection...');
-        await db.close();
-        elizaLogger.info('Database connection closed successfully');
-      }
-
-      process.exit(0);
-    } catch (error) {
-      elizaLogger.error('Error during shutdown:', error);
-      process.exit(1);
-    }
+    // Just exit the process immediately - don't try to close connections
+    // This avoids all the pool closing errors at the cost of not closing connections cleanly
+    process.exit(0);
   };
 
   // Handle different shutdown signals - remove any existing handlers first

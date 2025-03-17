@@ -2,9 +2,9 @@
   "name": "frontend",
   "version": "0.0.1",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "biome check .",
     "format": "biome format . --write"
   },
