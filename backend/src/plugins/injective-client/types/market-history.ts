@@ -18,6 +18,9 @@ export type MarketHistoryItem = z.infer<typeof MarketHistoryItemSchema>;
 export type MarketHistoryResponse = z.infer<typeof MarketHistoryResponseSchema>;
 
 export const TimeResolution = {
+  Minute: '1',
+  FiveMinutes: '5',
+  FifteenMinutes: '15',
   Hour: '60',
   Day: '1440', // 24 * 60 minutes
   Week: '10080', // 7 * 24 * 60 minutes

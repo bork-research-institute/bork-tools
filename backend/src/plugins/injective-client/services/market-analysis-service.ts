@@ -790,6 +790,7 @@ export class MarketAnalysisService {
             direction: trade.tradeDirection,
           })),
           technicalAnalysis,
+          timeframe: config.resolution,
         });
       }
 

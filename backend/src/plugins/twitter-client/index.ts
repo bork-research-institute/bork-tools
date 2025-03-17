@@ -4,6 +4,7 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
+import { cleanupPool } from '../bork-extensions/src/db';
 import { TwitterAccountDiscoveryClient } from './clients/account-discovery';
 import { TwitterAccountsClient } from './clients/accounts';
 import { TwitterInteractionClient } from './clients/interactions';
@@ -109,6 +110,18 @@ export class TwitterClient implements ClientInstance {
       if (this.accountsClient) {
         await this.accountsClient.stop();
       }
+
+      // Clean up the database pool used by the bork-extensions
+      try {
+        await cleanupPool();
+        elizaLogger.info('[TwitterClient] Database connections cleaned up');
+      } catch (dbError) {
+        elizaLogger.error(
+          '[TwitterClient] Error cleaning up database connections:',
+          dbError,
+        );
+      }
+
       elizaLogger.info('[TwitterClient] Twitter client stopped successfully');
     } catch (error) {
       elizaLogger.error(

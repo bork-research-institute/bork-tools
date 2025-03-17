@@ -1,16 +1,28 @@
 'use client';
 
-import { cn } from '@/lib/utils';
-import { mockMarketStats } from '@/mocks/marketStats';
-import type { MarketStat } from '@/types/responses/injective';
-import { BarChart3, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type {
+  MarketStat,
+  TimeFrame,
+} from '@/lib/services/market-stats-service';
+import { cn } from '@/lib/utils';
+import { Settings } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Panel } from './Panel';
 
 type SortConfig = {
@@ -18,40 +30,81 @@ type SortConfig = {
   direction: 'asc' | 'desc';
 };
 
-const columns: { key: keyof MarketStat; label: string }[] = [
+interface MarketStatsPanelProps {
+  maxHeight?: string;
+  marketStats: MarketStat[];
+  isLoading: boolean;
+  error: string | null;
+  timeframe: TimeFrame;
+  onTimeframeChange: (timeframe: TimeFrame) => void;
+}
+
+const columns: {
+  key: keyof MarketStat;
+  label: string;
+  getLabelWithTimeframe?: (timeframe: TimeFrame) => string;
+}[] = [
   { key: 'symbol', label: 'Symbol' },
   { key: 'price', label: 'Price' },
-  { key: 'change24h', label: '24h Change' },
+  {
+    key: 'change24h',
+    label: 'Change',
+    getLabelWithTimeframe: (timeframe: TimeFrame) => {
+      switch (timeframe) {
+        case '5m':
+          return '5m Change';
+        case '1h':
+          return '1h Change';
+        case '4h':
+          return '4h Change';
+        case '1d':
+          return '24h Change';
+      }
+    },
+  },
   { key: 'rsi', label: 'RSI' },
   { key: 'macd', label: 'MACD' },
   { key: 'volume', label: 'Volume' },
-  { key: 'spread', label: 'Spread' },
   { key: 'spreadPercentage', label: 'Spread %' },
   { key: 'liquidity', label: 'Liquidity' },
 ];
 
-type MarketStatsPanelProps = {
-  onClose?: () => void;
+const formatNumber = (value: number, decimals = 2): string => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
 };
 
-export function MarketStatsPanel({ onClose }: MarketStatsPanelProps) {
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof MarketStat>>(
-    new Set(columns.map((col) => col.key)),
-  );
+const formatCurrency = (value: string | number): string => {
+  const num = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (num >= 1_000_000_000) {
+    return `$${formatNumber(num / 1_000_000_000)}B`;
+  }
+  if (num >= 1_000_000) {
+    return `$${formatNumber(num / 1_000_000)}M`;
+  }
+  if (num >= 1_000) {
+    return `$${formatNumber(num / 1_000)}K`;
+  }
+  return `$${formatNumber(num)}`;
+};
+
+export function MarketStatsPanel({
+  maxHeight,
+  marketStats,
+  isLoading,
+  error,
+  timeframe,
+  onTimeframeChange,
+}: MarketStatsPanelProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'symbol',
     direction: 'asc',
   });
-
-  const toggleColumn = (columnKey: keyof MarketStat) => {
-    const newVisibleColumns = new Set(visibleColumns);
-    if (newVisibleColumns.has(columnKey)) {
-      newVisibleColumns.delete(columnKey);
-    } else {
-      newVisibleColumns.add(columnKey);
-    }
-    setVisibleColumns(newVisibleColumns);
-  };
+  const [visibleColumns, setVisibleColumns] = useState<Set<keyof MarketStat>>(
+    new Set(columns.map((col) => col.key)),
+  );
 
   const handleSort = (columnKey: keyof MarketStat) => {
     setSortConfig((current) => ({
@@ -64,7 +117,7 @@ export function MarketStatsPanel({ onClose }: MarketStatsPanelProps) {
   };
 
   const sortedData = useMemo(() => {
-    return [...mockMarketStats].sort((a, b) => {
+    return [...marketStats].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
@@ -82,38 +135,138 @@ export function MarketStatsPanel({ onClose }: MarketStatsPanelProps) {
 
       return 0;
     });
-  }, [sortConfig]);
+  }, [marketStats, sortConfig]);
+
+  const formatValue = (
+    key: keyof MarketStat,
+    value: string | number | boolean,
+  ): string => {
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    if (key === 'price' || key === 'volume' || key === 'liquidity') {
+      return formatCurrency(value.toString());
+    }
+    if (key === 'spreadPercentage' || key === 'change24h') {
+      return `${formatNumber(Number(value), 2)}%`;
+    }
+    if (key === 'rsi' || key === 'macd') {
+      return formatNumber(value as number, 2);
+    }
+    return value.toString();
+  };
+
+  if (isLoading) {
+    return (
+      <Panel maxHeight={maxHeight}>
+        <div className="flex items-center justify-center h-32">
+          <span className="text-emerald-400/60">Loading market stats...</span>
+        </div>
+      </Panel>
+    );
+  }
+
+  if (error) {
+    return (
+      <Panel maxHeight={maxHeight}>
+        <div className="flex items-center justify-center h-32">
+          <span className="text-red-400">{error}</span>
+        </div>
+      </Panel>
+    );
+  }
+
+  if (!marketStats.length) {
+    return (
+      <Panel maxHeight={maxHeight}>
+        <div className="flex items-center justify-center h-32">
+          <span className="text-emerald-400/60">No market stats available</span>
+        </div>
+      </Panel>
+    );
+  }
 
   return (
-    <Panel
-      title="Market Stats"
-      icon={<BarChart3 className="h-3.5 w-3.5" />}
-      className="w-full h-full border border-white/[0.08] bg-black/40 backdrop-blur-sm hover:border-white/[0.12] transition-colors"
-      onClose={onClose}
-      headerContent={
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild={true}>
-            <button type="button" className="p-1 hover:bg-white/10 rounded">
-              <Settings2 className="h-3.5 w-3.5 text-gray-400" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-black border-white/10">
-            {columns.map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.key}
-                checked={visibleColumns.has(column.key)}
-                onCheckedChange={() => toggleColumn(column.key)}
-                className="text-white text-xs"
+    <Panel maxHeight={maxHeight}>
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between border-b border-emerald-400/10">
+          <h2 className="text-sm font-medium text-emerald-400">Market Stats</h2>
+          <div className="flex items-center gap-2">
+            <Select
+              value={timeframe}
+              onValueChange={(value: TimeFrame) => onTimeframeChange(value)}
+            >
+              <SelectTrigger className="w-24 h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors">
+                <SelectValue placeholder="Timeframe" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#020617] border-emerald-400/20">
+                <SelectItem
+                  value="5m"
+                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                >
+                  5 Min
+                </SelectItem>
+                <SelectItem
+                  value="1h"
+                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                >
+                  1 Hour
+                </SelectItem>
+                <SelectItem
+                  value="4h"
+                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                >
+                  4 Hours
+                </SelectItem>
+                <SelectItem
+                  value="1d"
+                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                >
+                  1 Day
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild={true}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                >
+                  <Settings className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-[#020617] border-emerald-400/20"
               >
-                {column.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      <div className="absolute inset-x-0 bottom-0 top-[2.5rem] overflow-auto">
-        <div className="relative min-w-[800px]">
+                <DropdownMenuLabel className="text-xs text-emerald-400/60">
+                  Visible Columns
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-emerald-400/20" />
+                {columns.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.key}
+                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                    checked={visibleColumns.has(column.key)}
+                    onCheckedChange={(checked) => {
+                      const newVisibleColumns = new Set(visibleColumns);
+                      if (checked) {
+                        newVisibleColumns.add(column.key);
+                      } else {
+                        newVisibleColumns.delete(column.key);
+                      }
+                      setVisibleColumns(newVisibleColumns);
+                    }}
+                  >
+                    {column.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="min-w-[800px]">
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr>
@@ -122,20 +275,20 @@ export function MarketStatsPanel({ onClose }: MarketStatsPanelProps) {
                     visibleColumns.has(column.key) && (
                       <th
                         key={column.key}
-                        className="sticky top-0 z-10 bg-black border-b border-white/10 px-3 py-1 text-left"
+                        className="sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1 text-left"
                       >
                         <button
                           type="button"
                           onClick={() => handleSort(column.key)}
-                          className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                          className="flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors"
                         >
-                          {column.label}
-                          {sortConfig.key === column.key &&
-                            (sortConfig.direction === 'asc' ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            ))}
+                          {column.getLabelWithTimeframe?.(timeframe) ||
+                            column.label}
+                          {sortConfig.key === column.key && (
+                            <span className="text-emerald-400/60">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
                         </button>
                       </th>
                     ),
@@ -145,75 +298,74 @@ export function MarketStatsPanel({ onClose }: MarketStatsPanelProps) {
             <tbody>
               {sortedData.map((stat) => (
                 <tr
-                  key={stat.symbol}
-                  className="hover:bg-white/5 transition-colors group"
+                  key={`${stat.symbol}-${timeframe}-${stat.timestamp}`}
+                  className="hover:bg-emerald-400/5 transition-colors group"
                 >
-                  {columns.map(
-                    (column) =>
-                      visibleColumns.has(column.key) && (
-                        <td
-                          key={column.key}
-                          className={cn(
-                            'px-3 py-1 text-xs border-b border-white/5 group-hover:border-white/10',
-                            {
-                              'font-medium':
-                                column.key === 'symbol' ||
-                                column.key === 'name',
-                              'text-right': [
-                                'price',
-                                'volume',
-                                'spread',
-                                'liquidity',
-                              ].includes(column.key),
-                              'text-center': [
-                                'rsi',
-                                'macd',
-                                'change24h',
-                                'spreadPercentage',
-                              ].includes(column.key),
-                            },
-                          )}
-                        >
-                          {column.key === 'change24h' ? (
-                            <span
-                              className={
-                                stat.isPositive
-                                  ? 'text-green-400'
-                                  : 'text-red-400'
-                              }
-                            >
-                              {stat[column.key]}
-                            </span>
-                          ) : column.key === 'rsi' ? (
-                            <span
-                              className={cn(
-                                stat.rsi > 70
-                                  ? 'text-red-400'
-                                  : stat.rsi < 30
-                                    ? 'text-green-400'
-                                    : 'text-white',
-                              )}
-                            >
-                              {stat[column.key]}
-                            </span>
-                          ) : column.key === 'macd' ? (
-                            <span
-                              className={
-                                stat.macd > 0
-                                  ? 'text-green-400'
-                                  : 'text-red-400'
-                              }
-                            >
-                              {stat[column.key]}
-                            </span>
-                          ) : (
-                            <span className="text-white">
-                              {stat[column.key]}
-                            </span>
-                          )}
-                        </td>
-                      ),
-                  )}
+                  {Array.from(visibleColumns).map((columnKey) => {
+                    const value = stat[columnKey];
+                    const formattedValue = formatValue(columnKey, value);
+
+                    return (
+                      <td
+                        key={columnKey}
+                        className={cn(
+                          'px-3 py-1 text-xs border-b border-emerald-400/10 group-hover:border-emerald-400/20',
+                          {
+                            'font-medium':
+                              columnKey === 'symbol' || columnKey === 'name',
+                            'text-right': [
+                              'price',
+                              'volume',
+                              'liquidity',
+                            ].includes(columnKey),
+                            'text-center': [
+                              'rsi',
+                              'macd',
+                              'change24h',
+                            ].includes(columnKey),
+                          },
+                        )}
+                      >
+                        {columnKey === 'change24h' ? (
+                          <span
+                            className={
+                              stat.isPositive
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
+                            }
+                          >
+                            {formattedValue}
+                          </span>
+                        ) : columnKey === 'rsi' ? (
+                          <span
+                            className={cn(
+                              stat.rsi > 70
+                                ? 'text-red-400'
+                                : stat.rsi < 30
+                                  ? 'text-emerald-400'
+                                  : 'text-emerald-400/60',
+                            )}
+                          >
+                            {formattedValue}
+                          </span>
+                        ) : columnKey === 'macd' ? (
+                          <span
+                            className={
+                              stat.macd > 0
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
+                            }
+                          >
+                            {formattedValue}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400/60">
+                            {formattedValue}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

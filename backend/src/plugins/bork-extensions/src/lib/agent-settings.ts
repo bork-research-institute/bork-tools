@@ -1,18 +1,13 @@
 import { elizaLogger } from '@elizaos/core';
-import { Pool } from 'pg';
-
-export async function getConnection() {
-  return new Pool({ connectionString: process.env.POSTGRES_URL });
-}
+import { db } from '../db';
 
 export async function updateAgentSetting(
   agentId: string,
   key: string,
   value: string,
 ): Promise<void> {
-  const pool = await getConnection();
   try {
-    await pool.query(
+    await db.query(
       `INSERT INTO agent_settings (agent_id, setting_key, setting_value)
              VALUES ($1, $2, $3)
              ON CONFLICT (agent_id, setting_key) 
@@ -20,8 +15,9 @@ export async function updateAgentSetting(
       [agentId, key, value],
     );
     elizaLogger.info(`Updated ${key} setting for agent ${agentId} to ${value}`);
-  } finally {
-    pool.end();
+  } catch (error) {
+    elizaLogger.error(`Error updating agent setting ${key}:`, error);
+    throw error;
   }
 }
 
@@ -30,15 +26,15 @@ export async function getAgentSetting(
   key: string,
   defaultValue?: string,
 ): Promise<string | undefined> {
-  const pool = await getConnection();
   try {
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT setting_value FROM agent_settings 
              WHERE agent_id = $1 AND setting_key = $2`,
       [agentId, key],
     );
     return result.rows.length > 0 ? result.rows[0].setting_value : defaultValue;
-  } finally {
-    pool.end();
+  } catch (error) {
+    elizaLogger.error(`Error getting agent setting ${key}:`, error);
+    throw error;
   }
 }

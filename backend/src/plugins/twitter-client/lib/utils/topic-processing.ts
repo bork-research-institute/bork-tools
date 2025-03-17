@@ -15,46 +15,101 @@ export async function updateTopicWeights(
   impactScore: number,
   context: string,
 ): Promise<void> {
+  if (!tweetTopics || tweetTopics.length === 0) {
+    elizaLogger.debug(`${context} No topics to process, skipping`);
+    return;
+  }
+
   try {
     // Create a map of current weights for easy lookup
     const weightMap = new Map(currentWeights.map((tw) => [tw.topic, tw]));
 
-    // Update weights for each topic found in the tweet
+    // Collect all updates to perform them in a batch if possible
+    const updates = [];
+
+    // Process each topic found in the tweet
     for (const topic of tweetTopics) {
+      if (!topic || typeof topic !== 'string') {
+        elizaLogger.warn(`${context} Invalid topic found, skipping`);
+        continue;
+      }
+
       const currentWeight = weightMap.get(topic);
+
       if (currentWeight) {
-        // Calculate new weight with decay factor
-        const decayFactor = 0.9; // 10% decay
-        const learningRate = 0.1; // 10% learning rate
-        const newWeight =
-          currentWeight.weight * decayFactor + impactScore * learningRate;
+        // For existing topics:
+        // 1. Apply very small decay (0.1%)
+        // 2. Add 0.01 for being mentioned
+        const decayFactor = 0.999; // 0.1% decay
+        const mentionBonus = 0.01; // Fixed increase for being mentioned
+        const newWeight = currentWeight.weight * decayFactor + mentionBonus;
 
         // Ensure weight stays between 0 and 1
         const normalizedWeight = Math.max(0, Math.min(1, newWeight));
 
-        await tweetQueries.updateTopicWeight(
+        updates.push({
           topic,
-          normalizedWeight,
+          weight: normalizedWeight,
           impactScore,
-          currentWeight.seed_weight,
-        );
-
-        elizaLogger.debug(`${context} Updated weight for topic ${topic}`, {
+          seedWeight: currentWeight.seed_weight,
+          isNew: false,
           oldWeight: currentWeight.weight,
-          newWeight: normalizedWeight,
+        });
+      } else {
+        // For new topics, initialize with seed weight of 0.5
+        const seedWeight = 0.5;
+        updates.push({
+          topic,
+          weight: seedWeight,
           impactScore,
+          seedWeight,
+          isNew: true,
         });
       }
     }
 
-    elizaLogger.info(
-      `${context} Updated weights for ${tweetTopics.length} topics`,
-    );
+    // Perform updates
+    for (const update of updates) {
+      try {
+        await tweetQueries.updateTopicWeight(
+          update.topic,
+          update.weight,
+          update.impactScore,
+          update.seedWeight,
+        );
+
+        if (update.isNew) {
+          elizaLogger.info(
+            `${context} Added new topic ${update.topic} with seed weight ${update.seedWeight}`,
+          );
+        } else {
+          elizaLogger.debug(
+            `${context} Updated weight for existing topic ${update.topic}`,
+            {
+              oldWeight: update.oldWeight,
+              newWeight: update.weight,
+              impactScore,
+            },
+          );
+        }
+      } catch (updateError) {
+        elizaLogger.error(`${context} Error updating topic ${update.topic}:`, {
+          error:
+            updateError instanceof Error
+              ? updateError.message
+              : String(updateError),
+          topic: update.topic,
+        });
+        // Continue with other updates even if one fails
+      }
+    }
+
+    elizaLogger.info(`${context} Updated weights for ${updates.length} topics`);
   } catch (error) {
     elizaLogger.error(`${context} Error updating topic weights:`, {
       error: error instanceof Error ? error.message : String(error),
       tweetTopics,
     });
-    throw error;
+    // Don't re-throw the error to prevent process termination
   }
 }

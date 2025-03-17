@@ -25,7 +25,7 @@ export function ChatBubble() {
       const welcomeMessage: Message = {
         id: 'welcome',
         content:
-          "Hey anon! I'm your trench medic - here to help you navigate the markets. What's on your mind?",
+          "Hey anon! I'm bork - here to help you navigate the markets. What's on your mind?",
         isUser: false,
         timestamp: new Date(),
       };
@@ -54,7 +54,7 @@ export function ChatBubble() {
       const aiResponse: Message = {
         id: Math.random().toString(),
         content:
-          "I'm analyzing the market data and will get back to you shortly...",
+          'Currently this live agent chat is not in service... coming soon',
         isUser: false,
         timestamp: new Date(),
       };
@@ -65,15 +65,15 @@ export function ChatBubble() {
   return (
     <>
       <Button
-        className="fixed bottom-4 right-4 rounded-full h-12 w-12 p-0 shadow-lg overflow-visible z-50"
+        className="fixed bottom-4 right-4 rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible z-50"
         style={{ position: 'fixed', right: '1rem', bottom: '1rem' }}
         onClick={() => setIsOpen(true)}
       >
-        <div className="absolute inset-[-8px] rounded-full bg-purple-500/50 blur-md animate-pulse" />
+        <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md animate-pulse" />
         <div className="absolute inset-0 rounded-full overflow-hidden">
           <Image
-            src="/assets/tm.jpeg"
-            alt="Chat with Trench Medic"
+            src="/assets/Borksticker.webp"
+            alt="Bork"
             fill={true}
             className="object-cover"
           />
@@ -82,18 +82,18 @@ export function ChatBubble() {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[425px] h-[600px] flex flex-col gap-4 p-0 bg-black/90 border-white/10">
-          <DialogTitle className="sr-only">Chat with Trench Medic</DialogTitle>
+          <DialogTitle className="sr-only">Chat with Bork</DialogTitle>
           <div className="flex items-center gap-3 p-4 border-b border-white/10">
             <div className="relative h-10 w-10 rounded-full overflow-hidden">
               <Image
-                src="/assets/tm.jpeg"
-                alt="Trench Medic"
+                src="/assets/Borksticker.webp"
+                alt="Bork"
                 fill={true}
                 className="object-cover"
               />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Trench Medic</h2>
+              <h2 className="text-lg font-semibold text-white">Bork</h2>
               <p className="text-sm text-gray-400">Your market companion</p>
             </div>
           </div>
@@ -110,8 +110,8 @@ export function ChatBubble() {
                   {!message.isUser && (
                     <div className="relative h-8 w-8 rounded-full overflow-hidden mr-2 mt-1">
                       <Image
-                        src="/assets/tm.jpeg"
-                        alt="Trench Medic"
+                        src="/assets/Borksticker.webp"
+                        alt="Bork"
                         fill={true}
                         className="object-cover"
                       />
@@ -120,7 +120,7 @@ export function ChatBubble() {
                   <div
                     className={`max-w-[80%] rounded-lg p-3 ${
                       message.isUser
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-gray-600 text-white'
                         : 'bg-white/10 text-white'
                     }`}
                   >
@@ -147,12 +147,12 @@ export function ChatBubble() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about market trends..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex-1 bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
               />
               <Button
                 type="submit"
                 size="icon"
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-gray-600 hover:bg-gray-700"
                 disabled={!input.trim()}
               >
                 <Send className="h-4 w-4" />

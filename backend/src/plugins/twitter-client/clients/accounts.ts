@@ -7,6 +7,7 @@ import { updateYapsData } from '../lib/utils/yaps-processing';
 import { KaitoService } from '../services/kaito-service';
 import { TwitterConfigService } from '../services/twitter-config-service';
 import type { TwitterService } from '../services/twitter-service';
+import type { TopicWeightRow } from '../types/topic';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
@@ -24,6 +25,35 @@ export class TwitterAccountsClient {
 
   async start(): Promise<void> {
     elizaLogger.info('[TwitterAccounts] Starting accounts client');
+
+    // Initialize topic weights if they don't exist
+    try {
+      const topicWeights = await tweetQueries.getTopicWeights();
+
+      if (topicWeights.length) {
+        elizaLogger.info(
+          `[TwitterAccounts] Found ${topicWeights.length} existing topic weights`,
+        );
+      } else {
+        elizaLogger.info(
+          '[TwitterAccounts] No topic weights found, initializing them',
+        );
+        const defaultTopics = this.runtime.character.topics || [
+          'injective protocol',
+        ];
+
+        await tweetQueries.initializeTopicWeights(defaultTopics);
+        elizaLogger.info(
+          `[TwitterAccounts] Initialized ${defaultTopics.length} default topics`,
+        );
+      }
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterAccounts] Error initializing topic weights:',
+        error,
+      );
+      // Continue even if there's an error - we'll retry later
+    }
 
     await this.initializeTargetAccounts();
 
@@ -53,14 +83,47 @@ export class TwitterAccountsClient {
   private async monitorTargetAccounts() {
     elizaLogger.info('[TwitterAccounts] Starting target account monitoring');
 
+    // Get config first
     const config = await this.twitterConfigService.getConfig();
 
-    const topicWeights = await tweetQueries.getTopicWeights();
-    if (!topicWeights.length) {
+    // Then get topic weights
+    let topicWeights: TopicWeightRow[] = [];
+    try {
+      topicWeights = await tweetQueries.getTopicWeights();
+
+      if (!topicWeights.length) {
+        elizaLogger.info(
+          '[TwitterAccounts] No topic weights found, initializing them',
+        );
+        const defaultTopics = this.runtime.character.topics || [
+          'injective protocol',
+          'DeFi',
+          'cryptocurrency',
+          'blockchain',
+          'market analysis',
+        ];
+
+        await tweetQueries.initializeTopicWeights(defaultTopics);
+        elizaLogger.info(
+          `[TwitterAccounts] Initialized ${defaultTopics.length} default topics`,
+        );
+
+        // Reload the topic weights
+        topicWeights = await tweetQueries.getTopicWeights();
+
+        if (!topicWeights.length) {
+          elizaLogger.error(
+            '[TwitterAccounts] Failed to initialize topic weights',
+          );
+          return; // Exit early if we still can't get topic weights
+        }
+      }
+    } catch (dbError) {
       elizaLogger.error(
-        '[TwitterAccounts] Topic weights need to be initialized',
+        '[TwitterAccounts] Database error getting topic weights:',
+        dbError,
       );
-      throw new Error('Topic weights need to be initialized');
+      return; // Exit early if we can't get topic weights
     }
 
     try {
@@ -272,9 +335,15 @@ export class TwitterAccountsClient {
         '[TwitterAccounts] Successfully processed all merged tweets',
       );
     } catch (error) {
+      // Catch-all error handler to prevent process crashes
       elizaLogger.error(
         '[TwitterAccounts] Error monitoring target accounts:',
-        error,
+        error instanceof Error ? error.stack || error.message : String(error),
+      );
+    } finally {
+      // Log completion of monitoring cycle whether successful or not
+      elizaLogger.info(
+        '[TwitterAccounts] Target account monitoring cycle completed',
       );
     }
   }

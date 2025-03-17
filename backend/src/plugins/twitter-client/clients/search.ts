@@ -1,11 +1,12 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { tweetQueries } from '../../bork-extensions/src/db/queries.js';
-import { storeMentions } from '../lib/utils/mentions-processing.js';
-import { processAndStoreTweet } from '../lib/utils/tweet-processing.js';
+import { tweetQueries } from '../../bork-extensions/src/db/queries';
+import { storeMentions } from '../lib/utils/mentions-processing';
+import { processAndStoreTweet } from '../lib/utils/tweet-processing';
 import { TwitterConfigService } from '../services/twitter-config-service';
-import type { TwitterService } from '../services/twitter-service.js';
-import type { ExtendedTweet, MergedTweet } from '../types/twitter.js';
+import type { TwitterService } from '../services/twitter-service';
+import type { TopicWeightRow } from '../types/topic';
+import type { ExtendedTweet, MergedTweet } from '../types/twitter';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;
@@ -49,12 +50,40 @@ export class TwitterSearchClient {
 
     const config = await this.twitterConfigService.getConfig();
 
-    const topicWeights = await tweetQueries.getTopicWeights();
-    if (!topicWeights.length) {
+    // Get topic weights
+    let topicWeights: TopicWeightRow[] = [];
+    try {
+      topicWeights = await tweetQueries.getTopicWeights();
+
+      if (!topicWeights.length) {
+        elizaLogger.info(
+          '[TwitterSearch] No topic weights found, initializing them',
+        );
+        const defaultTopics = this.runtime.character.topics || [
+          'injective protocol',
+        ];
+
+        await tweetQueries.initializeTopicWeights(defaultTopics);
+        elizaLogger.info(
+          `[TwitterSearch] Initialized ${defaultTopics.length} default topics`,
+        );
+
+        // Reload the topic weights
+        topicWeights = await tweetQueries.getTopicWeights();
+
+        if (!topicWeights.length) {
+          elizaLogger.error(
+            '[TwitterSearch] Failed to initialize topic weights',
+          );
+          return; // Exit early if we still can't get topic weights
+        }
+      }
+    } catch (dbError) {
       elizaLogger.error(
-        '[TwitterAccounts] Topic weights need to be initialized',
+        '[TwitterSearch] Database error getting topic weights:',
+        dbError,
       );
-      throw new Error('Topic weights need to be initialized');
+      return; // Exit early if we can't get topic weights
     }
 
     try {

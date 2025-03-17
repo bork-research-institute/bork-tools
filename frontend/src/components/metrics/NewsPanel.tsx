@@ -13,7 +13,7 @@ import {
 } from '../ui/select';
 import { Panel } from './Panel';
 
-interface TrendingTweetsPanelProps {
+interface NewsPanelProps {
   maxHeight?: string;
   tweets: TrendingTweet[];
   loading: boolean;
@@ -45,11 +45,7 @@ const getScoreColor = (score: number): string => {
   return 'text-green-800';
 };
 
-export function TrendingTweetsPanel({
-  maxHeight,
-  tweets,
-  loading,
-}: TrendingTweetsPanelProps) {
+export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
@@ -135,12 +131,12 @@ export function TrendingTweetsPanel({
         </div>
 
         {loading ? (
-          <div className="text-white/60">Loading trending tweets...</div>
+          <div className="text-white/60">Loading news tweets...</div>
         ) : filteredTweets.length === 0 ? (
           <div className="text-white/60">
             {searchQuery
               ? 'No tweets found for this username'
-              : 'No trending tweets found'}
+              : 'No news tweets found'}
           </div>
         ) : (
           <div className="space-y-4">

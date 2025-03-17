@@ -1,22 +1,14 @@
 'use client';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import {
-  BriefcaseMedical,
-  ChevronDown,
-  Lock,
-  Plus,
-  Wallet,
-} from 'lucide-react';
+import { ChevronDown, Egg, Lock, Wallet } from 'lucide-react';
 import { trimAddress } from '../../lib/utils/trim-address';
 import '@solana/wallet-adapter-react-ui/styles.css';
-import { type PanelId, panelConfigs } from '@/lib/config/metrics';
-import { usePanels } from '@/lib/contexts/PanelContext';
+import {} from '@/lib/config/metrics';
 import { getChainStats } from '@/lib/services/defillama';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { METADATA } from '../../lib/constants/metadata';
 import { ChainStats } from '../chain-stats';
 import { Button } from '../ui/button';
 import {
@@ -40,7 +32,7 @@ const chains: Chain[] = [
   },
   {
     name: 'Solana',
-    available: true,
+    available: false,
     logo: '/assets/solana-logo.png',
   },
 ];
@@ -54,12 +46,6 @@ export function Header() {
     volume24h: number;
     volumeChange24h: number;
   } | null>(null);
-
-  const { visiblePanels, handleAddPanel } = usePanels();
-
-  const availablePanels = Object.entries(panelConfigs).filter(
-    ([id]) => !visiblePanels.has(id as PanelId),
-  );
 
   useEffect(() => {
     async function fetchStats() {
@@ -75,16 +61,16 @@ export function Header() {
   }, [selectedChain]);
 
   return (
-    <header className="border-emerald-400/20 border-b bg-[#020617]/80">
+    <header className="border-emerald-400/20 border-b bg-[#020617]/80 font-display text-center">
       <div className="mx-auto max-w-7xl px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Link
               href="/"
-              className="flex items-center justify-center space-x-2 font-bold text-2xl text-white hover:opacity-80 transition-opacity"
+              className="flex items-center justify-center space-x-2 text-2xl text-white hover:opacity-80 transition-opacity"
             >
-              <BriefcaseMedical className="h-6 w-6" />
-              <h1>{METADATA.title?.toString()}</h1>
+              <Egg className="h-6 w-6" />
+              <h1 className="font-bogota">eggsight</h1>
               <span className="ml-1 rounded-md bg-emerald-400/10 px-2 py-0.5 text-sm">
                 ALPHA
               </span>
@@ -135,39 +121,6 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild={true}>
-                <Button
-                  variant="outline"
-                  className="bg-white/5 border-white/10 text-white hover:bg-white/10"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Panel
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="bg-black border-white/10"
-              >
-                {availablePanels.map(([id, config]) => (
-                  <DropdownMenuItem
-                    key={id}
-                    onClick={() => handleAddPanel(id as PanelId)}
-                    className="text-white cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      {config.icon}
-                      <span>{config.title}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-                {availablePanels.length === 0 && (
-                  <DropdownMenuItem disabled={true} className="text-gray-500">
-                    No panels available
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button
               className="flex w-48 items-center justify-center space-x-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-white transition-all duration-200 hover:bg-emerald-400/20"
               type="button"

@@ -1,19 +1,11 @@
+'use client';
+
 import * as d3 from 'd3';
-import { Coins, Filter } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../ui/dialog';
-import { Input } from '../ui/input';
+import { useEffect, useRef } from 'react';
 import { Panel } from './Panel';
 
 interface TokenHolderPanelProps {
-  onClose: () => void;
+  maxHeight?: string;
 }
 
 interface TokenHolder extends d3.SimulationNodeDatum {
@@ -89,9 +81,7 @@ const mockNetworkData: TokenHolder[] = [
   },
 ];
 
-export function TokenHolderPanel({ onClose }: TokenHolderPanelProps) {
-  const [tokenAddress, setTokenAddress] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export function TokenHolderPanel({ maxHeight }: TokenHolderPanelProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -287,43 +277,7 @@ export function TokenHolderPanel({ onClose }: TokenHolderPanelProps) {
   };
 
   return (
-    <Panel
-      title="Token Holder Analysis"
-      icon={<Coins className="h-3.5 w-3.5" />}
-      className="border border-white/[0.08] bg-black/40 backdrop-blur-sm hover:border-white/[0.12] transition-colors"
-      onClose={onClose}
-      headerContent={
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild={true}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-black/90 border-white/10">
-            <DialogHeader>
-              <DialogTitle className="text-white">
-                Set Token Address
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input
-                placeholder="Enter token address (0x...)"
-                value={tokenAddress}
-                onChange={(e) => setTokenAddress(e.target.value)}
-                className="bg-white/5 border-white/10 text-white"
-              />
-              <Button className="w-full" onClick={() => setIsDialogOpen(false)}>
-                Apply
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      }
-    >
+    <Panel maxHeight={maxHeight}>
       <div ref={containerRef} className="relative h-[calc(100%-2rem)] p-4">
         <svg ref={svgRef} className="w-full h-full" />
       </div>

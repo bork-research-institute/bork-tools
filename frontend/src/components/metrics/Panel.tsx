@@ -1,49 +1,53 @@
-import { GripVertical, X } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-
 interface PanelProps {
-  title: string;
   children: React.ReactNode;
-  className?: string;
   icon?: React.ReactNode;
   headerContent?: React.ReactNode;
-  onClose?: () => void;
+  maxHeight?: string;
 }
 
-export const Panel = ({
-  title,
+export function Panel({
   children,
-  className = '',
   icon,
   headerContent,
-  onClose,
-}: PanelProps) => (
-  <Card className={`bg-[#0f1729] border-0 flex flex-col h-full ${className}`}>
-    <CardHeader className="flex flex-row items-center justify-between p-3 pb-2 flex-shrink-0">
-      <div className="flex items-center gap-2">
-        {icon && <div className="text-gray-400">{icon}</div>}
-        <CardTitle className="text-white text-base font-medium">
-          {title}
-        </CardTitle>
-      </div>
-      <div className="flex gap-1 items-center">
-        {headerContent}
-        <div className="drag-handle cursor-move p-1 hover:bg-white/10 rounded">
-          <GripVertical className="h-3.5 w-3.5 text-gray-400" />
+  maxHeight,
+}: PanelProps) {
+  return (
+    <div className="bg-[#020617]/80 h-full flex flex-col" style={{ maxHeight }}>
+      {(icon || headerContent) && (
+        <div className="flex items-center justify-between p-4 shrink-0">
+          {icon && <div className="text-emerald-400/80">{icon}</div>}
+          {headerContent}
         </div>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded"
-          >
-            <X className="h-3.5 w-3.5 text-gray-400" />
-          </button>
-        )}
+      )}
+      <div
+        className="px-4 pb-4 flex-1 min-h-0 overflow-auto"
+        style={
+          {
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.1)',
+            '--scrollbar-width': '8px',
+            '--scrollbar-track': 'rgba(255, 255, 255, 0.1)',
+            '--scrollbar-thumb': 'rgba(255, 255, 255, 0.2)',
+          } as React.CSSProperties
+        }
+      >
+        <style jsx={true}>{`
+          div::-webkit-scrollbar {
+            width: var(--scrollbar-width);
+          }
+          div::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+          }
+          div::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 4px;
+          }
+          div::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+          }
+        `}</style>
+        {children}
       </div>
-    </CardHeader>
-    <CardContent className="p-3 pt-2 flex-grow overflow-auto min-h-0">
-      {children}
-    </CardContent>
-  </Card>
-);
+    </div>
+  );
+}

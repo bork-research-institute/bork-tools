@@ -2,6 +2,7 @@ import './globals.css';
 import { PanelProvider } from '@/lib/contexts/PanelContext';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import type { PropsWithChildren } from 'react';
 import { QueryClientProvider } from '../components/providers/query-client-provider';
 import { SolanaProvider } from '../components/providers/solana-provider';
@@ -9,7 +10,15 @@ import { getClientEnv } from '../lib/config/client-env';
 // This will throw if env vars are missing
 getClientEnv();
 
-const inter = Inter({ subsets: ['latin'] });
+const bolota = localFont({
+  src: '../../public/fonts/Bolota Bold.ttf',
+  variable: '--font-bolota',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: 'Create Next App',
@@ -19,7 +28,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning={true} className={inter.className}>
+      <body
+        suppressHydrationWarning={true}
+        className={`${bolota.variable} ${inter.variable} font-sans tracking-wide`}
+      >
         <QueryClientProvider>
           <SolanaProvider>
             <PanelProvider>{children}</PanelProvider>
