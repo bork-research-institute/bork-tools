@@ -45,7 +45,7 @@ export class InjectiveClient implements ClientInstance {
   private databaseService: DatabaseService | null = null;
   private analysisIntervals: { [key: string]: NodeJS.Timer } = {};
   private isAnalyzing: { [key: string]: boolean } = {};
-  private retryTimeouts: { [key: string]: NodeJS.Timeout } = {};
+  private retryTimeouts: { [key: string]: NodeJS.Timer } = {};
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;

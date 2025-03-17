@@ -1,8 +1,17 @@
 'use client';
+import {
+  type MarketStat,
+  type TimeFrame,
+  marketStatsService,
+} from '@/lib/services/market-stats-service';
+import {
+  type UserRelationship,
+  relationshipsService,
+} from '@/lib/services/relationships';
+import { type TrendingTweet, tweetService } from '@/lib/services/tweets';
 import { Brain, Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
-import { newsItems } from '../../mocks/metricsData';
+import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -17,11 +26,14 @@ import { BundlerPanel } from './BundlerPanel';
 import { KaitoLeaderboard } from './KaitoLeaderboard';
 import { MarketStatsPanel } from './MarketStatsPanel';
 import { MindsharePanel } from './MindsharePanel';
+import { NewsPanel } from './NewsPanel';
 import { TokenHolderPanel } from './TokenHolderPanel';
 import { TrendingTweetsPanel } from './TrendingTweetsPanel';
 
 interface RelationshipsPanelProps {
   maxHeight?: string;
+  relationships: UserRelationship[];
+  loading: boolean;
 }
 
 const RelationshipsPanel = dynamic<RelationshipsPanelProps>(
@@ -36,6 +48,161 @@ export function MetricsGallery() {
   const [tokenAddress, setTokenAddress] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [maximizedPanel, setMaximizedPanel] = useState<string | null>(null);
+  const [trendingTweets, setTrendingTweets] = useState<TrendingTweet[]>([]);
+  const [newsTweets, setNewsTweets] = useState<TrendingTweet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [relationships, setRelationships] = useState<UserRelationship[]>([]);
+  const [relationshipsLoading, setRelationshipsLoading] = useState(true);
+
+  // Add new states for market stats
+  const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
+  const [marketStatsLoading, setMarketStatsLoading] = useState(true);
+  const [marketStatsError, setMarketStatsError] = useState<string | null>(null);
+  const [timeframe, setTimeframe] = useState<TimeFrame>('1h');
+
+  useEffect(() => {
+    const fetchTweets = async () => {
+      setLoading(true);
+      try {
+        // Fetch regular tweets
+        const trendingData = await tweetService.getTrendingTweets(
+          '24h',
+          'aggregate',
+          20,
+          false,
+        );
+        setTrendingTweets(trendingData);
+
+        // Fetch news tweets
+        const newsData = await tweetService.getTrendingTweets(
+          '24h',
+          'aggregate',
+          20,
+          true,
+        );
+        setNewsTweets(newsData);
+      } catch (error) {
+        console.error('Error fetching tweets:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTweets();
+  }, []);
+
+  // Initialize market stats service
+  useEffect(() => {
+    console.log('Initializing market stats service...');
+    // Ensure we're using the singleton instance
+    const service = marketStatsService;
+    console.log('Market stats service initialized:', service);
+  }, []);
+
+  // Add useEffect for market stats
+  useEffect(() => {
+    let isSubscribed = true;
+
+    const fetchMarketStats = async () => {
+      try {
+        console.log('Fetching market stats with timeframe:', timeframe);
+        setMarketStatsLoading(true);
+        setMarketStatsError(null);
+        marketStatsService.setTimeframe(timeframe);
+
+        // Add more detailed logging for the Supabase query
+        const stats = await marketStatsService.getMarketStats();
+        console.log('Received market stats:', {
+          count: stats.length,
+          timeframe,
+          firstItem: stats[0],
+          stats,
+        });
+
+        if (isSubscribed) {
+          setMarketStats(stats);
+        }
+      } catch (err) {
+        console.error('Error fetching market stats:', {
+          error: err,
+          message: err instanceof Error ? err.message : 'Unknown error',
+          timeframe,
+        });
+        if (isSubscribed) {
+          setMarketStatsError(
+            err instanceof Error ? err.message : 'Failed to fetch market stats',
+          );
+        }
+      } finally {
+        if (isSubscribed) {
+          setMarketStatsLoading(false);
+        }
+      }
+    };
+
+    const setupMarketStatsSubscription = async () => {
+      try {
+        console.log(
+          'Setting up market stats subscription with timeframe:',
+          timeframe,
+        );
+        const unsubscribe = await marketStatsService.subscribeToMarketStats(
+          (stats) => {
+            console.log('Received stats from subscription:', {
+              count: stats.length,
+              timeframe,
+              firstItem: stats[0],
+              stats,
+            });
+            if (isSubscribed) {
+              setMarketStats(stats);
+            }
+          },
+        );
+        return unsubscribe;
+      } catch (err) {
+        console.error('Error setting up market stats subscription:', {
+          error: err,
+          message: err instanceof Error ? err.message : 'Unknown error',
+          timeframe,
+        });
+        return () => {};
+      }
+    };
+
+    let unsubscribe = () => {};
+
+    fetchMarketStats();
+    setupMarketStatsSubscription().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      console.log(
+        'Cleaning up market stats subscription for timeframe:',
+        timeframe,
+      );
+      isSubscribed = false;
+      unsubscribe();
+    };
+  }, [timeframe]);
+
+  // Add useEffect for fetching relationships
+  useEffect(() => {
+    const fetchRelationships = async () => {
+      setRelationshipsLoading(true);
+      try {
+        const data = await relationshipsService.getTopUserRelationships(50);
+        setRelationships(data);
+      } catch (error) {
+        console.error('Error fetching relationships:', error);
+      } finally {
+        setRelationshipsLoading(false);
+      }
+    };
+
+    fetchRelationships();
+  }, []);
 
   const renderMaximizedContent = () => {
     switch (maximizedPanel) {
@@ -69,7 +236,11 @@ export function MetricsGallery() {
                 <KaitoLeaderboard maxHeight="calc(90vh - 120px)" />
               </TabsContent>
               <TabsContent value="relationships" className="h-full">
-                <RelationshipsPanel maxHeight="calc(90vh - 120px)" />
+                <RelationshipsPanel
+                  maxHeight="calc(90vh - 120px)"
+                  relationships={relationships}
+                  loading={relationshipsLoading}
+                />
               </TabsContent>
             </div>
           </Tabs>
@@ -117,36 +288,18 @@ export function MetricsGallery() {
             </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="tweets" className="h-full">
-                <TrendingTweetsPanel maxHeight="calc(90vh - 120px)" />
+                <TrendingTweetsPanel
+                  maxHeight="calc(90vh - 120px)"
+                  tweets={trendingTweets}
+                  loading={loading}
+                />
               </TabsContent>
               <TabsContent value="news" className="h-full">
-                <div className="space-y-6">
-                  {newsItems.map((item) => (
-                    <div
-                      key={`${item.source}-${item.title}`}
-                      className="pb-6 border-b border-white/5 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-white/40 lowercase font-display">
-                          {item.source.toLowerCase()}
-                        </span>
-                        <span className="text-xs text-white/20">•</span>
-                        <span className="text-xs text-white/40">
-                          {item.timeAgo}
-                        </span>
-                      </div>
-                      <div className="text-xs text-white/40 mb-2 lowercase font-display">
-                        {item.category.toLowerCase()}
-                      </div>
-                      <h3 className="text-white/90 text-sm mb-2 lowercase font-display">
-                        {item.title.toLowerCase()}
-                      </h3>
-                      <p className="text-white/60 text-xs leading-relaxed">
-                        {item.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <NewsPanel
+                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
+                  tweets={newsTweets}
+                  loading={loading}
+                />
               </TabsContent>
             </div>
           </Tabs>
@@ -154,7 +307,7 @@ export function MetricsGallery() {
       case 'market':
         return (
           <Tabs defaultValue="market" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-white/60" />
                 <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
@@ -167,7 +320,7 @@ export function MetricsGallery() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                      className="h-8 w-8 text-white/40 hover:text-white"
                     >
                       <Filter className="h-4 w-4" />
                     </Button>
@@ -205,14 +358,21 @@ export function MetricsGallery() {
                     value="risk"
                     className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                   >
-                    risk analysis
+                    risk analysis (mock data)
                   </TabsTrigger>
                 </TabsList>
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="market" className="h-full">
-                <MarketStatsPanel maxHeight="calc(90vh - 120px)" />
+                <MarketStatsPanel
+                  maxHeight="calc(90vh - 120px)"
+                  marketStats={marketStats}
+                  isLoading={marketStatsLoading}
+                  error={marketStatsError}
+                  timeframe={timeframe}
+                  onTimeframeChange={setTimeframe}
+                />
               </TabsContent>
               <TabsContent value="risk" className="h-full">
                 <div className="grid grid-cols-2 gap-4 h-full">
@@ -299,7 +459,11 @@ export function MetricsGallery() {
                 <KaitoLeaderboard maxHeight={`${ROW_HEIGHT - 48}px`} />
               </TabsContent>
               <TabsContent value="relationships" className="h-full">
-                <RelationshipsPanel maxHeight={`${ROW_HEIGHT - 48}px`} />
+                <RelationshipsPanel
+                  maxHeight={`${ROW_HEIGHT - 48}px`}
+                  relationships={relationships}
+                  loading={relationshipsLoading}
+                />
               </TabsContent>
             </div>
           </Tabs>
@@ -370,36 +534,16 @@ export function MetricsGallery() {
               <TabsContent value="tweets" className="h-full">
                 <TrendingTweetsPanel
                   maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
+                  tweets={trendingTweets}
+                  loading={loading}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">
-                <div className="space-y-6">
-                  {newsItems.map((item) => (
-                    <div
-                      key={`${item.source}-${item.title}`}
-                      className="pb-6 border-b border-white/5 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-white/40 lowercase font-display">
-                          {item.source.toLowerCase()}
-                        </span>
-                        <span className="text-xs text-white/20">•</span>
-                        <span className="text-xs text-white/40">
-                          {item.timeAgo}
-                        </span>
-                      </div>
-                      <div className="text-xs text-white/40 mb-2 lowercase font-display">
-                        {item.category.toLowerCase()}
-                      </div>
-                      <h3 className="text-white/90 text-sm mb-2 lowercase font-display">
-                        {item.title.toLowerCase()}
-                      </h3>
-                      <p className="text-white/60 text-xs leading-relaxed">
-                        {item.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <NewsPanel
+                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
+                  tweets={newsTweets}
+                  loading={loading}
+                />
               </TabsContent>
             </div>
           </Tabs>
@@ -459,7 +603,7 @@ export function MetricsGallery() {
                     value="risk"
                     className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    risk analysis
+                    risk analysis (mock data)
                   </TabsTrigger>
                 </TabsList>
                 <Button
@@ -474,7 +618,14 @@ export function MetricsGallery() {
             </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="market" className="h-full">
-                <MarketStatsPanel maxHeight={`${ROW_HEIGHT - 48}px`} />
+                <MarketStatsPanel
+                  maxHeight={`${ROW_HEIGHT - 48}px`}
+                  marketStats={marketStats}
+                  isLoading={marketStatsLoading}
+                  error={marketStatsError}
+                  timeframe={timeframe}
+                  onTimeframeChange={setTimeframe}
+                />
               </TabsContent>
               <TabsContent value="risk" className="h-full">
                 <div className="grid grid-cols-2 gap-4 h-full">

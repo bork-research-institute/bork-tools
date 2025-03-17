@@ -38,7 +38,7 @@ export function KaitoLeaderboard({ maxHeight }: KaitoLeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>('all');
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('24h');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Handle mounting to prevent hydration issues

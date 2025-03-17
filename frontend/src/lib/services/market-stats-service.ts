@@ -1,6 +1,6 @@
 import { supabaseClient } from '@/lib/config/client-supabase';
 
-export type TimeFrame = '5m' | '1h' | '4h' | '1d' | '1w';
+export type TimeFrame = '5m' | '1h' | '4h' | '1d';
 
 interface MarketAnalysisRecord {
   market_id: string;
@@ -61,7 +61,6 @@ export class MarketStatsService {
     '1h': { resolution: '60', duration: 1, requiredSamples: 1 },
     '4h': { resolution: '60', duration: 4, requiredSamples: 4 },
     '1d': { resolution: '60', duration: 24, requiredSamples: 24 },
-    '1w': { resolution: '60', duration: 168, requiredSamples: 168 },
   };
 
   private constructor() {}
@@ -85,6 +84,73 @@ export class MarketStatsService {
     timeframeCutoff: Date,
     resolution: string,
   ): Promise<MarketAnalysisRecord[]> {
+    console.log('Fetching market data with params:', {
+      timeframeCutoff: timeframeCutoff.toISOString(),
+      resolution,
+    });
+
+    // First try without any restrictions to see if the table has any data at all
+    const { data: allData, error: checkError } = await supabaseClient
+      .from('market_analysis')
+      .select('count')
+      .single();
+
+    console.log('Total records in market_analysis:', allData);
+
+    if (checkError) {
+      console.error('Error checking market analysis:', checkError);
+      throw new Error(`Failed to check market analysis: ${checkError.message}`);
+    }
+
+    // If we have no data at all, let's check if we can connect to the table
+    if (!allData || allData.count === 0) {
+      console.log(
+        'No data found in market_analysis table. Checking table structure...',
+      );
+      const { data: tableInfo, error: tableError } = await supabaseClient
+        .from('market_analysis')
+        .select('*')
+        .limit(1);
+
+      console.log('Table structure check:', {
+        hasError: !!tableError,
+        error: tableError,
+        canConnect: !!tableInfo,
+      });
+
+      if (tableError) {
+        throw new Error(
+          `Cannot connect to market_analysis table: ${tableError.message}`,
+        );
+      }
+    }
+
+    // Now try to get the most recent data first, without time restriction
+    const { data: recentData, error: recentError } = await supabaseClient
+      .from('market_analysis')
+      .select('*')
+      .eq('timeframe', resolution)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    console.log('Recent market data (no time filter):', {
+      count: recentData?.length ?? 0,
+      resolution,
+      firstRecord: recentData?.[0],
+      error: recentError,
+    });
+
+    if (recentError) {
+      console.error('Error fetching recent market data:', recentError);
+      throw new Error(`Failed to fetch market data: ${recentError.message}`);
+    }
+
+    // If we have recent data, use it
+    if (recentData && recentData.length > 0) {
+      return recentData as MarketAnalysisRecord[];
+    }
+
+    // If no recent data, try with time restriction as a fallback
     const { data, error } = await supabaseClient
       .from('market_analysis')
       .select('*')
@@ -92,8 +158,16 @@ export class MarketStatsService {
       .gt('created_at', timeframeCutoff.toISOString())
       .order('created_at', { ascending: false });
 
+    console.log('Fetched market data with time filter:', {
+      count: data?.length ?? 0,
+      timeframeCutoff: timeframeCutoff.toISOString(),
+      resolution,
+      error,
+      firstRecord: data?.[0],
+    });
+
     if (error) {
-      console.error('Error fetching market analysis:', error.message);
+      console.error('Error fetching market analysis:', error);
       throw new Error(`Failed to fetch market analysis: ${error.message}`);
     }
 
@@ -104,7 +178,9 @@ export class MarketStatsService {
     currentPrice: number,
     historicalRecords: MarketAnalysisRecord[],
   ): string {
-    if (historicalRecords.length === 0) return '0';
+    if (historicalRecords.length === 0) {
+      return '0';
+    }
 
     // Sort by created_at in ascending order to get the oldest first
     const sortedRecords = [...historicalRecords].sort(
@@ -117,7 +193,9 @@ export class MarketStatsService {
       sortedRecords[0].technical_analysis.latestCandle.close,
     );
 
-    if (oldestPrice === 0) return '0';
+    if (oldestPrice === 0) {
+      return '0';
+    }
 
     const change = ((currentPrice - oldestPrice) / oldestPrice) * 100;
     return change.toFixed(2);
@@ -137,6 +215,12 @@ export class MarketStatsService {
       const timeframeCutoff = new Date();
       timeframeCutoff.setHours(timeframeCutoff.getHours() - config.duration);
 
+      console.log('Getting market stats:', {
+        timeframe: this.currentTimeframe,
+        config,
+        cutoff: timeframeCutoff.toISOString(),
+      });
+
       // For 5m timeframe, fetch directly
       if (this.currentTimeframe === '5m') {
         const records = await this.fetchMarketData(timeframeCutoff, '5');
@@ -145,6 +229,12 @@ export class MarketStatsService {
 
       // For other timeframes, fetch 1h data and aggregate
       const records = await this.fetchMarketData(timeframeCutoff, '60');
+
+      console.log('Processing records:', {
+        count: records.length,
+        timeframe: this.currentTimeframe,
+        firstRecord: records[0],
+      });
 
       // Group records by market for processing
       const marketGroups = records.reduce(

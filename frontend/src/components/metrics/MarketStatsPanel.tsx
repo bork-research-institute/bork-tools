@@ -16,14 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  type MarketStat,
-  type TimeFrame,
-  marketStatsService,
+import type {
+  MarketStat,
+  TimeFrame,
 } from '@/lib/services/market-stats-service';
 import { cn } from '@/lib/utils';
 import { Settings } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Panel } from './Panel';
 
 type SortConfig = {
@@ -33,6 +32,11 @@ type SortConfig = {
 
 interface MarketStatsPanelProps {
   maxHeight?: string;
+  marketStats: MarketStat[];
+  isLoading: boolean;
+  error: string | null;
+  timeframe: TimeFrame;
+  onTimeframeChange: (timeframe: TimeFrame) => void;
 }
 
 const columns: {
@@ -55,8 +59,6 @@ const columns: {
           return '4h Change';
         case '1d':
           return '24h Change';
-        case '1w':
-          return '1w Change';
       }
     },
   },
@@ -88,11 +90,14 @@ const formatCurrency = (value: string | number): string => {
   return `$${formatNumber(num)}`;
 };
 
-export function MarketStatsPanel({ maxHeight }: MarketStatsPanelProps) {
-  const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isChangingTimeframe, setIsChangingTimeframe] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function MarketStatsPanel({
+  maxHeight,
+  marketStats,
+  isLoading,
+  error,
+  timeframe,
+  onTimeframeChange,
+}: MarketStatsPanelProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'symbol',
     direction: 'asc',
@@ -100,62 +105,6 @@ export function MarketStatsPanel({ maxHeight }: MarketStatsPanelProps) {
   const [visibleColumns, setVisibleColumns] = useState<Set<keyof MarketStat>>(
     new Set(columns.map((col) => col.key)),
   );
-  const [timeframe, setTimeframe] = useState<TimeFrame>('1h');
-
-  useEffect(() => {
-    let isSubscribed = true;
-
-    const fetchData = async () => {
-      try {
-        setIsChangingTimeframe(true);
-        setError(null);
-        marketStatsService.setTimeframe(timeframe);
-        const stats = await marketStatsService.getMarketStats();
-        if (isSubscribed) {
-          setMarketStats(stats);
-        }
-      } catch (err) {
-        if (isSubscribed) {
-          setError(
-            err instanceof Error ? err.message : 'Failed to fetch market stats',
-          );
-        }
-      } finally {
-        if (isSubscribed) {
-          setIsChangingTimeframe(false);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    const setupSubscription = async () => {
-      try {
-        const unsubscribe = await marketStatsService.subscribeToMarketStats(
-          (stats) => {
-            if (isSubscribed) {
-              setMarketStats(stats);
-            }
-          },
-        );
-        return unsubscribe;
-      } catch (err) {
-        console.error('Error setting up subscription:', err);
-        return () => {};
-      }
-    };
-
-    let unsubscribe = () => {};
-
-    fetchData();
-    setupSubscription().then((unsub) => {
-      unsubscribe = unsub;
-    });
-
-    return () => {
-      isSubscribed = false;
-      unsubscribe();
-    };
-  }, [timeframe]);
 
   const handleSort = (columnKey: keyof MarketStat) => {
     setSortConfig((current) => ({
@@ -207,15 +156,11 @@ export function MarketStatsPanel({ maxHeight }: MarketStatsPanelProps) {
     return value.toString();
   };
 
-  if (isLoading || isChangingTimeframe) {
+  if (isLoading) {
     return (
       <Panel maxHeight={maxHeight}>
         <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">
-            {isChangingTimeframe
-              ? 'Updating timeframe...'
-              : 'Loading market stats...'}
-          </span>
+          <span className="text-emerald-400/60">Loading market stats...</span>
         </div>
       </Panel>
     );
@@ -244,12 +189,12 @@ export function MarketStatsPanel({ maxHeight }: MarketStatsPanelProps) {
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between p-3 border-b border-emerald-400/10">
+        <div className="flex items-center justify-between border-b border-emerald-400/10">
           <h2 className="text-sm font-medium text-emerald-400">Market Stats</h2>
           <div className="flex items-center gap-2">
             <Select
               value={timeframe}
-              onValueChange={(value: TimeFrame) => setTimeframe(value)}
+              onValueChange={(value: TimeFrame) => onTimeframeChange(value)}
             >
               <SelectTrigger className="w-24 h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors">
                 <SelectValue placeholder="Timeframe" />
@@ -278,12 +223,6 @@ export function MarketStatsPanel({ maxHeight }: MarketStatsPanelProps) {
                   className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
                 >
                   1 Day
-                </SelectItem>
-                <SelectItem
-                  value="1w"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  1 Week
                 </SelectItem>
               </SelectContent>
             </Select>
