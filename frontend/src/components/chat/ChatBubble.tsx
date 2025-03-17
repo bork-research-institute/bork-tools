@@ -54,7 +54,7 @@ export function ChatBubble() {
       const aiResponse: Message = {
         id: Math.random().toString(),
         content:
-          "I'm analyzing the market data and will get back to you shortly...",
+          'Currently this live agent chat is not in service... coming soon',
         isUser: false,
         timestamp: new Date(),
       };
