@@ -15,10 +15,6 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  // Set default port to 3001
-  serverOptions: {
-    port: 3001,
-  },
 };
 
 export default nextConfig;
