@@ -1,12 +1,12 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 import { tweetQueries } from '../../bork-extensions/src/db/queries';
+import { TwitterConfigService } from '../lib/services/twitter-config-service';
+import type { TwitterService } from '../lib/services/twitter-service';
+import type { TopicWeightRow } from '../lib/types/topic';
+import type { ExtendedTweet, MergedTweet } from '../lib/types/twitter';
 import { storeMentions } from '../lib/utils/mentions-processing';
 import { processAndStoreTweet } from '../lib/utils/tweet-processing';
-import { TwitterConfigService } from '../services/twitter-config-service';
-import type { TwitterService } from '../services/twitter-service';
-import type { TopicWeightRow } from '../types/topic';
-import type { ExtendedTweet, MergedTweet } from '../types/twitter';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;

@@ -5,11 +5,11 @@ import {
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
 import { cleanupPool } from '../bork-extensions/src/db';
+import { TwitterAccountsClient } from './client-account/accounts';
 import { TwitterAccountDiscoveryClient } from './clients/account-discovery';
-import { TwitterAccountsClient } from './clients/accounts';
 import { TwitterInteractionClient } from './clients/interactions';
 import { TwitterSearchClient } from './clients/search';
-import { TwitterService } from './services/twitter-service';
+import { TwitterService } from './lib/services/twitter-service';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
@@ -80,9 +80,9 @@ export class TwitterClient implements ClientInstance {
       );
 
       await this.accountsClient.start();
-      await this.searchClient.start();
-      await this.interactionClient.start();
-      await this.discoveryClient.start();
+      // await this.searchClient.start();
+      // await this.interactionClient.start();
+      // await this.discoveryClient.start();
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
     } catch (error) {

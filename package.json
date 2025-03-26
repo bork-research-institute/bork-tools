@@ -4,6 +4,8 @@
   "workspaces": ["frontend", "backend"],
   "scripts": {
     "dotenvx": "dotenvx",
+    "backend:decrypt": "dotenvx decrypt -f .env.backend.production",
+    "backend:encrypt": "dotenvx encrypt -f .env.backend.production",
     "dev": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend dev",
     "build": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend build",
     "backend:dev": "dotenvx run -f .env.backend.production -- bun run --cwd backend dev",

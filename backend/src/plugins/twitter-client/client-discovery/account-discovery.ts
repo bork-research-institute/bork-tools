@@ -1,7 +1,7 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { TwitterAccountDiscoveryService } from '../services/twitter-account-discovery-service';
-import { TwitterConfigService } from '../services/twitter-config-service';
-import type { TwitterService } from '../services/twitter-service';
+import { TwitterAccountDiscoveryService } from '../lib/services/twitter-account-discovery-service';
+import { TwitterConfigService } from '../lib/services/twitter-config-service';
+import type { TwitterService } from '../lib/services/twitter-service';
 
 export class TwitterAccountDiscoveryClient {
   private readonly configService: TwitterConfigService;

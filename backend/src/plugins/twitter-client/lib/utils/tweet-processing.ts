@@ -9,14 +9,99 @@ import {
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import type { TwitterService } from '../../services/twitter-service';
-import { tweetAnalysisTemplate } from '../../templates/analysis';
-import type { TweetAnalysis } from '../../types/analysis';
-import type { TopicWeightRow } from '../../types/topic';
-import type { MergedTweet } from '../../types/twitter';
+import type { TwitterService } from '../../lib/services/twitter-service';
+import { tweetAnalysisTemplate } from '../templates/analysis';
+import type { TweetAnalysis } from '../types/analysis';
+import type { TopicWeightRow } from '../types/topic';
+import type { Tweet } from '../types/tweet';
+import type { MergedTweet } from '../types/twitter';
 import { updateUserSpamData } from './spam-processing';
 import { extractJsonFromText } from './text-processing';
 import { updateTopicWeights } from './topic-processing';
+
+interface ProcessedTweet extends Tweet {
+  text: string;
+  originalText: string;
+  isThreadMerged: boolean;
+  hasReplies: boolean;
+  threadSize: number;
+  replyCount: number;
+}
+
+export function mergeTweetContent(tweets: Tweet[]): ProcessedTweet[] {
+  return tweets.map((tweet) => {
+    // Start with the original tweet text
+    let mergedText = tweet.text || '';
+
+    // First merge thread content if it exists
+    if (tweet.thread && tweet.thread.length > 0) {
+      // Sort thread by timestamp to ensure chronological order
+      const sortedThread = tweet.thread.sort(
+        (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+      );
+
+      // Merge text from all thread tweets
+      for (const threadTweet of sortedThread) {
+        if (threadTweet.id !== tweet.id) {
+          mergedText = `${mergedText}\n\n${threadTweet.text || ''}`;
+        }
+      }
+    }
+
+    // Then add top replies if they exist
+    if (tweet.topReplies && tweet.topReplies.length > 0) {
+      mergedText = `${mergedText}\n\n--- Top Replies ---\n`;
+
+      // Add each top reply with author info
+      for (const reply of tweet.topReplies) {
+        mergedText = `${mergedText}\n@${reply.username || 'unknown'}: ${reply.text || ''}\n`;
+      }
+    }
+
+    // Create a new tweet object with merged content
+    return {
+      ...tweet,
+      text: mergedText,
+      originalText: tweet.text || '',
+      isThreadMerged: (tweet.thread?.length || 0) > 0,
+      hasReplies: (tweet.topReplies?.length || 0) > 0,
+      threadSize: tweet.thread?.length || 0,
+      replyCount: tweet.topReplies?.length || 0,
+    };
+  });
+}
+
+export async function processTweets(tweets: Tweet[]): Promise<void> {
+  const mergedTweets = mergeTweetContent(tweets);
+
+  elizaLogger.info(
+    `[TwitterAccounts] Merged ${mergedTweets.length} tweets with their threads and replies`,
+  );
+
+  // Now process each merged tweet
+  for (const tweet of mergedTweets) {
+    try {
+      elizaLogger.info(
+        `[TwitterAccounts] Processed tweet ${tweet.id} with ${tweet.threadSize} thread tweets and ${tweet.replyCount} replies`,
+        {
+          isThreadMerged: tweet.isThreadMerged,
+          hasReplies: tweet.hasReplies,
+          textLength: tweet.text.length,
+          originalTextLength: tweet.originalText.length,
+        },
+      );
+    } catch (error) {
+      elizaLogger.error(
+        `[TwitterAccounts] Error processing tweet ${tweet.id}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  elizaLogger.info(
+    '[TwitterAccounts] Successfully processed all merged tweets',
+  );
+}
 
 export async function processAndStoreTweet(
   runtime: IAgentRuntime,

@@ -4,7 +4,7 @@ import {
   tweetQueries,
   userMentionQueries,
 } from '../../../bork-extensions/src/db/queries.js';
-import { extractMentionsFromText } from '../../mappers/mentions-mapper.js';
+import { extractMentionsFromText } from '../mappers/mentions-mapper.js';
 
 export async function storeMentions(tweet: Tweet): Promise<void> {
   try {

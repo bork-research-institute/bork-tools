@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries.js';
-import type { TopicWeightRow } from '../../types/topic';
+import type { TopicWeightRow } from '../types/topic.js';
 
 /**
  * Updates topic weights based on tweet analysis

@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { getUserSpamData } from '../lib/utils/spam-processing';
+import { getUserSpamData } from '../utils/spam-processing';
 
 export interface SpamData {
   spamScore: number;

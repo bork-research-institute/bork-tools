@@ -12,13 +12,13 @@ import {
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 import { tweetQueries } from '../../bork-extensions/src/db/queries';
-import { wait } from '../lib/utils';
-import { sendTweetAndCreateMemory } from '../lib/utils/send-tweet-and-create-memory';
-import type { TwitterService } from '../services/twitter-service';
+import type { TwitterService } from '../lib/services/twitter-service';
 import {
   twitterMessageHandlerTemplate,
   twitterShouldRespondTemplate,
-} from '../templates/interaction';
+} from '../lib/templates/interaction';
+import { wait } from '../lib/utils';
+import { sendTweetAndCreateMemory } from '../lib/utils/send-tweet-and-create-memory';
 
 export class TwitterInteractionClient {
   private readonly twitterService: TwitterService;
