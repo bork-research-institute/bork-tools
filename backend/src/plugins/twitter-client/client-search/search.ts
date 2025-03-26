@@ -4,16 +4,15 @@ import { tweetQueries } from '../../bork-extensions/src/db/queries';
 import { TwitterConfigService } from '../lib/services/twitter-config-service';
 import type { TwitterService } from '../lib/services/twitter-service';
 import type { TopicWeightRow } from '../lib/types/topic';
-import type { ExtendedTweet, MergedTweet } from '../lib/types/twitter';
 import { storeMentions } from '../lib/utils/mentions-processing';
-import { processAndStoreTweet } from '../lib/utils/tweet-processing';
+import { processTweets } from '../lib/utils/tweet-processing';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
-
+  
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
@@ -134,83 +133,18 @@ export class TwitterSearchClient {
         { spammedTweets },
       );
 
-      // Process filtered tweets with thread and reply merging
-      const mergedTweets = filteredTweets.map((tweet): MergedTweet => {
-        const extendedTweet = tweet as ExtendedTweet;
-        // Start with the original tweet text
-        let mergedText = tweet.text || '';
-
-        // First merge thread content if it exists
-        if (tweet.thread && tweet.thread.length > 0) {
-          // Sort thread by timestamp to ensure chronological order
-          const sortedThread = tweet.thread.sort(
-            (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
-          );
-
-          // Merge text from all thread tweets
-          for (const threadTweet of sortedThread) {
-            if (threadTweet.id !== tweet.id) {
-              mergedText = `${mergedText}\n\n${threadTweet.text || ''}`;
-            }
-          }
-        }
-
-        // Then add top replies if they exist
-        if (extendedTweet.topReplies && extendedTweet.topReplies.length > 0) {
-          mergedText = `${mergedText}\n\n--- Top Replies ---\n`;
-
-          // Add each top reply with author info
-          for (const reply of extendedTweet.topReplies) {
-            mergedText = `${mergedText}\n@${reply.username || 'unknown'}: ${reply.text || ''}\n`;
-          }
-        }
-
-        // Create a new tweet object with merged content
-        return {
-          ...extendedTweet,
-          text: mergedText,
-          originalText: tweet.text, // Keep original text for reference
-          isThreadMerged: tweet.thread?.length > 0,
-          hasReplies: extendedTweet.topReplies?.length > 0,
-          threadSize: tweet.thread?.length || 0,
-          replyCount: extendedTweet.topReplies?.length || 0,
-        };
-      });
-
-      elizaLogger.info(
-        `[TwitterSearch] Merged ${mergedTweets.length} tweets with their threads and replies`,
-      );
-
-      // Now process each merged tweet
-      for (const tweet of mergedTweets) {
-        try {
-          // Process mentions from the original tweet only
-          await storeMentions(tweet);
-
-          // Process and store the merged tweet
-          await processAndStoreTweet(
-            this.runtime,
-            this.twitterService,
-            tweet,
-            topicWeights,
-          );
-
-          elizaLogger.info(
-            `[TwitterSearch] Processed tweet ${tweet.id} with ${tweet.threadSize} thread tweets and ${tweet.replyCount} replies`,
-            {
-              isThreadMerged: tweet.isThreadMerged,
-              hasReplies: tweet.hasReplies,
-              textLength: tweet.text.length,
-              originalTextLength: tweet.originalText.length,
-            },
-          );
-        } catch (error) {
-          elizaLogger.error(
-            `[TwitterSearch] Error processing tweet ${tweet.id}:`,
-            error instanceof Error ? error.message : String(error),
-          );
-        }
+      // Process mentions from each tweet
+      for (const tweet of filteredTweets) {
+        await storeMentions(tweet);
       }
+
+      // Process all tweets together
+      await processTweets(
+        this.runtime,
+        this.twitterService,
+        filteredTweets,
+        topicWeights,
+      );
 
       elizaLogger.info('[TwitterSearch] Successfully processed search results');
     } catch (error) {

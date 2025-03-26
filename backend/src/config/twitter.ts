@@ -22,9 +22,9 @@ export const TWITTER_CONFIG = {
       searchResults: 20, // Number of tweets to fetch for search queries
     },
     engagementThresholds: {
-      minLikes: 10,
-      minRetweets: 1,
-      minReplies: 1,
+      minLikes: 0,
+      minRetweets: 0,
+      minReplies: 0,
     },
     parameters: {
       excludeReplies: true,

@@ -81,21 +81,10 @@ export class TwitterService {
       return { tweets: [], spammedTweets: 0, spamUsers: new Set() };
     }
 
-    // Filter tweets based on engagement thresholds
-    let filteredByEngagement = searchResults.tweets;
-    if (engagementThresholds) {
-      filteredByEngagement = searchResults.tweets.filter(
-        (tweet) =>
-          tweet.likes >= engagementThresholds.minLikes &&
-          tweet.retweets >= engagementThresholds.minRetweets &&
-          tweet.replies >= engagementThresholds.minReplies,
-      );
-    }
-
     // Apply search parameters
-    let filteredByParams = filteredByEngagement;
+    let filteredTweets = searchResults.tweets;
     if (searchParams) {
-      filteredByParams = filteredByEngagement.filter((tweet) => {
+      filteredTweets = searchResults.tweets.filter((tweet) => {
         if (searchParams.excludeReplies && tweet.inReplyToStatusId) {
           return false;
         }
@@ -107,16 +96,19 @@ export class TwitterService {
     }
 
     // Filter spam tweets
-    const { filteredTweets, spammedTweets, spamUsers } =
-      await this.spamService.filterSpamTweets(filteredByParams, context);
+    const {
+      filteredTweets: nonSpamTweets,
+      spammedTweets,
+      spamUsers,
+    } = await this.spamService.filterSpamTweets(filteredTweets, context);
 
     // Cache filtered tweets
     await Promise.all(
-      filteredTweets.map((tweet) => this.cacheService.cacheTweet(tweet)),
+      nonSpamTweets.map((tweet) => this.cacheService.cacheTweet(tweet)),
     );
 
     return {
-      tweets: filteredTweets,
+      tweets: nonSpamTweets,
       spammedTweets,
       spamUsers,
     };

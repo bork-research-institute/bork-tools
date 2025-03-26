@@ -13,434 +13,390 @@ import type { TwitterService } from '../../lib/services/twitter-service';
 import { tweetAnalysisTemplate } from '../templates/analysis';
 import type { TweetAnalysis } from '../types/analysis';
 import type { TopicWeightRow } from '../types/topic';
-import type { Tweet } from '../types/tweet';
-import type { MergedTweet } from '../types/twitter';
+import type { Tweet } from '../types/twitter';
 import { updateUserSpamData } from './spam-processing';
 import { extractJsonFromText } from './text-processing';
 import { updateTopicWeights } from './topic-processing';
+import { mergeTweetContent } from './tweet-merging';
 
-interface ProcessedTweet extends Tweet {
-  text: string;
-  originalText: string;
-  isThreadMerged: boolean;
-  hasReplies: boolean;
-  threadSize: number;
-  replyCount: number;
-}
-
-export function mergeTweetContent(tweets: Tweet[]): ProcessedTweet[] {
-  return tweets.map((tweet) => {
-    // Start with the original tweet text
-    let mergedText = tweet.text || '';
-
-    // First merge thread content if it exists
-    if (tweet.thread && tweet.thread.length > 0) {
-      // Sort thread by timestamp to ensure chronological order
-      const sortedThread = tweet.thread.sort(
-        (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
-      );
-
-      // Merge text from all thread tweets
-      for (const threadTweet of sortedThread) {
-        if (threadTweet.id !== tweet.id) {
-          mergedText = `${mergedText}\n\n${threadTweet.text || ''}`;
-        }
-      }
-    }
-
-    // Then add top replies if they exist
-    if (tweet.topReplies && tweet.topReplies.length > 0) {
-      mergedText = `${mergedText}\n\n--- Top Replies ---\n`;
-
-      // Add each top reply with author info
-      for (const reply of tweet.topReplies) {
-        mergedText = `${mergedText}\n@${reply.username || 'unknown'}: ${reply.text || ''}\n`;
-      }
-    }
-
-    // Create a new tweet object with merged content
-    return {
-      ...tweet,
-      text: mergedText,
-      originalText: tweet.text || '',
-      isThreadMerged: (tweet.thread?.length || 0) > 0,
-      hasReplies: (tweet.topReplies?.length || 0) > 0,
-      threadSize: tweet.thread?.length || 0,
-      replyCount: tweet.topReplies?.length || 0,
-    };
-  });
-}
-
-export async function processTweets(tweets: Tweet[]): Promise<void> {
-  const mergedTweets = mergeTweetContent(tweets);
-
-  elizaLogger.info(
-    `[TwitterAccounts] Merged ${mergedTweets.length} tweets with their threads and replies`,
-  );
-
-  // Now process each merged tweet
-  for (const tweet of mergedTweets) {
-    try {
-      elizaLogger.info(
-        `[TwitterAccounts] Processed tweet ${tweet.id} with ${tweet.threadSize} thread tweets and ${tweet.replyCount} replies`,
-        {
-          isThreadMerged: tweet.isThreadMerged,
-          hasReplies: tweet.hasReplies,
-          textLength: tweet.text.length,
-          originalTextLength: tweet.originalText.length,
-        },
-      );
-    } catch (error) {
-      elizaLogger.error(
-        `[TwitterAccounts] Error processing tweet ${tweet.id}:`,
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  elizaLogger.info(
-    '[TwitterAccounts] Successfully processed all merged tweets',
-  );
-}
-
-export async function processAndStoreTweet(
+export async function processTweets(
   runtime: IAgentRuntime,
   twitterService: TwitterService,
-  tweet: MergedTweet,
+  tweets: Tweet[],
   topicWeights: TopicWeightRow[],
 ): Promise<void> {
   try {
-    // Check if tweet has already been processed
-    const existingTweet = await tweetQueries.findTweetByTweetId(tweet.id);
-    if (existingTweet) {
-      elizaLogger.info(
-        `[Tweet Processing] Tweet ${tweet.id} has already been processed - skipping`,
-        {
-          dbId: existingTweet.id,
-          status: existingTweet.status,
-        },
-      );
+    // Validate input tweets
+    const validTweets = tweets.filter((tweet) => {
+      if (!tweet.tweet_id) {
+        elizaLogger.warn(
+          '[Tweet Processing] Skipping tweet with missing Twitter ID:',
+          {
+            userId: tweet.userId,
+            username: tweet.username,
+            text: tweet.text?.substring(0, 100),
+          },
+        );
+        return false;
+      }
+      return true;
+    });
+
+    if (validTweets.length === 0) {
+      elizaLogger.error('[Tweet Processing] No valid tweets to process');
       return;
     }
 
-    // Store tweet in cache
-    await twitterService.cacheTweet(tweet);
+    const mergedTweets = mergeTweetContent(validTweets);
 
-    // Generate ID for the tweet
-    const dbId = uuidv4();
+    elizaLogger.info(
+      `[TwitterAccounts] Processing ${mergedTweets.length} tweets`,
+    );
 
-    // Use the merged text for analysis
-    const textForAnalysis = tweet.text || '';
+    for (const tweet of mergedTweets) {
+      try {
+        // Check if tweet has already been processed
+        const existingTweet = await tweetQueries.findTweetByTweetId(
+          tweet.tweet_id,
+        );
+        if (existingTweet) {
+          elizaLogger.info(
+            `[Tweet Processing] Tweet ${tweet.tweet_id} has already been processed - skipping`,
+            {
+              tweetId: existingTweet.tweet_id,
+              status: existingTweet.status,
+            },
+          );
+          continue;
+        }
 
-    // First store the tweet object with both merged and original content
-    await tweetQueries.saveTweetObject({
-      id: dbId,
-      tweet_id: tweet.id,
-      content: textForAnalysis, // Store the full merged content
-      text: tweet.originalText || tweet.text || '', // Store the original tweet text
-      status: 'pending',
-      createdAt: new Date(tweet.timestamp * 1000),
-      agentId: runtime.agentId,
-      mediaType: 'text',
-      mediaUrl: tweet.permanentUrl,
-      bookmarkCount: tweet.bookmarkCount,
-      conversationId: tweet.conversationId,
-      hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [], // Ensure array
-      html: tweet.html,
-      inReplyToStatusId: tweet.inReplyToStatusId,
-      isQuoted: tweet.isQuoted || false,
-      isPin: tweet.isPin || false,
-      isReply: tweet.isReply || false,
-      isRetweet: tweet.isRetweet || false,
-      isSelfThread: tweet.isSelfThread || false,
-      isThreadMerged: tweet.isThreadMerged || false,
-      hasReplies: tweet.hasReplies || false,
-      threadSize: tweet.threadSize || 0,
-      replyCount: tweet.replyCount || 0,
-      likes: tweet.likes || 0,
-      name: tweet.name,
-      mentions: Array.isArray(tweet.mentions)
-        ? tweet.mentions.map((mention) => ({
-            username: mention.username || '',
-            id: mention.id || '',
-          }))
-        : [], // Ensure array and proper structure
-      permanentUrl: tweet.permanentUrl || '',
-      photos: Array.isArray(tweet.photos) ? tweet.photos : [], // Ensure array
-      quotedStatusId: tweet.quotedStatusId,
-      replies: tweet.replies || 0,
-      retweets: tweet.retweets || 0,
-      retweetedStatusId: tweet.retweetedStatusId,
-      timestamp: tweet.timestamp,
-      urls: Array.isArray(tweet.urls) ? tweet.urls : [], // Ensure array
-      userId: tweet.userId || '',
-      username: tweet.username || '',
-      views: tweet.views,
-      sensitiveContent: tweet.sensitiveContent || false,
-      homeTimeline: {
-        publicMetrics: {
+        // Store tweet in cache
+        await twitterService.cacheTweet(tweet);
+
+        // Store the tweet object with both merged and original content
+        await tweetQueries.saveTweetObject({
+          id: tweet.id, // Use fresh UUID as primary key
+          tweet_id: tweet.tweet_id, // Use Twitter's ID as foreign key
+          text: tweet.text || '',
+          userId: tweet.userId?.toString() || '',
+          username: tweet.username || '',
+          name: tweet.name || '',
+          timestamp: tweet.timestamp || Math.floor(Date.now() / 1000),
+          timeParsed: tweet.timeParsed || new Date(),
+
+          // Tweet metrics
           likes: tweet.likes || 0,
           retweets: tweet.retweets || 0,
           replies: tweet.replies || 0,
-        },
-        entities: {
-          hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [], // Ensure array
+          views: tweet.views || 0,
+          bookmarkCount: tweet.bookmarkCount || 0,
+
+          // Tweet metadata
+          conversationId: tweet.conversationId || '',
+          permanentUrl: tweet.permanentUrl || '',
+          html: tweet.html || '',
+          inReplyToStatus: tweet.inReplyToStatus,
+          inReplyToStatusId: tweet.inReplyToStatusId,
+          quotedStatus: tweet.quotedStatus,
+          quotedStatusId: tweet.quotedStatusId,
+          retweetedStatus: tweet.retweetedStatus,
+          retweetedStatusId: tweet.retweetedStatusId,
+          thread: Array.isArray(tweet.thread) ? tweet.thread : [],
+
+          // Tweet flags
+          isQuoted: tweet.isQuoted || false,
+          isPin: tweet.isPin || false,
+          isReply: tweet.isReply || false,
+          isRetweet: tweet.isRetweet || false,
+          isSelfThread: tweet.isSelfThread || false,
+          sensitiveContent: tweet.sensitiveContent || false,
+
+          // Media and entities
+          hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
           mentions: Array.isArray(tweet.mentions)
             ? tweet.mentions.map((mention) => ({
                 username: mention.username || '',
                 id: mention.id || '',
               }))
-            : [], // Ensure array and proper structure
-          urls: Array.isArray(tweet.urls) ? tweet.urls : [], // Ensure array
-        },
-      },
-    });
+            : [],
+          photos: Array.isArray(tweet.photos) ? tweet.photos : [],
+          urls: Array.isArray(tweet.urls) ? tweet.urls : [],
+          videos: Array.isArray(tweet.videos) ? tweet.videos : [],
+          place: tweet.place,
+          poll: tweet.poll,
 
-    elizaLogger.info(
-      `[Tweet Processing] Starting analysis for tweet ${tweet.id} from @${tweet.userId}`,
-      {
-        originalText:
-          tweet.originalText?.substring(0, 100) +
-          (tweet.originalText?.length > 100 ? '...' : ''),
-        mergedTextLength: textForAnalysis.length,
-        isThreadMerged: tweet.isThreadMerged,
-        hasReplies: tweet.hasReplies,
-        threadSize: tweet.threadSize,
-        replyCount: tweet.replyCount,
-        metrics: {
-          likes: tweet.likes,
-          retweets: tweet.retweets,
-          replies: tweet.replies,
-        },
-      },
-    );
-
-    // Perform comprehensive analysis
-    const template = tweetAnalysisTemplate({
-      text: textForAnalysis,
-      public_metrics: {
-        like_count: tweet.likes || 0,
-        retweet_count: tweet.retweets || 0,
-        reply_count: tweet.replies || 0,
-      },
-      topics: runtime.character.topics || [],
-      topicWeights: topicWeights.map((tw) => ({
-        topic: tw.topic,
-        weight: tw.weight,
-      })),
-    });
-
-    const context = composeContext({
-      state: await runtime.composeState(
-        {
-          content: { text: tweet.text },
-          userId: stringToUuid(tweet.userId),
+          // Application-specific fields
+          status: 'pending',
+          createdAt: new Date(),
           agentId: runtime.agentId,
-          roomId: stringToUuid(`${tweet.id}-${runtime.agentId}`),
-        } as Memory,
-        {
-          twitterService,
-          twitterUserName: runtime.getSetting('TWITTER_USERNAME'),
-          currentPost: tweet.text,
-        },
-      ),
-      template: template.context,
-    });
+          mediaType: tweet.mediaType || 'text',
+          mediaUrl: tweet.mediaUrl || tweet.permanentUrl,
+          scheduledFor: tweet.scheduledFor,
+          sentAt: tweet.sentAt,
+          error: tweet.error,
+          prompt: tweet.prompt,
+          newTweetContent: tweet.newTweetContent,
 
-    elizaLogger.debug('[Tweet Processing] Generated context:', {
-      contextLength: context.length,
-      hasTemplate: Boolean(template.context),
-      modelClass: template.modelClass,
-    });
+          // Thread processing fields
+          isThreadMerged: tweet.isThreadMerged || false,
+          threadSize: tweet.threadSize || 0,
+          originalText: tweet.originalText || tweet.text || '',
 
-    const analysis = await generateMessageResponse({
-      runtime,
-      context,
-      modelClass: ModelClass.MEDIUM,
-    });
+          // Timeline data
+          homeTimeline: {
+            publicMetrics: {
+              likes: tweet.likes || 0,
+              retweets: tweet.retweets || 0,
+              replies: tweet.replies || 0,
+            },
+            entities: {
+              hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
+              mentions: Array.isArray(tweet.mentions)
+                ? tweet.mentions.map((mention) => ({
+                    username: mention.username || '',
+                    id: mention.id || '',
+                  }))
+                : [],
+              urls: Array.isArray(tweet.urls) ? tweet.urls : [],
+            },
+          },
+        });
 
-    // Validate and process the analysis response
-    if (!analysis || typeof analysis !== 'object') {
-      elizaLogger.error('[Tweet Processing] Invalid analysis response:', {
-        analysis,
-      });
-      throw new Error('Invalid analysis response structure');
-    }
-
-    // Add detailed logging of the analysis response
-    elizaLogger.info('[Tweet Processing] Raw analysis response:', {
-      responseType: typeof analysis,
-      hasSpamAnalysis: 'spamAnalysis' in analysis,
-      hasContentAnalysis: 'contentAnalysis' in analysis,
-      hasText: 'text' in analysis,
-    });
-
-    let parsedAnalysis: TweetAnalysis;
-    try {
-      if ('spamAnalysis' in analysis && 'contentAnalysis' in analysis) {
-        // Direct JSON object response - need to cast through unknown due to type mismatch
-        parsedAnalysis = analysis as unknown as TweetAnalysis;
-        elizaLogger.info('[Tweet Processing] Using direct analysis object');
-      } else if ('text' in analysis && typeof analysis.text === 'string') {
-        // Text response that needs parsing
-        const cleanedText = extractJsonFromText(analysis.text);
-        parsedAnalysis = JSON.parse(cleanedText) as TweetAnalysis;
         elizaLogger.info(
-          '[Tweet Processing] Parsed analysis from text response',
+          `[Tweet Processing] Starting analysis for tweet ${tweet.tweet_id} from @${tweet.userId}`,
+          {
+            tweetId: tweet.tweet_id,
+            originalText:
+              tweet.originalText?.substring(0, 100) +
+              (tweet.originalText?.length > 100 ? '...' : ''),
+            mergedTextLength: tweet.text.length,
+            isThreadMerged: tweet.isThreadMerged,
+            threadSize: tweet.threadSize,
+            metrics: {
+              likes: tweet.likes,
+              retweets: tweet.retweets,
+              replies: tweet.replies,
+            },
+          },
         );
-      } else {
-        throw new Error(
-          'Response missing both direct analysis and text property',
+
+        // Perform comprehensive analysis
+        const template = tweetAnalysisTemplate({
+          text: tweet.text,
+          public_metrics: {
+            like_count: tweet.likes || 0,
+            retweet_count: tweet.retweets || 0,
+            reply_count: tweet.replies || 0,
+          },
+          topics: runtime.character.topics || [],
+          topicWeights: topicWeights.map((tw) => ({
+            topic: tw.topic,
+            weight: tw.weight,
+          })),
+        });
+
+        // Convert Twitter user ID to a consistent UUID for the memory context
+        const memoryUserId = stringToUuid(`twitter-user-${tweet.userId}`);
+
+        const context = composeContext({
+          state: await runtime.composeState(
+            {
+              content: { text: tweet.text },
+              userId: memoryUserId, // Use the generated UUID instead of Twitter ID
+              agentId: runtime.agentId,
+              roomId: uuidv4(), // This is fine as it's just for the context
+            } as Memory,
+            {
+              twitterService,
+              twitterUserName: runtime.getSetting('TWITTER_USERNAME'),
+              currentPost: tweet.text,
+            },
+          ),
+          template: template.context,
+        });
+
+        const analysis = await generateMessageResponse({
+          runtime,
+          context,
+          modelClass: ModelClass.MEDIUM,
+        });
+
+        // Validate and process the analysis response
+        if (!analysis || typeof analysis !== 'object') {
+          elizaLogger.error('[Tweet Processing] Invalid analysis response:', {
+            analysis,
+          });
+          throw new Error('Invalid analysis response structure');
+        }
+
+        let parsedAnalysis: TweetAnalysis;
+        try {
+          if ('spamAnalysis' in analysis && 'contentAnalysis' in analysis) {
+            parsedAnalysis = analysis as unknown as TweetAnalysis;
+          } else if ('text' in analysis && typeof analysis.text === 'string') {
+            const cleanedText = extractJsonFromText(analysis.text);
+            parsedAnalysis = JSON.parse(cleanedText) as TweetAnalysis;
+          } else {
+            throw new Error(
+              'Response missing both direct analysis and text property',
+            );
+          }
+        } catch (error) {
+          elizaLogger.error('[Tweet Processing] Failed to process analysis:', {
+            error: error instanceof Error ? error.message : String(error),
+            analysis: analysis,
+          });
+          throw new Error('Failed to process analysis response');
+        }
+
+        // Validate required fields
+        if (!parsedAnalysis.spamAnalysis || !parsedAnalysis.contentAnalysis) {
+          throw new Error('Invalid analysis format - missing required fields');
+        }
+
+        // Update spam user data regardless of spam status
+        await updateUserSpamData(
+          tweet.userId?.toString() || '',
+          parsedAnalysis.spamAnalysis.spamScore,
+          parsedAnalysis.spamAnalysis.reasons,
+          '[Tweet Processing]',
+        );
+
+        // Check if tweet is spam
+        const isSpam =
+          parsedAnalysis.spamAnalysis.isSpam === true &&
+          parsedAnalysis.spamAnalysis.spamScore > 0.7;
+
+        if (isSpam) {
+          await tweetQueries.updateTweetStatus(tweet.tweet_id, 'spam');
+          elizaLogger.info(
+            `[Tweet Processing] Tweet ${tweet.tweet_id} identified as spam - skipping analysis`,
+            {
+              tweetId: tweet.tweet_id,
+              spamScore: parsedAnalysis.spamAnalysis.spamScore,
+              reasons: parsedAnalysis.spamAnalysis.reasons,
+            },
+          );
+          continue;
+        }
+
+        // If tweet is not spam, add author to target accounts
+        if (tweet.username && tweet.userId) {
+          elizaLogger.info(
+            `[Tweet Processing] Upserting non-spam tweet author @${tweet.username} to target accounts`,
+          );
+
+          await tweetQueries.insertTargetAccount({
+            username: tweet.username,
+            userId: tweet.userId.toString(),
+            displayName: tweet.name || tweet.username,
+            description: '',
+            followersCount: 0,
+            followingCount: 0,
+            friendsCount: 0,
+            mediaCount: 0,
+            statusesCount: 0,
+            likesCount: 0,
+            listedCount: 0,
+            tweetsCount: 0,
+            isPrivate: false,
+            isVerified: false,
+            isBlueVerified: false,
+            joinedAt: null,
+            location: '',
+            avatarUrl: null,
+            bannerUrl: null,
+            websiteUrl: null,
+            canDm: false,
+            createdAt: new Date(),
+            lastUpdated: new Date(),
+            isActive: true,
+            source: 'tweet_author',
+          });
+        }
+
+        // Store analysis for non-spam tweets
+        const analysisId = stringToUuid(uuidv4()); // Convert UUID string to UUID type
+
+        await tweetQueries.insertTweetAnalysis(
+          analysisId, // UUID primary key
+          tweet.tweet_id, // tweet_id foreign key
+          parsedAnalysis.contentAnalysis.type,
+          parsedAnalysis.contentAnalysis.sentiment,
+          parsedAnalysis.contentAnalysis.confidence,
+          {
+            likes: tweet.likes || 0,
+            retweets: tweet.retweets || 0,
+            replies: tweet.replies || 0,
+            spamScore: parsedAnalysis.spamAnalysis.spamScore,
+            spamViolations: parsedAnalysis.spamAnalysis.reasons,
+            ...parsedAnalysis.contentAnalysis.metrics,
+          },
+          parsedAnalysis.contentAnalysis.entities,
+          parsedAnalysis.contentAnalysis.topics,
+          parsedAnalysis.contentAnalysis.impactScore,
+          new Date(tweet.timestamp * 1000),
+          tweet.userId?.toString() || '', // Ensure author_id is a string
+          tweet.text || '',
+          {
+            likes: tweet.likes || 0,
+            retweets: tweet.retweets || 0,
+            replies: tweet.replies || 0,
+          },
+          {
+            hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
+            mentions: Array.isArray(tweet.mentions)
+              ? tweet.mentions.map((mention) => ({
+                  username: mention.username || '',
+                  id: mention.id || '',
+                }))
+              : [],
+            urls: Array.isArray(tweet.urls) ? tweet.urls : [],
+            topicWeights: topicWeights.map((tw) => ({
+              topic: tw.topic,
+              weight: tw.weight,
+            })),
+          },
+          parsedAnalysis.spamAnalysis,
+          parsedAnalysis.contentAnalysis.metrics,
+        );
+
+        // Update tweet status to analyzed using Twitter's ID
+        await tweetQueries.updateTweetStatus(tweet.tweet_id, 'analyzed');
+
+        // Update topic weights for non-spam tweets
+        if (topicWeights.length > 0) {
+          await updateTopicWeights(
+            topicWeights,
+            parsedAnalysis.contentAnalysis.topics || [],
+            parsedAnalysis.contentAnalysis.impactScore || 0.5,
+            '[Tweet Processing]',
+          );
+        }
+
+        elizaLogger.info(
+          `[Tweet Processing] Successfully processed tweet ${tweet.tweet_id}`,
+          {
+            analysisId,
+            tweetId: tweet.tweet_id,
+            isThreadMerged: tweet.isThreadMerged,
+            textLength: tweet.text.length,
+            originalTextLength: tweet.originalText.length,
+          },
+        );
+      } catch (error) {
+        elizaLogger.error(
+          '[Tweet Processing] Error processing tweets:',
+          error instanceof Error ? error.message : String(error),
         );
       }
-    } catch (error) {
-      elizaLogger.error('[Tweet Processing] Failed to process analysis:', {
-        error: error instanceof Error ? error.message : String(error),
-        analysis: analysis,
-      });
-      throw new Error('Failed to process analysis response');
     }
 
-    // Validate required fields
-    if (!parsedAnalysis.spamAnalysis || !parsedAnalysis.contentAnalysis) {
-      throw new Error('Invalid analysis format - missing required fields');
-    }
-
-    // Add debug logging for spam detection
-    elizaLogger.debug('[Tweet Processing] Spam analysis results:', {
-      spamScore: parsedAnalysis.spamAnalysis.spamScore,
-      isSpam: parsedAnalysis.spamAnalysis.isSpam,
-      reasons: parsedAnalysis.spamAnalysis.reasons,
-    });
-
-    // Update spam user data regardless of spam status
-    await updateUserSpamData(
-      tweet.userId,
-      parsedAnalysis.spamAnalysis.spamScore,
-      parsedAnalysis.spamAnalysis.reasons,
-      '[Tweet Processing]',
-    );
-
-    // Check if tweet is spam - must have both high spam score AND be marked as spam
-    const isSpam =
-      parsedAnalysis.spamAnalysis.isSpam === true &&
-      parsedAnalysis.spamAnalysis.spamScore > 0.7;
-
-    if (isSpam) {
-      // Update tweet status to indicate it's spam
-      await tweetQueries.updateTweetStatus(dbId, 'spam');
-      elizaLogger.info(
-        `[Tweet Processing] Tweet ${tweet.id} identified as spam - skipping analysis`,
-        {
-          spamScore: parsedAnalysis.spamAnalysis.spamScore,
-          reasons: parsedAnalysis.spamAnalysis.reasons,
-        },
-      );
-      return;
-    }
-
-    // If tweet is not spam, add author to target accounts
-    if (tweet.username && tweet.userId) {
-      elizaLogger.info(
-        `[Tweet Processing] Upserting non-spam tweet author @${tweet.username} to target accounts`,
-      );
-
-      await tweetQueries.insertTargetAccount({
-        username: tweet.username,
-        userId: tweet.userId,
-        displayName: tweet.name || tweet.username,
-        description: '',
-        followersCount: 0,
-        followingCount: 0,
-        friendsCount: 0,
-        mediaCount: 0,
-        statusesCount: 0,
-        likesCount: 0,
-        listedCount: 0,
-        tweetsCount: 0,
-        isPrivate: false,
-        isVerified: false,
-        isBlueVerified: false,
-        joinedAt: null,
-        location: '',
-        avatarUrl: null,
-        bannerUrl: null,
-        websiteUrl: null,
-        canDm: false,
-        createdAt: new Date(),
-        lastUpdated: new Date(),
-        isActive: true,
-        source: 'tweet_author',
-      });
-    }
-
-    // Store analysis for non-spam tweets
-    await tweetQueries.insertTweetAnalysis(
-      dbId,
-      parsedAnalysis.contentAnalysis.type,
-      parsedAnalysis.contentAnalysis.sentiment,
-      parsedAnalysis.contentAnalysis.confidence,
-      {
-        likes: tweet.likes || 0,
-        retweets: tweet.retweets || 0,
-        replies: tweet.replies || 0,
-        spamScore: parsedAnalysis.spamAnalysis.spamScore,
-        spamViolations: parsedAnalysis.spamAnalysis.reasons,
-        ...parsedAnalysis.contentAnalysis.metrics,
-      },
-      parsedAnalysis.contentAnalysis.entities,
-      parsedAnalysis.contentAnalysis.topics,
-      parsedAnalysis.contentAnalysis.impactScore,
-      new Date(tweet.timestamp * 1000),
-      tweet.userId,
-      tweet.text || '',
-      {
-        likes: tweet.likes || 0,
-        retweets: tweet.retweets || 0,
-        replies: tweet.replies || 0,
-      },
-      {
-        hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
-        mentions: Array.isArray(tweet.mentions)
-          ? tweet.mentions.map((mention) => ({
-              username: mention.username || '',
-              id: mention.id || '',
-            }))
-          : [],
-        urls: Array.isArray(tweet.urls) ? tweet.urls : [],
-        topicWeights: topicWeights.map((tw) => ({
-          topic: tw.topic,
-          weight: tw.weight,
-        })),
-      },
-      parsedAnalysis.spamAnalysis,
-      parsedAnalysis.contentAnalysis.metrics,
-    );
-
-    // Update tweet status to analyzed
-    await tweetQueries.updateTweetStatus(dbId, 'analyzed');
-
-    // Update topic weights for non-spam tweets
-    if (topicWeights.length > 0) {
-      await updateTopicWeights(
-        topicWeights,
-        parsedAnalysis.contentAnalysis.topics || [],
-        parsedAnalysis.contentAnalysis.impactScore || 0.5,
-        '[Tweet Processing]',
-      );
-    }
-
-    elizaLogger.info(
-      `[Tweet Processing] Successfully processed non-spam tweet ${tweet.id} and stored in database with ID ${dbId}`,
-    );
+    elizaLogger.info('[TwitterAccounts] Successfully processed all tweets');
   } catch (error) {
-    elizaLogger.error('[Tweet Processing] Error processing tweet:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      tweetId: tweet.id,
-      userId: tweet.userId,
-      text:
-        tweet.text?.substring(0, 100) + (tweet.text?.length > 100 ? '...' : ''),
-    });
+    elizaLogger.error(
+      '[Tweet Processing] Error processing tweets:',
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

@@ -214,19 +214,37 @@ export class TwitterAuthService {
 
     try {
       const twitterProfile = await this.twitterClient.getProfile(username);
-      const profile = {
-        id: twitterProfile.userId,
-        username,
-        screenName: twitterProfile.name || this.runtime.character.name,
-        bio:
+      const profile: TwitterProfile = {
+        userId: twitterProfile.userId,
+        username: username,
+        displayName: twitterProfile.name || this.runtime.character.name,
+        description:
           twitterProfile.biography ||
           (typeof this.runtime.character.bio === 'string'
             ? this.runtime.character.bio
             : this.runtime.character.bio?.length > 0
               ? this.runtime.character.bio[0]
               : ''),
-        nicknames: this.runtime.character.twitterProfile?.nicknames || [],
-      } satisfies TwitterProfile;
+        followersCount: twitterProfile.followersCount || 0,
+        followingCount: twitterProfile.followingCount || 0,
+        friendsCount: twitterProfile.friendsCount || 0,
+        mediaCount: twitterProfile.mediaCount || 0,
+        statusesCount: twitterProfile.statusesCount || 0,
+        likesCount: twitterProfile.likesCount || 0,
+        listedCount: twitterProfile.listedCount || 0,
+        tweetsCount: twitterProfile.tweetsCount || 0,
+        isPrivate: twitterProfile.isPrivate || false,
+        isVerified: twitterProfile.isVerified || false,
+        isBlueVerified: twitterProfile.isBlueVerified || false,
+        joinedAt: twitterProfile.joined
+          ? new Date(twitterProfile.joined)
+          : null,
+        location: twitterProfile.location || '',
+        avatarUrl: twitterProfile.avatar || null,
+        bannerUrl: twitterProfile.banner || null,
+        websiteUrl: twitterProfile.website || null,
+        canDm: twitterProfile.canDm || false,
+      };
 
       await this.cacheProfile(profile);
       return profile;

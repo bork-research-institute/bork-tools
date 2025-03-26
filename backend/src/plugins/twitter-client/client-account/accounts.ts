@@ -1,5 +1,5 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { SearchMode } from 'agent-twitter-client';
+import { tweetQueries } from '../../bork-extensions/src/db/queries';
 import { KaitoService } from '../lib/services/kaito-service';
 import { TwitterConfigService } from '../lib/services/twitter-config-service';
 import type { TwitterService } from '../lib/services/twitter-service';
@@ -7,6 +7,7 @@ import { initializeTopicWeights } from '../lib/utils/topic-weights';
 import { processTweets } from '../lib/utils/tweet-processing';
 import { initializeTargetAccounts } from './utils/account-initialization';
 import { selectTargetAccounts } from './utils/account-selection';
+import { selectTweetsFromAccounts } from './utils/tweet-selection';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
@@ -33,7 +34,6 @@ export class TwitterAccountsClient {
         '[TwitterAccounts] Error initializing topic weights:',
         error,
       );
-      // Continue even if there's an error - we'll retry later
     }
 
     await this.initializeTargetAccounts();
@@ -73,63 +73,15 @@ export class TwitterAccountsClient {
         return;
       }
 
-      const allTweets = [];
-      for (const accountToProcess of accountsToProcess) {
-        try {
-          const { tweets: accountTweets, spammedTweets } =
-            await this.twitterService.searchTweets(
-              `from:${accountToProcess.username}`,
-              config.search.tweetLimits.targetAccounts,
-              SearchMode.Latest,
-              '[TwitterAccounts]',
-              config.search.parameters,
-              config.search.engagementThresholds,
-            );
+      // Select tweets from accounts based on engagement criteria
+      const selectionResults = await selectTweetsFromAccounts(
+        this.twitterService,
+        accountsToProcess,
+        config,
+      );
 
-          elizaLogger.info(
-            `[TwitterAccounts] Fetched ${accountTweets.length} tweets from ${accountToProcess.username}`,
-            { spammedTweets },
-          );
-
-          // Collect most recent tweets that meet engagement criteria
-          let processedCount = 0;
-          const thresholds = config.search.engagementThresholds;
-
-          for (const tweet of accountTweets) {
-            if (
-              tweet.likes >= thresholds.minLikes &&
-              tweet.retweets >= thresholds.minRetweets &&
-              tweet.replies >= thresholds.minReplies
-            ) {
-              allTweets.push(tweet);
-              processedCount++;
-
-              if (
-                processedCount >=
-                config.search.tweetLimits.qualityTweetsPerAccount
-              ) {
-                break;
-              }
-            }
-          }
-
-          elizaLogger.info(
-            `[TwitterAccounts] Selected ${processedCount} tweets meeting criteria from ${accountTweets.length} fetched tweets for ${accountToProcess.username}`,
-            {
-              minLikes: thresholds.minLikes,
-              minRetweets: thresholds.minRetweets,
-              minReplies: thresholds.minReplies,
-              maxQualityTweets:
-                config.search.tweetLimits.qualityTweetsPerAccount,
-            },
-          );
-        } catch (error) {
-          elizaLogger.error(
-            `[TwitterAccounts] Error fetching tweets from ${accountToProcess.username}:`,
-            error instanceof Error ? error.message : String(error),
-          );
-        }
-      }
+      // Collect all tweets that meet criteria
+      const allTweets = selectionResults.flatMap((result) => result.tweets);
 
       if (allTweets.length === 0) {
         elizaLogger.warn(
@@ -138,8 +90,16 @@ export class TwitterAccountsClient {
         return;
       }
 
+      // Get topic weights for processing
+      const topicWeights = await tweetQueries.getTopicWeights();
+
       // Process filtered tweets
-      await processTweets(allTweets);
+      await processTweets(
+        this.runtime,
+        this.twitterService,
+        allTweets,
+        topicWeights,
+      );
     } catch (error) {
       // Catch-all error handler to prevent process crashes
       elizaLogger.error(

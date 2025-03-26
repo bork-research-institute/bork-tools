@@ -6,9 +6,9 @@ import {
 import { Scraper } from 'agent-twitter-client';
 import { cleanupPool } from '../bork-extensions/src/db';
 import { TwitterAccountsClient } from './client-account/accounts';
-import { TwitterAccountDiscoveryClient } from './clients/account-discovery';
-import { TwitterInteractionClient } from './clients/interactions';
-import { TwitterSearchClient } from './clients/search';
+import { TwitterAccountDiscoveryClient } from './client-discovery/account-discovery';
+import { TwitterInteractionClient } from './client-interactions/interactions';
+import { TwitterSearchClient } from './client-search/search';
 import { TwitterService } from './lib/services/twitter-service';
 
 export class TwitterClient implements ClientInstance {

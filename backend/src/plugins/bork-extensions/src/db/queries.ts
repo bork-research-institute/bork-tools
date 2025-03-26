@@ -1,5 +1,8 @@
-import { elizaLogger, stringToUuid } from '@elizaos/core';
+import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
+import type { TargetAccount } from '../../../twitter-client/lib/types/account';
+import type { TopicWeightRow } from '../../../twitter-client/lib/types/topic';
+import type { DatabaseTweet } from '../../../twitter-client/lib/types/twitter';
 import type {
   TwitterConfig,
   TwitterConfigRow,
@@ -11,53 +14,8 @@ import type {
   ConsciousnessStream,
   Log,
   StreamSetting,
-  TopicWeightRow,
-  Tweet,
+  YapsData,
 } from './schema';
-
-export interface TargetAccount {
-  username: string;
-  userId: string;
-  displayName: string;
-  description: string;
-  followersCount: number;
-  followingCount: number;
-  friendsCount: number;
-  mediaCount: number;
-  statusesCount: number;
-  likesCount: number;
-  listedCount: number;
-  tweetsCount: number;
-  isPrivate: boolean;
-  isVerified: boolean;
-  isBlueVerified: boolean;
-  joinedAt: Date | null;
-  location: string;
-  avatarUrl: string | null;
-  bannerUrl: string | null;
-  websiteUrl: string | null;
-  canDm: boolean;
-  createdAt: Date;
-  lastUpdated: Date;
-  isActive: boolean;
-  source: string;
-}
-
-export interface YapsData {
-  id: number;
-  userId: string;
-  username: string;
-  yapsAll: number;
-  yapsL24h: number;
-  yapsL48h: number;
-  yapsL7d: number;
-  yapsL30d: number;
-  yapsL3m: number;
-  yapsL6m: number;
-  yapsL12m: number;
-  lastUpdated: Date;
-  createdAt: Date;
-}
 
 export const yapsQueries = {
   async upsertYapsData(
@@ -131,7 +89,7 @@ export const yapsQueries = {
 };
 
 export const tweetQueries = {
-  getPendingTweets: async (): Promise<Tweet[]> => {
+  getPendingTweets: async (): Promise<DatabaseTweet[]> => {
     try {
       const { rows } = await db.query(
         'SELECT * FROM tweets WHERE status = $1 ORDER BY created_at DESC',
@@ -144,7 +102,10 @@ export const tweetQueries = {
     }
   },
 
-  getSentTweets: async (agentId: string, limit: number): Promise<Tweet[]> => {
+  getSentTweets: async (
+    agentId: string,
+    limit: number,
+  ): Promise<DatabaseTweet[]> => {
     const { rows } = await db.query(
       'SELECT * FROM tweets WHERE agent_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3',
       [agentId, 'sent', limit],
@@ -152,7 +113,10 @@ export const tweetQueries = {
     return rows;
   },
 
-  getTweets: async (limit: number, offset: number): Promise<Tweet[]> => {
+  getTweets: async (
+    limit: number,
+    offset: number,
+  ): Promise<DatabaseTweet[]> => {
     const { rows } = await db.query(
       'SELECT * FROM tweets ORDER BY created_at DESC LIMIT $1 OFFSET $2',
       [limit, offset],
@@ -161,14 +125,14 @@ export const tweetQueries = {
   },
 
   updateTweetStatus: async (
-    tweetId: string,
+    tweet_id: string,
     status: string,
     error?: string,
   ) => {
     try {
       await db.query(
-        'UPDATE tweets SET status = $1, error = $2 WHERE id = $3',
-        [status, error, tweetId],
+        'UPDATE tweets SET status = $1, error = $2 WHERE tweet_id = $3',
+        [status, error, tweet_id],
       );
     } catch (error) {
       elizaLogger.error('Error updating tweet status:', error);
@@ -176,226 +140,222 @@ export const tweetQueries = {
     }
   },
 
-  async saveTweetObject({
-    id,
-    tweet_id,
-    content,
-    text,
-    status,
-    createdAt,
-    agentId,
-    mediaType,
-    mediaUrl,
-    bookmarkCount,
-    conversationId,
-    hashtags,
-    html,
-    inReplyToStatusId,
-    isQuoted,
-    isPin,
-    isReply,
-    isRetweet,
-    isSelfThread,
-    isThreadMerged,
-    hasReplies,
-    threadSize,
-    replyCount,
-    likes,
-    name,
-    mentions,
-    permanentUrl,
-    photos,
-    quotedStatusId,
-    replies,
-    retweets,
-    retweetedStatusId,
-    timestamp,
-    urls,
-    userId,
-    username,
-    views,
-    sensitiveContent,
-    homeTimeline,
-  }) {
+  saveTweetObject: async (tweet: DatabaseTweet): Promise<void> => {
     const query = `
       INSERT INTO tweets (
-        id, tweet_id, content, text, status, created_at, agent_id,
-        media_type, media_url, bookmark_count, conversation_id,
-        hashtags, html, in_reply_to_status_id, is_quoted, is_pin,
-        is_reply, is_retweet, is_self_thread, is_thread_merged,
-        has_replies, thread_size, reply_count, likes, name, mentions,
-        permanent_url, photos, quoted_status_id, replies, retweets,
-        retweeted_status_id, timestamp, urls, user_id, username,
-        views, sensitive_content, home_timeline
+        id, tweet_id, agent_id, text, user_id, username, name, timestamp, time_parsed,
+        likes, retweets, replies, views, bookmark_count,
+        conversation_id, permanent_url, html,
+        in_reply_to_status, in_reply_to_status_id,
+        quoted_status, quoted_status_id,
+        retweeted_status, retweeted_status_id,
+        thread,
+        is_quoted, is_pin, is_reply, is_retweet, is_self_thread, sensitive_content,
+        is_thread_merged, thread_size, original_text,
+        media_type, media_url,
+        hashtags, mentions, photos, urls, videos,
+        place, poll,
+        home_timeline,
+        status, created_at, scheduled_for, sent_at,
+        error, prompt, new_tweet_content
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 
-        $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, 
-        $22, $23, $24, $25, $26::jsonb, $27, $28::jsonb, $29, $30, 
-        $31, $32, $33, $34::text[], $35, $36, $37, $38, $39::jsonb
+        $1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11, $12, $13, $14,
+        $15, $16, $17,
+        $18, $19,
+        $20, $21,
+        $22, $23,
+        $24,
+        $25, $26, $27, $28, $29, $30,
+        $31, $32, $33,
+        $34, $35,
+        $36, $37, $38, $39, $40,
+        $41, $42,
+        $43,
+        $44, $45, $46, $47,
+        $48, $49, $50
       )
-      ON CONFLICT (tweet_id) DO UPDATE
-      SET
-        content = EXCLUDED.content,
+      ON CONFLICT (id) DO UPDATE SET
+        tweet_id = EXCLUDED.tweet_id,
         text = EXCLUDED.text,
-        status = EXCLUDED.status,
+        user_id = EXCLUDED.user_id,
+        username = EXCLUDED.username,
+        name = EXCLUDED.name,
+        timestamp = EXCLUDED.timestamp,
+        time_parsed = EXCLUDED.time_parsed,
+        likes = EXCLUDED.likes,
+        retweets = EXCLUDED.retweets,
+        replies = EXCLUDED.replies,
+        views = EXCLUDED.views,
+        bookmark_count = EXCLUDED.bookmark_count,
+        conversation_id = EXCLUDED.conversation_id,
+        permanent_url = EXCLUDED.permanent_url,
+        html = EXCLUDED.html,
+        in_reply_to_status = EXCLUDED.in_reply_to_status,
+        in_reply_to_status_id = EXCLUDED.in_reply_to_status_id,
+        quoted_status = EXCLUDED.quoted_status,
+        quoted_status_id = EXCLUDED.quoted_status_id,
+        retweeted_status = EXCLUDED.retweeted_status,
+        retweeted_status_id = EXCLUDED.retweeted_status_id,
+        thread = EXCLUDED.thread,
+        is_quoted = EXCLUDED.is_quoted,
+        is_pin = EXCLUDED.is_pin,
+        is_reply = EXCLUDED.is_reply,
+        is_retweet = EXCLUDED.is_retweet,
+        is_self_thread = EXCLUDED.is_self_thread,
+        sensitive_content = EXCLUDED.sensitive_content,
         is_thread_merged = EXCLUDED.is_thread_merged,
-        has_replies = EXCLUDED.has_replies,
         thread_size = EXCLUDED.thread_size,
-        reply_count = EXCLUDED.reply_count
-      RETURNING *;
+        original_text = EXCLUDED.original_text,
+        media_type = EXCLUDED.media_type,
+        media_url = EXCLUDED.media_url,
+        hashtags = EXCLUDED.hashtags,
+        mentions = EXCLUDED.mentions,
+        photos = EXCLUDED.photos,
+        urls = EXCLUDED.urls,
+        videos = EXCLUDED.videos,
+        place = EXCLUDED.place,
+        poll = EXCLUDED.poll,
+        home_timeline = EXCLUDED.home_timeline,
+        status = EXCLUDED.status,
+        created_at = EXCLUDED.created_at,
+        scheduled_for = EXCLUDED.scheduled_for,
+        sent_at = EXCLUDED.sent_at,
+        error = EXCLUDED.error,
+        prompt = EXCLUDED.prompt,
+        new_tweet_content = EXCLUDED.new_tweet_content
     `;
 
-    const values = [
-      id,
-      tweet_id,
-      content,
-      text,
-      status,
-      createdAt,
-      agentId,
-      mediaType,
-      mediaUrl,
-      bookmarkCount,
-      conversationId,
-      Array.isArray(hashtags) ? hashtags : [], // Ensure array for PostgreSQL
-      html,
-      inReplyToStatusId,
-      isQuoted,
-      isPin,
-      isReply,
-      isRetweet,
-      isSelfThread,
-      isThreadMerged,
-      hasReplies,
-      threadSize,
-      replyCount,
-      likes,
-      name,
-      JSON.stringify(Array.isArray(mentions) ? mentions : []), // Convert to JSON string
-      permanentUrl,
-      JSON.stringify(Array.isArray(photos) ? photos : []), // Convert to JSON string
-      quotedStatusId,
-      replies,
-      retweets,
-      retweetedStatusId,
-      timestamp,
-      Array.isArray(urls) ? urls : [], // Ensure array for PostgreSQL
-      userId,
-      username,
-      views,
-      sensitiveContent,
-      JSON.stringify(homeTimeline), // Convert to JSON string
-    ];
-
     try {
-      const result = await db.query(query, values);
-      return result.rows[0];
+      await db.query(query, [
+        tweet.id || uuidv4(),
+        tweet.tweet_id,
+        tweet.agentId,
+        tweet.text,
+        tweet.userId,
+        tweet.username,
+        tweet.name,
+        tweet.timestamp,
+        tweet.timeParsed,
+        tweet.likes || 0,
+        tweet.retweets || 0,
+        tweet.replies || 0,
+        tweet.views,
+        tweet.bookmarkCount,
+        tweet.conversationId,
+        tweet.permanentUrl,
+        tweet.html,
+        tweet.inReplyToStatus ? JSON.stringify(tweet.inReplyToStatus) : null,
+        tweet.inReplyToStatusId,
+        tweet.quotedStatus ? JSON.stringify(tweet.quotedStatus) : null,
+        tweet.quotedStatusId,
+        tweet.retweetedStatus ? JSON.stringify(tweet.retweetedStatus) : null,
+        tweet.retweetedStatusId,
+        JSON.stringify(tweet.thread || []),
+        tweet.isQuoted || false,
+        tweet.isPin || false,
+        tweet.isReply || false,
+        tweet.isRetweet || false,
+        tweet.isSelfThread || false,
+        tweet.sensitiveContent || false,
+        tweet.isThreadMerged || false,
+        tweet.threadSize || 0,
+        tweet.originalText,
+        tweet.mediaType,
+        tweet.mediaUrl,
+        tweet.hashtags || [],
+        JSON.stringify(tweet.mentions || []),
+        JSON.stringify(tweet.photos || []),
+        tweet.urls || [],
+        JSON.stringify(tweet.videos || []),
+        tweet.place ? JSON.stringify(tweet.place) : null,
+        tweet.poll ? JSON.stringify(tweet.poll) : null,
+        JSON.stringify(
+          tweet.homeTimeline || { publicMetrics: {}, entities: {} },
+        ),
+        tweet.status || 'pending',
+        tweet.createdAt || new Date(),
+        tweet.scheduledFor,
+        tweet.sentAt,
+        tweet.error,
+        tweet.prompt,
+        tweet.newTweetContent,
+      ]);
     } catch (error) {
-      elizaLogger.error('Error saving tweet:', error);
+      elizaLogger.error('Error saving tweet:', {
+        error: error instanceof Error ? error.message : String(error),
+        tweetId: tweet.tweet_id,
+        userId: tweet.userId,
+      });
       throw error;
     }
   },
 
   saveTweet: async (
-    content: string,
+    text: string,
     agentId: string,
     scheduledFor?: Date,
-    homeTimeline?: Tweet[],
     newTweetContent?: string,
-  ) => {
-    const tweet: Tweet = {
-      id: uuidv4(),
-      tweet_id: uuidv4(), // Generate a temporary tweet_id for internal tweets
-      content,
-      text: content,
-      agentId,
-      scheduledFor,
-      status: 'pending',
-      homeTimeline: homeTimeline ? { tweets: homeTimeline } : undefined,
-      newTweetContent,
-      createdAt: new Date(),
-      sentAt: null,
-      error: null,
-      prompt: null,
-      mediaType: 'text',
-      mediaUrl: null,
+  ): Promise<DatabaseTweet> => {
+    // Create a new tweet with both AgentTweet fields and our additional fields
+    const id = uuidv4(); // Generate UUID for our primary key
+    const twitterId = uuidv4(); // Generate an ID that will be used for Twitter
+    const tweet: DatabaseTweet = {
+      // Our primary key
+      id,
+      // AgentTweet fields
+      tweet_id: twitterId,
+      text,
       hashtags: [],
+      mentions: [],
+      photos: [],
+      urls: [],
+      likes: 0,
+      replies: 0,
+      retweets: 0,
       isQuoted: false,
       isPin: false,
       isReply: false,
       isRetweet: false,
       isSelfThread: false,
-      likes: 0,
-      mentions: [],
-      permanentUrl: '',
-      photos: [],
-      replies: 0,
-      retweets: 0,
-      timestamp: Math.floor(Date.now() / 1000),
-      urls: [],
-      userId: agentId,
-      username: '',
       sensitiveContent: false,
+      timestamp: Math.floor(Date.now() / 1000),
+      thread: [], // Required by AgentTweet
+      videos: [], // Required by AgentTweet
+      userId: agentId, // Use agentId as userId for now
+      username: '', // Will be updated later
+      name: '', // Will be updated later
+      conversationId: twitterId, // Same as tweet_id for new tweets
+      permanentUrl: `https://twitter.com/unknown/status/${twitterId}`, // Will be updated later
+
+      // Our additional fields
+      status: 'pending',
+      createdAt: new Date(),
+      agentId,
+      mediaType: 'text',
+      scheduledFor,
+      newTweetContent,
+      isThreadMerged: false,
+      threadSize: 0,
+      originalText: text,
+      homeTimeline: {
+        publicMetrics: {
+          likes: 0,
+          retweets: 0,
+          replies: 0,
+        },
+        entities: {
+          hashtags: [],
+          mentions: [],
+          urls: [],
+        },
+      },
     };
+
     try {
-      const result = await db.query(
-        `INSERT INTO tweets (
-          id, tweet_id, content, text, status, created_at, scheduled_for, sent_at, 
-          error, agent_id, prompt, bookmark_count, conversation_id, hashtags, html,
-          in_reply_to_status_id, is_quoted, is_pin, is_reply, is_retweet, is_self_thread,
-          likes, name, mentions, permanent_url, photos, quoted_status_id, replies,
-          retweets, retweeted_status_id, timestamp, urls, user_id, username, views,
-          sensitive_content, media_type, media_url, home_timeline, new_tweet_content
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-          $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
-        ) RETURNING *`,
-        [
-          tweet.id,
-          tweet.tweet_id,
-          tweet.content,
-          tweet.text,
-          tweet.status,
-          tweet.createdAt,
-          tweet.scheduledFor,
-          tweet.sentAt,
-          tweet.error,
-          tweet.agentId,
-          tweet.prompt,
-          tweet.bookmarkCount,
-          tweet.conversationId,
-          tweet.hashtags,
-          tweet.html,
-          tweet.inReplyToStatusId,
-          tweet.isQuoted,
-          tweet.isPin,
-          tweet.isReply,
-          tweet.isRetweet,
-          tweet.isSelfThread,
-          tweet.likes,
-          tweet.name,
-          JSON.stringify(tweet.mentions),
-          tweet.permanentUrl,
-          JSON.stringify(tweet.photos),
-          tweet.quotedStatusId,
-          tweet.replies,
-          tweet.retweets,
-          tweet.retweetedStatusId,
-          tweet.timestamp,
-          tweet.urls,
-          tweet.userId,
-          tweet.username,
-          tweet.views,
-          tweet.sensitiveContent,
-          tweet.mediaType,
-          tweet.mediaUrl,
-          tweet.homeTimeline ? JSON.stringify(tweet.homeTimeline) : null,
-          tweet.newTweetContent,
-        ],
-      );
-      return result.rows[0];
+      await tweetQueries.saveTweetObject(tweet);
+      return tweet;
     } catch (error) {
       elizaLogger.error('Error saving tweet:', error);
       throw error;
@@ -415,11 +375,11 @@ export const tweetQueries = {
     }
   },
 
-  markTweetAsSent: async (tweetId: string) => {
+  markTweetAsSent: async (id: string) => {
     try {
       await db.query(
         'UPDATE tweets SET status = $1, sent_at = NOW() WHERE id = $2',
-        ['sent', tweetId],
+        ['sent', id],
       );
     } catch (error) {
       elizaLogger.error('Error marking tweet as sent:', error);
@@ -427,11 +387,11 @@ export const tweetQueries = {
     }
   },
 
-  markTweetAsError: async (tweetId: string, error: string) => {
+  markTweetAsError: async (id: string, error: string) => {
     try {
       await db.query(
         'UPDATE tweets SET status = $1, error = $2 WHERE id = $3',
-        ['error', error, tweetId],
+        ['error', error, id],
       );
     } catch (error) {
       elizaLogger.error('Error marking tweet as error:', error);
@@ -439,11 +399,11 @@ export const tweetQueries = {
     }
   },
 
-  getSentTweetById: async (tweetId: string) => {
+  getSentTweetById: async (id: string) => {
     try {
       const { rows } = await db.query(
         'SELECT * FROM tweets WHERE id = $1 AND status = $2',
-        [tweetId, 'sent'],
+        [id, 'sent'],
       );
       return rows;
     } catch (error) {
@@ -452,28 +412,29 @@ export const tweetQueries = {
     }
   },
 
-  updateTweetsAsSending: async (tweetIds: string[]) => {
+  updateTweetsAsSending: async (ids: string[]) => {
     await db.query('UPDATE tweets SET status = $1 WHERE id = ANY($2)', [
       'sending',
-      tweetIds,
+      ids,
     ]);
   },
 
   insertTweetAnalysis: async (
-    tweetId: string,
+    id: UUID,
+    tweet_id: string,
     type: string,
     sentiment: string,
     confidence: number,
     metrics: Record<string, unknown>,
     entities: string[],
     topics: string[],
-    impactScore: number,
-    createdAt: Date,
-    authorId: string,
-    tweetText: string,
-    publicMetrics: Record<string, unknown>,
-    tweetEntities: Record<string, unknown>,
-    spamAnalysis: {
+    impact_score: number,
+    created_at: Date,
+    author_id: string,
+    tweet_text: string,
+    public_metrics: Record<string, unknown>,
+    raw_entities: Record<string, unknown>,
+    spam_analysis: {
       spamScore: number;
       reasons: string[];
       isSpam: boolean;
@@ -484,7 +445,7 @@ export const tweetQueries = {
         promotionalIntent: number;
       };
     },
-    contentMetrics: {
+    content_metrics: {
       relevance: number;
       quality: number;
       engagement: number;
@@ -493,22 +454,51 @@ export const tweetQueries = {
     },
   ) => {
     try {
-      await db.query(
-        `INSERT INTO tweet_analysis (
-          tweet_id, type, sentiment, confidence, metrics, 
-          entities, topics, impact_score, created_at, 
-          author_id, tweet_text, public_metrics, raw_entities,
-          spam_score, spam_reasons, is_spam,
-          linguistic_risk, topic_mismatch, engagement_anomaly, promotional_intent,
-          content_relevance, content_quality, content_engagement,
-          content_authenticity, content_value_add
+      const query = `
+        INSERT INTO tweet_analysis (
+          id,
+          tweet_id,
+          type,
+          sentiment,
+          confidence,
+          metrics,
+          entities,
+          topics,
+          impact_score,
+          created_at,
+          author_id,
+          tweet_text,
+          public_metrics,
+          raw_entities,
+          spam_score,
+          spam_reasons,
+          is_spam,
+          linguistic_risk,
+          topic_mismatch,
+          engagement_anomaly,
+          promotional_intent,
+          content_relevance,
+          content_quality,
+          content_engagement,
+          content_authenticity,
+          content_value_add
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-          $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
         )
-        ON CONFLICT (tweet_id) DO UPDATE SET
+        ON CONFLICT (id) DO UPDATE SET
+          type = EXCLUDED.type,
+          sentiment = EXCLUDED.sentiment,
+          confidence = EXCLUDED.confidence,
           metrics = EXCLUDED.metrics,
+          entities = EXCLUDED.entities,
+          topics = EXCLUDED.topics,
           impact_score = EXCLUDED.impact_score,
+          created_at = EXCLUDED.created_at,
+          author_id = EXCLUDED.author_id,
+          tweet_text = EXCLUDED.tweet_text,
+          public_metrics = EXCLUDED.public_metrics,
+          raw_entities = EXCLUDED.raw_entities,
           spam_score = EXCLUDED.spam_score,
           spam_reasons = EXCLUDED.spam_reasons,
           is_spam = EXCLUDED.is_spam,
@@ -520,37 +510,54 @@ export const tweetQueries = {
           content_quality = EXCLUDED.content_quality,
           content_engagement = EXCLUDED.content_engagement,
           content_authenticity = EXCLUDED.content_authenticity,
-          content_value_add = EXCLUDED.content_value_add`,
-        [
-          tweetId,
-          type,
-          sentiment,
-          confidence,
-          JSON.stringify(metrics),
-          entities,
-          topics,
-          impactScore,
-          createdAt,
-          authorId,
-          tweetText,
-          JSON.stringify(publicMetrics),
-          JSON.stringify(tweetEntities),
-          spamAnalysis.spamScore,
-          spamAnalysis.reasons,
-          spamAnalysis.isSpam,
-          spamAnalysis.confidenceMetrics.linguisticRisk,
-          spamAnalysis.confidenceMetrics.topicMismatch,
-          spamAnalysis.confidenceMetrics.engagementAnomaly,
-          spamAnalysis.confidenceMetrics.promotionalIntent,
-          contentMetrics.relevance,
-          contentMetrics.quality,
-          contentMetrics.engagement,
-          contentMetrics.authenticity,
-          contentMetrics.valueAdd,
-        ],
-      );
+          content_value_add = EXCLUDED.content_value_add`;
+
+      const values = [
+        id,
+        tweet_id,
+        type,
+        sentiment,
+        confidence,
+        JSON.stringify(metrics),
+        JSON.stringify(entities),
+        JSON.stringify(topics),
+        impact_score,
+        created_at,
+        author_id, // Keep as string, no conversion needed
+        tweet_text,
+        JSON.stringify(public_metrics),
+        JSON.stringify(raw_entities),
+        spam_analysis.spamScore,
+        JSON.stringify(spam_analysis.reasons),
+        spam_analysis.isSpam,
+        spam_analysis.confidenceMetrics.linguisticRisk,
+        spam_analysis.confidenceMetrics.topicMismatch,
+        spam_analysis.confidenceMetrics.engagementAnomaly,
+        spam_analysis.confidenceMetrics.promotionalIntent,
+        content_metrics.relevance,
+        content_metrics.quality,
+        content_metrics.engagement,
+        content_metrics.authenticity,
+        content_metrics.valueAdd,
+      ];
+
+      // Log the actual values being passed to the query
+      elizaLogger.debug('[DB Queries] Query values:', {
+        values: values.map((v, i) => [
+          i + 1,
+          typeof v,
+          v instanceof Date ? v.toISOString() : String(v),
+        ]),
+      });
+
+      await db.query(query, values);
     } catch (error) {
-      elizaLogger.error('Error inserting tweet analysis:', error);
+      elizaLogger.error('[DB Queries] Error inserting tweet analysis:', {
+        error: error instanceof Error ? error.message : String(error),
+        id: id.toString(),
+        tweet_id,
+        author_id,
+      });
       throw error;
     }
   },
@@ -766,9 +773,11 @@ export const tweetQueries = {
     ]);
   },
 
-  findTweetByTweetId: async (tweet_id: string): Promise<Tweet | null> => {
+  findTweetByTweetId: async (
+    tweet_id: string,
+  ): Promise<DatabaseTweet | null> => {
     try {
-      const result = await db.query<Tweet>(
+      const result = await db.query<DatabaseTweet>(
         'SELECT * FROM tweets WHERE tweet_id = $1 LIMIT 1',
         [tweet_id],
       );
@@ -777,6 +786,19 @@ export const tweetQueries = {
       elizaLogger.error(
         `[Tweet Queries] Error finding tweet by tweet ID: ${error}`,
       );
+      throw error;
+    }
+  },
+
+  findTweetById: async (id: string): Promise<DatabaseTweet | null> => {
+    try {
+      const result = await db.query<DatabaseTweet>(
+        'SELECT * FROM tweets WHERE id = $1 LIMIT 1',
+        [id],
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      elizaLogger.error(`[Tweet Queries] Error finding tweet by ID: ${error}`);
       throw error;
     }
   },
