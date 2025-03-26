@@ -1,4 +1,5 @@
 import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
+import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import type { TargetAccount } from '../../../twitter-client/lib/types/account';
 import type { TopicWeightRow } from '../../../twitter-client/lib/types/topic';
@@ -16,6 +17,47 @@ import type {
   StreamSetting,
   YapsData,
 } from './schema';
+
+/**
+ * Execute a function within a transaction and automatically release the client
+ */
+async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Execute a function with a client that may or may not be part of an existing transaction
+ */
+async function withClient<T>(
+  clientOrNull: PoolClient | null,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  if (clientOrNull) {
+    // Use the provided client (likely part of an ongoing transaction)
+    return fn(clientOrNull);
+  }
+
+  // Get a new client and release it when done
+  const client = await db.connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
 
 export const yapsQueries = {
   async upsertYapsData(
@@ -89,13 +131,15 @@ export const yapsQueries = {
 };
 
 export const tweetQueries = {
-  getPendingTweets: async (): Promise<DatabaseTweet[]> => {
+  getPendingTweets: async (client?: PoolClient): Promise<DatabaseTweet[]> => {
     try {
-      const { rows } = await db.query(
-        'SELECT * FROM tweets WHERE status = $1 ORDER BY created_at DESC',
-        ['pending'],
-      );
-      return rows;
+      return withClient(client || null, async (c) => {
+        const { rows } = await c.query(
+          'SELECT * FROM tweets WHERE status = $1 ORDER BY created_at DESC',
+          ['pending'],
+        );
+        return rows;
+      });
     } catch (error) {
       elizaLogger.error('Error fetching pending tweets:', error);
       throw error;
@@ -105,42 +149,54 @@ export const tweetQueries = {
   getSentTweets: async (
     agentId: string,
     limit: number,
+    client?: PoolClient,
   ): Promise<DatabaseTweet[]> => {
-    const { rows } = await db.query(
-      'SELECT * FROM tweets WHERE agent_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3',
-      [agentId, 'sent', limit],
-    );
-    return rows;
+    return withClient(client || null, async (c) => {
+      const { rows } = await c.query(
+        'SELECT * FROM tweets WHERE agent_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3',
+        [agentId, 'sent', limit],
+      );
+      return rows;
+    });
   },
 
   getTweets: async (
     limit: number,
     offset: number,
+    client?: PoolClient,
   ): Promise<DatabaseTweet[]> => {
-    const { rows } = await db.query(
-      'SELECT * FROM tweets ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-      [limit, offset],
-    );
-    return rows;
+    return withClient(client || null, async (c) => {
+      const { rows } = await c.query(
+        'SELECT * FROM tweets ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+        [limit, offset],
+      );
+      return rows;
+    });
   },
 
   updateTweetStatus: async (
     tweet_id: string,
     status: string,
     error?: string,
+    client?: PoolClient,
   ) => {
     try {
-      await db.query(
-        'UPDATE tweets SET status = $1, error = $2 WHERE tweet_id = $3',
-        [status, error, tweet_id],
-      );
+      return withClient(client || null, async (c) => {
+        await c.query(
+          'UPDATE tweets SET status = $1, error = $2 WHERE tweet_id = $3',
+          [status, error, tweet_id],
+        );
+      });
     } catch (error) {
       elizaLogger.error('Error updating tweet status:', error);
       throw error;
     }
   },
 
-  saveTweetObject: async (tweet: DatabaseTweet): Promise<void> => {
+  saveTweetObject: async (
+    tweet: DatabaseTweet,
+    client?: PoolClient,
+  ): Promise<void> => {
     const query = `
       INSERT INTO tweets (
         id, tweet_id, agent_id, text, user_id, username, name, timestamp, time_parsed,
@@ -176,8 +232,7 @@ export const tweetQueries = {
         $44, $45, $46, $47,
         $48, $49, $50
       )
-      ON CONFLICT (id) DO UPDATE SET
-        tweet_id = EXCLUDED.tweet_id,
+      ON CONFLICT (tweet_id) DO UPDATE SET
         text = EXCLUDED.text,
         user_id = EXCLUDED.user_id,
         username = EXCLUDED.username,
@@ -227,61 +282,63 @@ export const tweetQueries = {
         new_tweet_content = EXCLUDED.new_tweet_content
     `;
 
+    const values = [
+      tweet.id || uuidv4(),
+      tweet.tweet_id,
+      tweet.agentId,
+      tweet.text,
+      tweet.userId,
+      tweet.username,
+      tweet.name,
+      tweet.timestamp,
+      tweet.timeParsed,
+      tweet.likes || 0,
+      tweet.retweets || 0,
+      tweet.replies || 0,
+      tweet.views,
+      tweet.bookmarkCount,
+      tweet.conversationId,
+      tweet.permanentUrl,
+      tweet.html,
+      tweet.inReplyToStatus ? JSON.stringify(tweet.inReplyToStatus) : null,
+      tweet.inReplyToStatusId,
+      tweet.quotedStatus ? JSON.stringify(tweet.quotedStatus) : null,
+      tweet.quotedStatusId,
+      tweet.retweetedStatus ? JSON.stringify(tweet.retweetedStatus) : null,
+      tweet.retweetedStatusId,
+      JSON.stringify(tweet.thread || []),
+      tweet.isQuoted || false,
+      tweet.isPin || false,
+      tweet.isReply || false,
+      tweet.isRetweet || false,
+      tweet.isSelfThread || false,
+      tweet.sensitiveContent || false,
+      tweet.isThreadMerged || false,
+      tweet.threadSize || 0,
+      tweet.originalText,
+      tweet.mediaType,
+      tweet.mediaUrl,
+      tweet.hashtags || [],
+      JSON.stringify(tweet.mentions || []),
+      JSON.stringify(tweet.photos || []),
+      tweet.urls || [],
+      JSON.stringify(tweet.videos || []),
+      tweet.place ? JSON.stringify(tweet.place) : null,
+      tweet.poll ? JSON.stringify(tweet.poll) : null,
+      JSON.stringify(tweet.homeTimeline || { publicMetrics: {}, entities: {} }),
+      tweet.status || 'pending',
+      tweet.createdAt || new Date(),
+      tweet.scheduledFor,
+      tweet.sentAt,
+      tweet.error,
+      tweet.prompt,
+      tweet.newTweetContent,
+    ];
+
     try {
-      await db.query(query, [
-        tweet.id || uuidv4(),
-        tweet.tweet_id,
-        tweet.agentId,
-        tweet.text,
-        tweet.userId,
-        tweet.username,
-        tweet.name,
-        tweet.timestamp,
-        tweet.timeParsed,
-        tweet.likes || 0,
-        tweet.retweets || 0,
-        tweet.replies || 0,
-        tweet.views,
-        tweet.bookmarkCount,
-        tweet.conversationId,
-        tweet.permanentUrl,
-        tweet.html,
-        tweet.inReplyToStatus ? JSON.stringify(tweet.inReplyToStatus) : null,
-        tweet.inReplyToStatusId,
-        tweet.quotedStatus ? JSON.stringify(tweet.quotedStatus) : null,
-        tweet.quotedStatusId,
-        tweet.retweetedStatus ? JSON.stringify(tweet.retweetedStatus) : null,
-        tweet.retweetedStatusId,
-        JSON.stringify(tweet.thread || []),
-        tweet.isQuoted || false,
-        tweet.isPin || false,
-        tweet.isReply || false,
-        tweet.isRetweet || false,
-        tweet.isSelfThread || false,
-        tweet.sensitiveContent || false,
-        tweet.isThreadMerged || false,
-        tweet.threadSize || 0,
-        tweet.originalText,
-        tweet.mediaType,
-        tweet.mediaUrl,
-        tweet.hashtags || [],
-        JSON.stringify(tweet.mentions || []),
-        JSON.stringify(tweet.photos || []),
-        tweet.urls || [],
-        JSON.stringify(tweet.videos || []),
-        tweet.place ? JSON.stringify(tweet.place) : null,
-        tweet.poll ? JSON.stringify(tweet.poll) : null,
-        JSON.stringify(
-          tweet.homeTimeline || { publicMetrics: {}, entities: {} },
-        ),
-        tweet.status || 'pending',
-        tweet.createdAt || new Date(),
-        tweet.scheduledFor,
-        tweet.sentAt,
-        tweet.error,
-        tweet.prompt,
-        tweet.newTweetContent,
-      ]);
+      return withClient(client || null, async (c) => {
+        await c.query(query, values);
+      });
     } catch (error) {
       elizaLogger.error('Error saving tweet:', {
         error: error instanceof Error ? error.message : String(error),
@@ -297,6 +354,7 @@ export const tweetQueries = {
     agentId: string,
     scheduledFor?: Date,
     newTweetContent?: string,
+    client?: PoolClient,
   ): Promise<DatabaseTweet> => {
     // Create a new tweet with both AgentTweet fields and our additional fields
     const id = uuidv4(); // Generate UUID for our primary key
@@ -354,7 +412,7 @@ export const tweetQueries = {
     };
 
     try {
-      await tweetQueries.saveTweetObject(tweet);
+      await tweetQueries.saveTweetObject(tweet, client);
       return tweet;
     } catch (error) {
       elizaLogger.error('Error saving tweet:', error);
@@ -362,61 +420,71 @@ export const tweetQueries = {
     }
   },
 
-  getApprovedTweets: async () => {
+  getApprovedTweets: async (client?: PoolClient) => {
     try {
-      const { rows } = await db.query(
-        'SELECT * FROM tweets WHERE status = $1 AND (scheduled_for IS NULL OR scheduled_for <= NOW()) ORDER BY created_at DESC',
-        ['approved'],
-      );
-      return rows;
+      return withClient(client || null, async (c) => {
+        const { rows } = await c.query(
+          'SELECT * FROM tweets WHERE status = $1 AND (scheduled_for IS NULL OR scheduled_for <= NOW()) ORDER BY created_at DESC',
+          ['approved'],
+        );
+        return rows;
+      });
     } catch (error) {
       elizaLogger.error('Error fetching approved tweets:', error);
       throw error;
     }
   },
 
-  markTweetAsSent: async (id: string) => {
+  markTweetAsSent: async (id: string, client?: PoolClient) => {
     try {
-      await db.query(
-        'UPDATE tweets SET status = $1, sent_at = NOW() WHERE id = $2',
-        ['sent', id],
-      );
+      return withClient(client || null, async (c) => {
+        await c.query(
+          'UPDATE tweets SET status = $1, sent_at = NOW() WHERE id = $2',
+          ['sent', id],
+        );
+      });
     } catch (error) {
       elizaLogger.error('Error marking tweet as sent:', error);
       throw error;
     }
   },
 
-  markTweetAsError: async (id: string, error: string) => {
+  markTweetAsError: async (id: string, error: string, client?: PoolClient) => {
     try {
-      await db.query(
-        'UPDATE tweets SET status = $1, error = $2 WHERE id = $3',
-        ['error', error, id],
-      );
+      return withClient(client || null, async (c) => {
+        await c.query(
+          'UPDATE tweets SET status = $1, error = $2 WHERE id = $3',
+          ['error', error, id],
+        );
+      });
     } catch (error) {
       elizaLogger.error('Error marking tweet as error:', error);
       throw error;
     }
   },
 
-  getSentTweetById: async (id: string) => {
+  getSentTweetById: async (id: string, client?: PoolClient) => {
     try {
-      const { rows } = await db.query(
-        'SELECT * FROM tweets WHERE id = $1 AND status = $2',
-        [id, 'sent'],
-      );
-      return rows;
+      return withClient(client || null, async (c) => {
+        const { rows } = await c.query(
+          'SELECT * FROM tweets WHERE id = $1 AND status = $2',
+          [id, 'sent'],
+        );
+        return rows;
+      });
     } catch (error) {
       elizaLogger.error('Error fetching sent tweet:', error);
       throw error;
     }
   },
 
-  updateTweetsAsSending: async (ids: string[]) => {
-    await db.query('UPDATE tweets SET status = $1 WHERE id = ANY($2)', [
-      'sending',
-      ids,
-    ]);
+  updateTweetsAsSending: async (ids: string[], client?: PoolClient) => {
+    return withClient(client || null, async (c) => {
+      await c.query('UPDATE tweets SET status = $1 WHERE id = ANY($2)', [
+        'sending',
+        ids,
+      ]);
+    });
   },
 
   insertTweetAnalysis: async (
@@ -452,6 +520,7 @@ export const tweetQueries = {
       authenticity: number;
       valueAdd: number;
     },
+    client?: PoolClient,
   ) => {
     try {
       const query = `
@@ -486,7 +555,7 @@ export const tweetQueries = {
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
           $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
         )
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (tweet_id) DO UPDATE SET
           type = EXCLUDED.type,
           sentiment = EXCLUDED.sentiment,
           confidence = EXCLUDED.confidence,
@@ -523,7 +592,7 @@ export const tweetQueries = {
         JSON.stringify(topics),
         impact_score,
         created_at,
-        author_id, // Keep as string, no conversion needed
+        author_id,
         tweet_text,
         JSON.stringify(public_metrics),
         JSON.stringify(raw_entities),
@@ -541,16 +610,9 @@ export const tweetQueries = {
         content_metrics.valueAdd,
       ];
 
-      // Log the actual values being passed to the query
-      elizaLogger.debug('[DB Queries] Query values:', {
-        values: values.map((v, i) => [
-          i + 1,
-          typeof v,
-          v instanceof Date ? v.toISOString() : String(v),
-        ]),
+      return withClient(client || null, async (c) => {
+        await c.query(query, values);
       });
-
-      await db.query(query, values);
     } catch (error) {
       elizaLogger.error('[DB Queries] Error inserting tweet analysis:', {
         error: error instanceof Error ? error.message : String(error),
@@ -685,6 +747,13 @@ export const tweetQueries = {
       lastUpdated: row.last_updated,
       isActive: row.is_active,
       source: row.source,
+      avgLikes50: row.avg_likes_50 || 0,
+      avgRetweets50: row.avg_retweets_50 || 0,
+      avgReplies50: row.avg_replies_50 || 0,
+      avgViews50: row.avg_views_50 || 0,
+      engagementRate50: row.engagement_rate_50 || 0,
+      influenceScore: row.influence_score || 0,
+      last50TweetsUpdatedAt: row.last_50_tweets_updated_at || null,
     }));
   },
 
@@ -775,13 +844,16 @@ export const tweetQueries = {
 
   findTweetByTweetId: async (
     tweet_id: string,
+    client?: PoolClient,
   ): Promise<DatabaseTweet | null> => {
     try {
-      const result = await db.query<DatabaseTweet>(
-        'SELECT * FROM tweets WHERE tweet_id = $1 LIMIT 1',
-        [tweet_id],
-      );
-      return result.rows[0] || null;
+      return withClient(client || null, async (c) => {
+        const result = await c.query<DatabaseTweet>(
+          'SELECT * FROM tweets WHERE tweet_id = $1 LIMIT 1',
+          [tweet_id],
+        );
+        return result.rows[0] || null;
+      });
     } catch (error) {
       elizaLogger.error(
         `[Tweet Queries] Error finding tweet by tweet ID: ${error}`,
@@ -790,20 +862,97 @@ export const tweetQueries = {
     }
   },
 
-  findTweetById: async (id: string): Promise<DatabaseTweet | null> => {
+  findTweetById: async (
+    id: string,
+    client?: PoolClient,
+  ): Promise<DatabaseTweet | null> => {
     try {
-      const result = await db.query<DatabaseTweet>(
-        'SELECT * FROM tweets WHERE id = $1 LIMIT 1',
-        [id],
-      );
-      return result.rows[0] || null;
+      return withClient(client || null, async (c) => {
+        const result = await c.query<DatabaseTweet>(
+          'SELECT * FROM tweets WHERE id = $1 LIMIT 1',
+          [id],
+        );
+        return result.rows[0] || null;
+      });
     } catch (error) {
       elizaLogger.error(`[Tweet Queries] Error finding tweet by ID: ${error}`);
       throw error;
     }
   },
 
+  updateTargetAccountMetrics: async (
+    username: string,
+    metrics: {
+      avgLikes50: number;
+      avgRetweets50: number;
+      avgReplies50: number;
+      avgViews50: number;
+      last50TweetsUpdatedAt: Date;
+    },
+  ): Promise<void> => {
+    const query = `
+      UPDATE target_accounts
+      SET 
+        avg_likes_50 = $1,
+        avg_retweets_50 = $2,
+        avg_replies_50 = $3,
+        avg_views_50 = $4,
+        last_50_tweets_updated_at = $5
+      WHERE username = $6
+    `;
+
+    try {
+      await db.query(query, [
+        metrics.avgLikes50,
+        metrics.avgRetweets50,
+        metrics.avgReplies50,
+        metrics.avgViews50,
+        metrics.last50TweetsUpdatedAt,
+        username,
+      ]);
+    } catch (error) {
+      elizaLogger.error('Error updating target account metrics:', {
+        error: error instanceof Error ? error.message : String(error),
+        username,
+      });
+      throw error;
+    }
+  },
+
+  processTweetsInTransaction: async <T>(
+    operations: (client: PoolClient) => Promise<T>,
+  ): Promise<T> => {
+    return withTransaction(operations);
+  },
+
   ...yapsQueries,
+
+  /**
+   * Get tweets by username
+   */
+  async getTweetsByUsername(
+    username: string,
+    limit = 50,
+  ): Promise<DatabaseTweet[]> {
+    const query = `
+      SELECT *
+      FROM tweets
+      WHERE username = $1
+      ORDER BY timestamp DESC
+      LIMIT $2
+    `;
+
+    try {
+      elizaLogger.debug(`[DB] Getting tweets for username ${username}`);
+      const result = await db.query(query, [username, limit]);
+      return result.rows;
+    } catch (error) {
+      elizaLogger.error(`[DB] Error getting tweets for username ${username}:`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  },
 };
 
 export const agentSettingQueries = {
@@ -1313,8 +1462,8 @@ export const twitterConfigQueries = {
           minReplies: row.min_replies,
         },
         parameters: {
-          excludeReplies: row.exclude_replies,
-          excludeRetweets: row.exclude_retweets,
+          excludeReplies: Boolean(row.exclude_replies),
+          excludeRetweets: Boolean(row.exclude_retweets),
           filterLevel: row.filter_level,
         },
       },

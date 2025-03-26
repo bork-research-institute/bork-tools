@@ -94,6 +94,7 @@ export interface TweetSelectionResult {
 export interface MergedTweet extends AgentTweet {
   // Core tweet data from AgentTweet
   id?: string;
+  tweet_id: string; // Twitter's numeric ID
   text?: string;
   userId?: string;
   username?: string;

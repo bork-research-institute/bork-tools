@@ -72,6 +72,14 @@ export async function initializeTargetAccounts(
           lastUpdated: new Date(),
           isActive: true,
           source: 'config',
+          // Initialize influence metrics with default values
+          avgLikes50: 0,
+          avgRetweets50: 0,
+          avgReplies50: 0,
+          avgViews50: 0,
+          engagementRate50: 0,
+          influenceScore: 0,
+          last50TweetsUpdatedAt: null,
         });
 
         elizaLogger.info(

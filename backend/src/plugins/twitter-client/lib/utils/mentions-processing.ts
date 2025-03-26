@@ -1,43 +1,53 @@
 import { elizaLogger } from '@elizaos/core';
-import type { Tweet } from 'agent-twitter-client';
 import {
   tweetQueries,
   userMentionQueries,
-} from '../../../bork-extensions/src/db/queries.js';
-import { extractMentionsFromText } from '../mappers/mentions-mapper.js';
+} from '../../../bork-extensions/src/db/queries';
+import type { DatabaseTweet } from '../types/twitter';
 
-export async function storeMentions(tweet: Tweet): Promise<void> {
+function getMentionsFromText(text: string): string[] {
+  const mentionRegex = /@(\w+)/g;
+  const matches = text.match(mentionRegex) || [];
+  return matches.map((match) => match.slice(1)); // Remove @ symbol
+}
+
+function getMentionsFromThread(thread: unknown[]): string[] {
+  const mentions = new Set<string>();
+
+  for (const tweet of thread) {
+    if (typeof tweet === 'object' && tweet && 'text' in tweet) {
+      const text = String(tweet.text || '');
+      for (const mention of getMentionsFromText(text)) {
+        mentions.add(mention);
+      }
+    }
+  }
+
+  return Array.from(mentions);
+}
+
+export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
   try {
+    // Skip if no username
     if (!tweet.username) {
+      elizaLogger.warn(
+        '[Mentions Processing] Tweet has no username, skipping mentions',
+      );
       return;
     }
 
-    // Get mentions from the original tweet text
-    const textMentions = extractMentionsFromText(tweet.text || '');
-
-    // Get mentions from thread content (tweets before this one)
-    const threadMentions = (tweet.thread || [])
-      .filter((t) => t.timestamp <= tweet.timestamp) // Only include tweets before or equal to current tweet
-      .flatMap((t) => extractMentionsFromText(t.text || ''));
-
-    // Get mentions from metadata, but only for the original tweet
+    // Get unique mentions from all sources
+    const textMentions = getMentionsFromText(tweet.text || '');
+    const threadMentions = getMentionsFromThread(tweet.thread || []);
     const metadataMentions = (tweet.mentions || [])
       .map((m) => m.username)
       .filter(Boolean);
 
-    // Combine all mentions, excluding duplicates
     const allMentions = new Set([
       ...textMentions,
       ...threadMentions,
       ...metadataMentions,
     ]);
-
-    // Create a map of usernames to IDs from metadata (for target account storage)
-    const usernameToId = new Map(
-      (tweet.mentions || [])
-        .filter((m) => m.username && m.id)
-        .map((m) => [m.username.toLowerCase(), m.id]),
-    );
 
     elizaLogger.info('[Mentions Processing] Processing mentions:', {
       textMentions,
@@ -45,95 +55,107 @@ export async function storeMentions(tweet: Tweet): Promise<void> {
       metadataMentions,
       totalUnique: allMentions.size,
       fromUsername: tweet.username,
-      hasIds: Array.from(usernameToId.keys()),
+      hasIds: Array.from(allMentions),
     });
 
-    // Process mentions and add to target accounts
-    if (allMentions.size > 0) {
-      await Promise.all(
-        Array.from(allMentions).map(async (username) => {
-          if (!username) {
-            return;
-          }
+    // Process each unique mention
+    for (const mentionedUsername of allMentions) {
+      try {
+        // Skip if source or target username is missing
+        if (!mentionedUsername || !tweet.username) {
+          continue;
+        }
 
-          try {
-            // Get Twitter ID if available from metadata
-            const lowercaseUsername = username.toLowerCase();
-            const twitterId = usernameToId.get(lowercaseUsername);
+        // First ensure both users exist in target_accounts
+        await tweetQueries.insertTargetAccount({
+          username: tweet.username,
+          userId: tweet.userId?.toString() || '',
+          displayName: tweet.name || tweet.username,
+          description: '',
+          followersCount: 0,
+          followingCount: 0,
+          friendsCount: 0,
+          mediaCount: 0,
+          statusesCount: 0,
+          likesCount: 0,
+          listedCount: 0,
+          tweetsCount: 0,
+          isPrivate: false,
+          isVerified: false,
+          isBlueVerified: false,
+          joinedAt: null,
+          location: '',
+          avatarUrl: null,
+          bannerUrl: null,
+          websiteUrl: null,
+          canDm: false,
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          isActive: true,
+          source: 'tweet_author',
+          avgLikes50: 0,
+          avgRetweets50: 0,
+          avgReplies50: 0,
+          avgViews50: 0,
+          engagementRate50: 0,
+          influenceScore: 0,
+          last50TweetsUpdatedAt: null,
+        });
 
-            // Convert tweet timestamp to Date
-            const tweetDate = new Date(tweet.timestamp * 1000);
+        await tweetQueries.insertTargetAccount({
+          username: mentionedUsername,
+          userId: '', // We don't have the ID yet
+          displayName: mentionedUsername,
+          description: '',
+          followersCount: 0,
+          followingCount: 0,
+          friendsCount: 0,
+          mediaCount: 0,
+          statusesCount: 0,
+          likesCount: 0,
+          listedCount: 0,
+          tweetsCount: 0,
+          isPrivate: false,
+          isVerified: false,
+          isBlueVerified: false,
+          joinedAt: null,
+          location: '',
+          avatarUrl: null,
+          bannerUrl: null,
+          websiteUrl: null,
+          canDm: false,
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          isActive: true,
+          source: 'mention',
+          avgLikes50: 0,
+          avgRetweets50: 0,
+          avgReplies50: 0,
+          avgViews50: 0,
+          engagementRate50: 0,
+          influenceScore: 0,
+          last50TweetsUpdatedAt: null,
+        });
 
-            // Add to target accounts with Twitter ID when available
-            await tweetQueries.insertTargetAccount({
-              username: username,
-              userId: twitterId || username, // Fallback to username if no ID
-              displayName: username,
-              description: '',
-              followersCount: 0,
-              followingCount: 0,
-              friendsCount: 0,
-              mediaCount: 0,
-              statusesCount: 0,
-              likesCount: 0,
-              listedCount: 0,
-              tweetsCount: 0,
-              isPrivate: false,
-              isVerified: false,
-              isBlueVerified: false,
-              joinedAt: null,
-              location: '',
-              avatarUrl: null,
-              bannerUrl: null,
-              websiteUrl: null,
-              canDm: false,
-              createdAt: tweetDate,
-              lastUpdated: new Date(),
-              isActive: true,
-              source: 'mention',
-            });
-
-            // Update mention relationship using usernames only
-            await userMentionQueries.upsertMentionRelationship(
-              tweet.username,
-              username,
-              tweet.id,
-              tweetDate,
-            );
-
-            elizaLogger.debug(
-              '[Mentions Processing] Added mention relationship:',
-              {
-                fromUsername: tweet.username,
-                toUsername: username,
-                tweetId: tweet.id,
-                hasTwitterId: Boolean(twitterId),
-              },
-            );
-          } catch (error) {
-            elizaLogger.error(
-              '[Mentions Processing] Error processing mention:',
-              {
-                fromUsername: tweet.username,
-                toUsername: username,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          }
-        }),
-      );
-
-      // Periodically decay old relationships (do this occasionally, not for every tweet)
-      if (Math.random() < 0.01) {
-        // 1% chance to run decay
-        await userMentionQueries.decayRelationships();
+        // Now create the mention relationship
+        await userMentionQueries.upsertMentionRelationship(
+          tweet.username,
+          mentionedUsername,
+          tweet.tweet_id,
+          new Date(tweet.timestamp * 1000),
+        );
+      } catch (error) {
+        elizaLogger.error('[Mentions Processing] Error processing mention:', {
+          fromUsername: tweet.username,
+          toUsername: mentionedUsername,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   } catch (error) {
     elizaLogger.error('[Mentions Processing] Error processing mentions:', {
       error: error instanceof Error ? error.message : String(error),
-      tweetId: tweet.id,
-      userId: tweet.userId,
+      tweetId: tweet.tweet_id,
     });
   }
 }

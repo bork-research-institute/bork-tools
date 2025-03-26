@@ -1,13 +1,9 @@
 import { elizaLogger } from '@elizaos/core';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import type { TargetAccount } from '../../lib/types/account';
+import type { TargetAccount, WeightedAccount } from '../../lib/types/account';
 import type { TwitterConfig } from '../../lib/types/config';
+import { selectAccountsWithWeights } from './selection-utils';
 import { updateYapsData } from './yaps-processing';
-
-interface WeightedAccount {
-  account: TargetAccount;
-  weight: number;
-}
 
 export async function selectTargetAccounts(
   config: TwitterConfig,
@@ -20,55 +16,61 @@ export async function selectTargetAccounts(
       return [];
     }
 
-    // Get yaps data for all accounts to calculate weights
+    // Get yaps data for all accounts
     const userIds = targetAccounts.map((account) => account.userId);
     const yapsData = await tweetQueries.getYapsForAccounts(userIds);
 
-    // Create weighted selection array with base weight of 1, adding yaps_l24h score
-    const weightedAccounts: WeightedAccount[] = targetAccounts.map(
+    // Calculate total accounts to process
+    const totalAccountsToProcess = Math.min(
+      config.search.tweetLimits.accountsToProcess,
+      targetAccounts.length,
+    );
+
+    // Split selection between yaps-based and influence-based
+    const yapsBasedCount = Math.ceil(totalAccountsToProcess / 2);
+    const influenceBasedCount = totalAccountsToProcess - yapsBasedCount;
+
+    // Create weighted arrays for both selection methods
+    const yapsWeighted: WeightedAccount[] = targetAccounts.map((account) => {
+      const accountYaps = yapsData.find(
+        (yaps) => yaps.userId === account.userId,
+      );
+      const weight = 1 + (accountYaps?.yapsL24h || 0);
+      return { account, weight };
+    });
+
+    const influenceWeighted: WeightedAccount[] = targetAccounts.map(
       (account) => {
-        const accountYaps = yapsData.find(
-          (yaps) => yaps.userId === account.userId,
-        );
-        const weight = 1 + (accountYaps?.yapsL24h || 0);
+        // Normalize influence score to 0-1 range and add small base weight
+        const weight = 1 + account.influenceScore / 100;
         return { account, weight };
       },
     );
 
-    // Calculate total weight
-    const totalWeight = weightedAccounts.reduce(
-      (sum, { weight }) => sum + weight,
-      0,
+    // Select accounts using both methods
+    const yapsSelected = selectAccountsWithWeights(
+      yapsWeighted,
+      yapsBasedCount,
+    );
+    const influenceSelected = selectAccountsWithWeights(
+      // Filter out accounts already selected by yaps
+      influenceWeighted.filter(
+        (weighted) =>
+          !yapsSelected.some(
+            (selected) => selected.userId === weighted.account.userId,
+          ),
+      ),
+      influenceBasedCount,
     );
 
-    // Select accounts using weighted random selection
-    const accountsToProcess: TargetAccount[] = [];
-    const availableAccounts = [...weightedAccounts];
-    const numAccountsToProcess = Math.min(
-      config.search.tweetLimits.accountsToProcess,
-      availableAccounts.length,
-    );
-
-    for (let i = 0; i < numAccountsToProcess; i++) {
-      let randomWeight = Math.random() * totalWeight;
-      let selectedIndex = 0;
-
-      // Find the account that corresponds to the random weight
-      for (let j = 0; j < availableAccounts.length; j++) {
-        randomWeight -= availableAccounts[j].weight;
-        if (randomWeight <= 0) {
-          selectedIndex = j;
-          break;
-        }
-      }
-
-      // Add selected account and remove it from available pool
-      accountsToProcess.push(availableAccounts[selectedIndex].account);
-      availableAccounts.splice(selectedIndex, 1);
-    }
+    // Combine selections
+    const accountsToProcess = [...yapsSelected, ...influenceSelected];
 
     elizaLogger.info(
-      `[TwitterAccounts] Selected ${accountsToProcess.length} accounts (weighted random selection from ${targetAccounts.length} total accounts): ${accountsToProcess.map((a) => a.username).join(', ')}`,
+      `[TwitterAccounts] Selected ${accountsToProcess.length} accounts ` +
+        `(${yapsSelected.length} by yaps, ${influenceSelected.length} by influence) ` +
+        `from ${targetAccounts.length} total accounts: ` +
+        `${accountsToProcess.map((a) => a.username).join(', ')}`,
     );
 
     // Update Yaps data for selected accounts

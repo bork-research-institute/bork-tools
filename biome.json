@@ -31,7 +31,8 @@
         "noUnusedImports": "error",
         "noUnusedPrivateClassMembers": "error",
         "noUnusedVariables": "error",
-        "useArrayLiterals": "error"
+        "useArrayLiterals": "error",
+        "noNodejsModules": "off"
       },
       "style": {
         "noImplicitBoolean": "error",
@@ -45,7 +46,8 @@
         "useFragmentSyntax": "error",
         "useShorthandArrayType": "error",
         "useShorthandAssign": "error",
-        "useSingleCaseStatement": "error"
+        "useSingleCaseStatement": "error",
+        "noNamespaceImport": "off"
       }
     }
   },

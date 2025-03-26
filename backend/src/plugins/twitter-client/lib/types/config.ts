@@ -13,11 +13,11 @@ export interface TwitterConfig {
       until?: string;
       lang?: string;
       maxResults?: number;
-      includeReplies?: boolean;
-      includeRetweets?: boolean;
+      excludeReplies: boolean;
+      excludeRetweets: boolean;
       includeQuotes?: boolean;
       includeThreads?: boolean;
-      [key: string]: string | number | boolean | undefined;
+      filterLevel?: 'none' | 'low' | 'medium' | 'high';
     };
     engagementThresholds: {
       minLikes: number;

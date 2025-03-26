@@ -1,6 +1,7 @@
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
+import { tweetQueries } from '../../../bork-extensions/src/db/queries';
 import { mapTweet } from '../../lib/mappers/tweet-mapper';
 import type { TwitterService } from '../../lib/services/twitter-service';
 import type { TargetAccount } from '../../lib/types/account';
@@ -24,7 +25,6 @@ export async function selectTweetsFromAccounts(
   for (const account of accounts) {
     try {
       // 1. Search latest tweets from account
-
       const { tweets: accountTweets, spammedTweets } =
         await twitterService.searchTweets(
           `from:${account.username}`,
@@ -32,8 +32,8 @@ export async function selectTweetsFromAccounts(
           SearchMode.Latest,
           '[TwitterAccounts]',
           {
-            excludeReplies: !config.search.parameters.includeReplies,
-            excludeRetweets: !config.search.parameters.includeRetweets,
+            excludeReplies: config.search.parameters.excludeReplies,
+            excludeRetweets: config.search.parameters.excludeRetweets,
             filterLevel: 'none',
           },
           config.search.engagementThresholds,
@@ -58,8 +58,34 @@ export async function selectTweetsFromAccounts(
         return true;
       });
 
+      // Check which tweets have already been processed
+      const existingTweetIds = new Set(
+        (
+          await Promise.all(
+            validTweets.map((tweet) =>
+              tweetQueries.findTweetByTweetId(tweet.id),
+            ),
+          )
+        )
+          .filter(Boolean)
+          .map((tweet) => tweet.tweet_id),
+      );
+
+      // Filter out already processed tweets
+      const unprocessedTweets = validTweets.filter(
+        (tweet) => !existingTweetIds.has(tweet.id),
+      );
+
+      if (validTweets.length > unprocessedTweets.length) {
+        elizaLogger.info(
+          `[TwitterAccounts] Filtered out ${
+            validTweets.length - unprocessedTweets.length
+          } already processed tweets from ${account.username}`,
+        );
+      }
+
       // Map tweets to ensure all fields have default values
-      const mappedTweets = validTweets.map((tweet) => ({
+      const mappedTweets = unprocessedTweets.map((tweet) => ({
         ...mapTweet(tweet),
         id: uuidv4(), // Generate a UUID for our database
         tweet_id: tweet.id, // Keep Twitter's ID
@@ -84,7 +110,7 @@ export async function selectTweetsFromAccounts(
       }
 
       elizaLogger.info(
-        `[TwitterAccounts] Selected ${selectedTweets.length} tweets meeting criteria from ${mappedTweets.length} fetched tweets for ${account.username}`,
+        `[TwitterAccounts] Selected ${selectedTweets.length} tweets meeting criteria from ${mappedTweets.length} unprocessed tweets for ${account.username}`,
         {
           minLikes: thresholds.minLikes,
           minRetweets: thresholds.minRetweets,
