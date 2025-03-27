@@ -79,8 +79,8 @@ export class TwitterClient implements ClientInstance {
         this.twitterService,
       );
 
-      await this.accountsClient.start();
-      // await this.searchClient.start();
+      // await this.accountsClient.start();
+      await this.searchClient.start();
       // await this.interactionClient.start();
       // await this.discoveryClient.start();
 

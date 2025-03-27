@@ -1,10 +1,11 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
+import { v4 as uuidv4 } from 'uuid';
 import { tweetQueries } from '../../bork-extensions/src/db/queries';
+import { mapTweet } from '../lib/mappers/tweet-mapper';
 import { TwitterConfigService } from '../lib/services/twitter-config-service';
 import type { TwitterService } from '../lib/services/twitter-service';
-import type { TopicWeightRow } from '../lib/types/topic';
-import { storeMentions } from '../lib/utils/mentions-processing';
+import { initializeAndGetTopicWeights } from '../lib/utils/topic-processing';
 import { processTweets } from '../lib/utils/tweet-processing';
 
 export class TwitterSearchClient {
@@ -12,7 +13,7 @@ export class TwitterSearchClient {
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
-  
+
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
@@ -49,40 +50,20 @@ export class TwitterSearchClient {
 
     const config = await this.twitterConfigService.getConfig();
 
-    // Get topic weights
-    let topicWeights: TopicWeightRow[] = [];
-    try {
-      topicWeights = await tweetQueries.getTopicWeights();
+    // Get and initialize topic weights if needed
+    const defaultTopics = this.runtime.character.topics || [
+      'injective protocol',
+    ];
+    const topicWeights = await initializeAndGetTopicWeights(
+      defaultTopics,
+      '[TwitterSearch]',
+    );
 
-      if (!topicWeights.length) {
-        elizaLogger.info(
-          '[TwitterSearch] No topic weights found, initializing them',
-        );
-        const defaultTopics = this.runtime.character.topics || [
-          'injective protocol',
-        ];
-
-        await tweetQueries.initializeTopicWeights(defaultTopics);
-        elizaLogger.info(
-          `[TwitterSearch] Initialized ${defaultTopics.length} default topics`,
-        );
-
-        // Reload the topic weights
-        topicWeights = await tweetQueries.getTopicWeights();
-
-        if (!topicWeights.length) {
-          elizaLogger.error(
-            '[TwitterSearch] Failed to initialize topic weights',
-          );
-          return; // Exit early if we still can't get topic weights
-        }
-      }
-    } catch (dbError) {
+    if (topicWeights.length === 0) {
       elizaLogger.error(
-        '[TwitterSearch] Database error getting topic weights:',
-        dbError,
+        '[TwitterSearch] Could not get topic weights - aborting search',
       );
-      return; // Exit early if we can't get topic weights
+      return;
     }
 
     try {
@@ -111,7 +92,7 @@ export class TwitterSearchClient {
       elizaLogger.info('[TwitterSearch] Fetching search tweets');
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
-      const { tweets: filteredTweets, spammedTweets } =
+      const { tweets: searchTweets, spammedTweets } =
         await this.twitterService.searchTweets(
           selectedTopic.topic,
           config.search.tweetLimits.searchResults,
@@ -121,7 +102,7 @@ export class TwitterSearchClient {
           config.search.engagementThresholds,
         );
 
-      if (!filteredTweets.length) {
+      if (!searchTweets.length) {
         elizaLogger.warn(
           `[TwitterSearch] No tweets found for term: ${selectedTopic.topic}`,
         );
@@ -129,20 +110,66 @@ export class TwitterSearchClient {
       }
 
       elizaLogger.info(
-        `[TwitterSearch] Found ${filteredTweets.length} tweets for term: ${selectedTopic.topic}`,
+        `[TwitterSearch] Found ${searchTweets.length} tweets for term: ${selectedTopic.topic}`,
         { spammedTweets },
       );
 
-      // Process mentions from each tweet
-      for (const tweet of filteredTweets) {
-        await storeMentions(tweet);
+      // Filter out tweets without IDs first
+      const validTweets = searchTweets.filter((tweet) => {
+        if (!tweet.id) {
+          elizaLogger.warn('[TwitterSearch] Tweet missing ID:', {
+            text: tweet.text?.substring(0, 100),
+          });
+          return false;
+        }
+        return true;
+      });
+
+      // Check which tweets have already been processed
+      const existingTweetIds = new Set(
+        (
+          await Promise.all(
+            validTweets.map((tweet) =>
+              tweetQueries.findTweetByTweetId(tweet.id),
+            ),
+          )
+        )
+          .filter(Boolean)
+          .map((tweet) => tweet.tweet_id),
+      );
+
+      // Filter out already processed tweets
+      const unprocessedTweets = validTweets.filter(
+        (tweet) => !existingTweetIds.has(tweet.id),
+      );
+
+      if (validTweets.length > unprocessedTweets.length) {
+        elizaLogger.info(
+          `[TwitterSearch] Filtered out ${
+            validTweets.length - unprocessedTweets.length
+          } already processed tweets`,
+        );
       }
 
-      // Process all tweets together
+      if (unprocessedTweets.length === 0) {
+        elizaLogger.info(
+          `[TwitterSearch] No new tweets to process for term: ${selectedTopic.topic}`,
+        );
+        return;
+      }
+
+      // Map tweets to ensure all fields have default values, following same pattern as in tweet-selection.ts
+      const mappedTweets = unprocessedTweets.map((tweet) => ({
+        ...mapTweet(tweet),
+        id: uuidv4(), // Generate a UUID for our database
+        tweet_id: tweet.id, // Keep Twitter's ID
+      }));
+
+      // Process all tweets together using our processTweets utility
       await processTweets(
         this.runtime,
         this.twitterService,
-        filteredTweets,
+        mappedTweets,
         topicWeights,
       );
 
@@ -150,7 +177,7 @@ export class TwitterSearchClient {
     } catch (error) {
       elizaLogger.error(
         '[TwitterSearch] Error engaging with search terms:',
-        error,
+        error instanceof Error ? error.message : String(error),
       );
     }
   }

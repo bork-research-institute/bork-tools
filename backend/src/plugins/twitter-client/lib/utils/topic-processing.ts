@@ -113,3 +113,47 @@ export async function updateTopicWeights(
     // Don't re-throw the error to prevent process termination
   }
 }
+
+/**
+ * Initializes topic weights if they don't exist and retrieves them
+ * @param defaultTopics Default topics to use when initializing
+ * @param logPrefix Prefix for log messages
+ * @returns Array of topic weights or empty array if initialization fails
+ */
+export async function initializeAndGetTopicWeights(
+  defaultTopics: string[],
+  logPrefix = '[Topic Processing]',
+): Promise<TopicWeightRow[]> {
+  try {
+    // Get topic weights
+    let topicWeights = await tweetQueries.getTopicWeights();
+
+    // Initialize if none exist
+    if (!topicWeights.length) {
+      elizaLogger.info(
+        `${logPrefix} No topic weights found, initializing them`,
+      );
+
+      await tweetQueries.initializeTopicWeights(defaultTopics);
+      elizaLogger.info(
+        `${logPrefix} Initialized ${defaultTopics.length} default topics`,
+      );
+
+      // Reload the topic weights
+      topicWeights = await tweetQueries.getTopicWeights();
+
+      if (!topicWeights.length) {
+        elizaLogger.error(`${logPrefix} Failed to initialize topic weights`);
+        return []; // Return empty array if initialization failed
+      }
+    }
+
+    return topicWeights;
+  } catch (dbError) {
+    elizaLogger.error(
+      `${logPrefix} Database error getting topic weights:`,
+      dbError instanceof Error ? dbError.message : String(dbError),
+    );
+    return []; // Return empty array on error
+  }
+}

@@ -7,7 +7,10 @@ import type { MergedTweet, Tweet } from '../types/twitter';
  */
 export function validateTweets(tweets: Tweet[]): Tweet[] {
   const validTweets = tweets.filter((tweet) => {
-    if (!tweet.tweet_id) {
+    // Check if we have either tweet_id or id
+    const tweetId = tweet.tweet_id || tweet.id;
+
+    if (!tweetId) {
       elizaLogger.warn(
         '[Tweet Processing] Skipping tweet with missing Twitter ID:',
         {
@@ -18,6 +21,16 @@ export function validateTweets(tweets: Tweet[]): Tweet[] {
       );
       return false;
     }
+
+    // If tweet has id but not tweet_id, copy id to tweet_id
+    if (!tweet.tweet_id && tweet.id) {
+      tweet.tweet_id = tweet.id;
+      elizaLogger.debug('[Tweet Processing] Copied id to tweet_id field', {
+        tweet_id: tweet.tweet_id,
+        username: tweet.username,
+      });
+    }
+
     return true;
   });
 
@@ -35,7 +48,7 @@ export function prepareTweetsForMerging(tweets: Tweet[]): MergedTweet[] {
   return tweets.map((tweet) => ({
     ...tweet,
     id: tweet.id || uuidv4(), // Internal UUID
-    tweet_id: tweet.tweet_id, // Twitter's numeric ID
+    tweet_id: tweet.tweet_id || tweet.id, // Twitter's numeric ID (ensure it's set)
     originalText: tweet.text || '',
     isThreadMerged: false,
     threadSize: 1,
