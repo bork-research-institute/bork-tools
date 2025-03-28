@@ -53,7 +53,13 @@ export class TwitterAccountsClient {
   }
 
   private async monitorTargetAccountsLoop() {
-    this.monitorTargetAccounts();
+    try {
+      await this.monitorTargetAccounts();
+    } catch (error) {
+      elizaLogger.error('[TwitterAccounts] Error in monitoring loop:', error);
+    }
+
+    // Schedule next run only after current one completes
     this.monitoringTimeout = setTimeout(
       () => this.monitorTargetAccountsLoop(),
       Number(this.runtime.getSetting('TWITTER_POLL_INTERVAL') || 60) * 1000,

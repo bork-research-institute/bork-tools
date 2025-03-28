@@ -14,6 +14,8 @@ import { extractAndRepairAnalysis } from '../helpers/repair-tweet-analysis';
 import { tweetAnalysisTemplate } from '../templates/analysis';
 import type { TopicWeightRow } from '../types/topic';
 import type { DatabaseTweet } from '../types/twitter';
+import { extractAndStoreKnowledge } from './knowledge-processing';
+import { fetchAndFormatKnowledge } from './knowledge-processing';
 import { storeMentions } from './mentions-processing';
 import { updateUserSpamData } from './spam-processing';
 import { updateTopicWeights } from './topic-processing';
@@ -116,9 +118,16 @@ export async function processSingleTweet(
         },
       );
 
+      // Fetch and format knowledge context
+      const knowledgeContext = await fetchAndFormatKnowledge(
+        runtime,
+        tweet,
+        `${logPrefix} [Knowledge]`,
+      );
+
       const context = composeContext({
         state,
-        template: template.context,
+        template: template.context + (knowledgeContext || ''),
       });
 
       try {
@@ -326,6 +335,28 @@ export async function processSingleTweet(
               throw innerError; // Rethrow to trigger rollback
             }
           });
+
+          // Extract and store knowledge from tweet analysis
+          try {
+            await extractAndStoreKnowledge(
+              runtime,
+              tweet,
+              parsedAnalysis,
+              `${logPrefix} [Knowledge]`,
+            );
+            elizaLogger.info(
+              `${logPrefix} Successfully extracted knowledge from tweet ${tweet.tweet_id}`,
+            );
+          } catch (knowledgeError) {
+            // Log but don't fail the whole process
+            elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
+              error:
+                knowledgeError instanceof Error
+                  ? knowledgeError.message
+                  : String(knowledgeError),
+              tweetId: tweet.tweet_id,
+            });
+          }
 
           elizaLogger.info(
             `${logPrefix} Successfully processed tweet ${tweet.tweet_id}`,

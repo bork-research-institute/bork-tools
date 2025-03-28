@@ -1,8 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { Pool } from 'pg';
-// biome-ignore lint/style/noNamespaceImport: <explanation>
 import * as queries from './queries';
-// biome-ignore lint/style/noNamespaceImport: <explanation>
 import * as schema from './schema';
 
 /**
