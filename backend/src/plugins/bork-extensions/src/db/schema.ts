@@ -155,6 +155,7 @@ export type { DatabaseTweet as Tweet };
 export interface TweetAnalysis {
   tweet_id: string;
   type: string;
+  format: string;
   sentiment: string;
   confidence: number;
   metrics: Record<string, unknown>;
@@ -166,6 +167,49 @@ export interface TweetAnalysis {
   tweet_text: string;
   public_metrics: Record<string, unknown>;
   raw_entities: Record<string, unknown>;
+  content_metrics: {
+    relevance: number;
+    quality: number;
+    engagement: number;
+    authenticity: number;
+    valueAdd: number;
+    callToActionEffectiveness?: number;
+    trendAlignmentScore?: number;
+  };
+  spam_analysis: {
+    spamScore: number;
+    reasons: string[];
+    isSpam: boolean;
+    confidenceMetrics: {
+      linguisticRisk: number;
+      topicMismatch: number;
+      engagementAnomaly: number;
+      promotionalIntent: number;
+      accountTrustSignals: number;
+    };
+  };
+  marketing_insights?: {
+    targetAudience: string[];
+    keyTakeaways: string[];
+    contentStrategies: {
+      whatWorked: string[];
+      improvement: string[];
+    };
+    trendAlignment: {
+      currentTrends: string[];
+      emergingOpportunities: string[];
+      relevanceScore: number;
+    };
+    copywriting: {
+      effectiveElements: string[];
+      hooks: string[];
+      callToAction: {
+        present: boolean;
+        type: string;
+        effectiveness: number;
+      };
+    };
+  };
 }
 
 export interface AgentPrompt {

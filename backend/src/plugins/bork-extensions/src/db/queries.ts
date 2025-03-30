@@ -511,6 +511,7 @@ export const tweetQueries = {
         topicMismatch: number;
         engagementAnomaly: number;
         promotionalIntent: number;
+        accountTrustSignals: number;
       };
     },
     content_metrics: {
@@ -519,7 +520,11 @@ export const tweetQueries = {
       engagement: number;
       authenticity: number;
       valueAdd: number;
+      callToActionEffectiveness?: number;
+      trendAlignmentScore?: number;
     },
+    format: string,
+    marketing_insights?: Record<string, unknown>,
     client?: PoolClient,
   ) => {
     try {
@@ -528,6 +533,7 @@ export const tweetQueries = {
           id,
           tweet_id,
           type,
+          format,
           sentiment,
           confidence,
           metrics,
@@ -546,17 +552,22 @@ export const tweetQueries = {
           topic_mismatch,
           engagement_anomaly,
           promotional_intent,
+          account_trust_signals,
           content_relevance,
           content_quality,
           content_engagement,
           content_authenticity,
-          content_value_add
+          content_value_add,
+          call_to_action_effectiveness,
+          trend_alignment_score,
+          marketing_insights
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
         )
         ON CONFLICT (tweet_id) DO UPDATE SET
           type = EXCLUDED.type,
+          format = EXCLUDED.format,
           sentiment = EXCLUDED.sentiment,
           confidence = EXCLUDED.confidence,
           metrics = EXCLUDED.metrics,
@@ -575,16 +586,21 @@ export const tweetQueries = {
           topic_mismatch = EXCLUDED.topic_mismatch,
           engagement_anomaly = EXCLUDED.engagement_anomaly,
           promotional_intent = EXCLUDED.promotional_intent,
+          account_trust_signals = EXCLUDED.account_trust_signals,
           content_relevance = EXCLUDED.content_relevance,
           content_quality = EXCLUDED.content_quality,
           content_engagement = EXCLUDED.content_engagement,
           content_authenticity = EXCLUDED.content_authenticity,
-          content_value_add = EXCLUDED.content_value_add`;
+          content_value_add = EXCLUDED.content_value_add,
+          call_to_action_effectiveness = EXCLUDED.call_to_action_effectiveness,
+          trend_alignment_score = EXCLUDED.trend_alignment_score,
+          marketing_insights = EXCLUDED.marketing_insights`;
 
       const values = [
         id,
         tweet_id,
         type,
+        format,
         sentiment,
         confidence,
         JSON.stringify(metrics),
@@ -603,11 +619,15 @@ export const tweetQueries = {
         spam_analysis.confidenceMetrics.topicMismatch,
         spam_analysis.confidenceMetrics.engagementAnomaly,
         spam_analysis.confidenceMetrics.promotionalIntent,
+        spam_analysis.confidenceMetrics.accountTrustSignals,
         content_metrics.relevance,
         content_metrics.quality,
         content_metrics.engagement,
         content_metrics.authenticity,
         content_metrics.valueAdd,
+        content_metrics.callToActionEffectiveness || 0,
+        content_metrics.trendAlignmentScore || 0,
+        marketing_insights ? JSON.stringify(marketing_insights) : null,
       ];
 
       return withClient(client || null, async (c) => {
