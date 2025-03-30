@@ -4,14 +4,16 @@ import {
   ModelClass,
   composeContext,
   elizaLogger,
-  generateMessageResponse,
+  generateObject,
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import type { TwitterService } from '../../lib/services/twitter-service';
 import { extractAndRepairAnalysis } from '../helpers/repair-tweet-analysis';
+import type { TwitterService } from '../services/twitter-service';
 import { tweetAnalysisTemplate } from '../templates/analysis';
+import type { TweetAnalysis } from '../types/analysis';
+import { tweetAnalysisSchema } from '../types/response/tweet-analysis';
 import type { TopicWeightRow } from '../types/topic';
 import type { DatabaseTweet } from '../types/twitter';
 import { extractAndStoreKnowledge } from './knowledge-processing';
@@ -131,10 +133,18 @@ export async function processSingleTweet(
       });
 
       try {
-        const analysis = await generateMessageResponse({
+        const { object } = await generateObject({
           runtime,
           context,
           modelClass: ModelClass.MEDIUM,
+          schema: tweetAnalysisSchema,
+        });
+
+        const analysis = object as TweetAnalysis;
+        elizaLogger.info('Generated analysis', {
+          contentType: analysis.contentAnalysis.type,
+          sentiment: analysis.contentAnalysis.sentiment,
+          isSpam: analysis.spamAnalysis.isSpam,
         });
 
         // Validate and process the analysis response
@@ -254,11 +264,26 @@ export async function processSingleTweet(
                   threadSize: tweet.threadSize,
                   originalTextLength: tweet.originalText.length,
                   mergedTextLength: tweet.text.length,
-                  ...parsedAnalysis.contentAnalysis.metrics,
+                  hashtagsUsed:
+                    parsedAnalysis.contentAnalysis.hashtagsUsed || [],
+                  engagementMetrics:
+                    parsedAnalysis.contentAnalysis.engagementAnalysis,
                 },
-                parsedAnalysis.contentAnalysis.entities,
-                parsedAnalysis.contentAnalysis.topics,
-                parsedAnalysis.contentAnalysis.impactScore,
+                // Flatten entities into a single array
+                [
+                  ...(parsedAnalysis.contentAnalysis.entities.people || []),
+                  ...(parsedAnalysis.contentAnalysis.entities.organizations ||
+                    []),
+                  ...(parsedAnalysis.contentAnalysis.entities.products || []),
+                  ...(parsedAnalysis.contentAnalysis.entities.locations || []),
+                  ...(parsedAnalysis.contentAnalysis.entities.events || []),
+                ],
+                // Combine primary and secondary topics
+                [
+                  ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
+                  ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
+                ],
+                parsedAnalysis.contentAnalysis.engagementAnalysis.overallScore,
                 new Date(tweet.timestamp * 1000),
                 tweet.userId?.toString() || '',
                 tweet.text || '', // Use merged text
@@ -280,11 +305,74 @@ export async function processSingleTweet(
                     topic: tw.topic,
                     weight: tw.weight,
                   })),
-                  originalText: tweet.originalText, // Store original text
-                  thread: tweet.thread, // Store thread data
+                  entities: parsedAnalysis.contentAnalysis.entities, // Store full entity structure
                 },
                 parsedAnalysis.spamAnalysis,
-                parsedAnalysis.contentAnalysis.metrics,
+                {
+                  relevance:
+                    parsedAnalysis.contentAnalysis.qualityMetrics.relevance,
+                  quality:
+                    parsedAnalysis.contentAnalysis.qualityMetrics.clarity,
+                  engagement:
+                    parsedAnalysis.contentAnalysis.engagementAnalysis
+                      .overallScore,
+                  authenticity:
+                    parsedAnalysis.contentAnalysis.qualityMetrics.authenticity,
+                  valueAdd:
+                    parsedAnalysis.contentAnalysis.qualityMetrics.valueAdd,
+                  callToActionEffectiveness:
+                    parsedAnalysis.marketingInsights?.copywriting?.callToAction
+                      ?.effectiveness || 0,
+                  trendAlignmentScore:
+                    parsedAnalysis.marketingInsights?.trendAlignment
+                      ?.relevanceScore || 0,
+                },
+                parsedAnalysis.contentAnalysis.format,
+                // Store full marketing insights structure
+                {
+                  targetAudience:
+                    parsedAnalysis.marketingInsights?.targetAudience || [],
+                  keyTakeaways:
+                    parsedAnalysis.marketingInsights?.keyTakeaways || [],
+                  contentStrategies: {
+                    whatWorked:
+                      parsedAnalysis.marketingInsights?.contentStrategies
+                        ?.whatWorked || [],
+                    improvement:
+                      parsedAnalysis.marketingInsights?.contentStrategies
+                        ?.improvement || [],
+                  },
+                  trendAlignment: {
+                    currentTrends:
+                      parsedAnalysis.marketingInsights?.trendAlignment
+                        ?.currentTrends || [],
+                    emergingOpportunities:
+                      parsedAnalysis.marketingInsights?.trendAlignment
+                        ?.emergingOpportunities || [],
+                    relevanceScore:
+                      parsedAnalysis.marketingInsights?.trendAlignment
+                        ?.relevanceScore || 0,
+                  },
+                  copywriting: {
+                    effectiveElements:
+                      parsedAnalysis.marketingInsights?.copywriting
+                        ?.effectiveElements || [],
+                    hooks:
+                      parsedAnalysis.marketingInsights?.copywriting?.hooks ||
+                      [],
+                    callToAction: {
+                      present:
+                        parsedAnalysis.marketingInsights?.copywriting
+                          ?.callToAction?.present || false,
+                      type:
+                        parsedAnalysis.marketingInsights?.copywriting
+                          ?.callToAction?.type || 'none',
+                      effectiveness:
+                        parsedAnalysis.marketingInsights?.copywriting
+                          ?.callToAction?.effectiveness || 0,
+                    },
+                  },
+                },
                 client,
               );
 
@@ -305,8 +393,12 @@ export async function processSingleTweet(
                 if (topicWeights.length > 0) {
                   await updateTopicWeights(
                     topicWeights,
-                    parsedAnalysis.contentAnalysis.topics || [],
-                    parsedAnalysis.contentAnalysis.impactScore || 0.5,
+                    [
+                      ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
+                      ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
+                    ],
+                    parsedAnalysis.contentAnalysis.engagementAnalysis
+                      .overallScore || 0.5,
                     logPrefix,
                   );
                 }

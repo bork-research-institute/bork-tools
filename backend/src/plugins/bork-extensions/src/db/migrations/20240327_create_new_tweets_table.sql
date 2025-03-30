@@ -82,6 +82,7 @@ CREATE TABLE tweet_analysis (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tweet_id TEXT NOT NULL,
   type TEXT NOT NULL,
+  format TEXT NOT NULL,
   sentiment TEXT NOT NULL,
   confidence FLOAT NOT NULL,
   metrics JSONB NOT NULL,
@@ -100,11 +101,15 @@ CREATE TABLE tweet_analysis (
   topic_mismatch FLOAT,
   engagement_anomaly FLOAT,
   promotional_intent FLOAT,
+  account_trust_signals FLOAT,
   content_relevance FLOAT,
   content_quality FLOAT,
   content_engagement FLOAT,
   content_authenticity FLOAT,
   content_value_add FLOAT,
+  call_to_action_effectiveness FLOAT,
+  trend_alignment_score FLOAT,
+  marketing_insights JSONB,
   UNIQUE(tweet_id),
   FOREIGN KEY (tweet_id) REFERENCES tweets(tweet_id) ON DELETE CASCADE
 );
@@ -113,4 +118,5 @@ CREATE TABLE tweet_analysis (
 CREATE INDEX tweet_analysis_tweet_id_idx ON tweet_analysis(tweet_id);
 CREATE INDEX tweet_analysis_created_at_idx ON tweet_analysis(created_at);
 CREATE INDEX tweet_analysis_type_idx ON tweet_analysis(type);
+CREATE INDEX tweet_analysis_format_idx ON tweet_analysis(format);
 CREATE INDEX tweet_analysis_sentiment_idx ON tweet_analysis(sentiment); 
