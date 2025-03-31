@@ -79,10 +79,13 @@ export class TwitterClient implements ClientInstance {
         this.twitterService,
       );
 
-      await this.accountsClient.start();
-      await this.searchClient.start();
-      // await this.interactionClient.start();
-      // await this.discoveryClient.start();
+      // Start clients concurrently
+      await Promise.all([
+        this.accountsClient.start(),
+        this.searchClient.start(),
+        // this.interactionClient.start(),
+        // this.discoveryClient.start(),
+      ]);
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
     } catch (error) {

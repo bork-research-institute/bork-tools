@@ -973,6 +973,152 @@ export const tweetQueries = {
       return [];
     }
   },
+
+  /**
+   * Creates a new topic weight entry
+   */
+  async createTopicWeight(topicWeight: TopicWeightRow): Promise<void> {
+    const query = `
+      INSERT INTO topic_weights (
+        id,
+        topic,
+        weight,
+        impact_score,
+        created_at,
+        engagement_metrics,
+        sentiment,
+        confidence,
+        tweet_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+
+    await db.query(query, [
+      topicWeight.id,
+      topicWeight.topic,
+      topicWeight.weight,
+      topicWeight.impact_score,
+      topicWeight.created_at || new Date(),
+      JSON.stringify(topicWeight.engagement_metrics),
+      topicWeight.sentiment,
+      topicWeight.confidence,
+      topicWeight.tweet_id,
+    ]);
+  },
+
+  /**
+   * Gets recent topic weights within a specified timeframe
+   */
+  async getRecentTopicWeights(timeframeHours = 24): Promise<TopicWeightRow[]> {
+    const query = `
+      SELECT *
+      FROM topic_weights
+      WHERE created_at >= NOW() - INTERVAL '${timeframeHours} hours'
+      ORDER BY created_at DESC
+    `;
+
+    const result = await db.query(query);
+    return result.rows.map((row) => ({
+      ...row,
+      engagement_metrics:
+        typeof row.engagement_metrics === 'string'
+          ? JSON.parse(row.engagement_metrics)
+          : row.engagement_metrics,
+    }));
+  },
+
+  /**
+   * Gets topic weight trends over time
+   */
+  async getTopicTrends(
+    timeframeHours = 168, // Default 1 week
+    interval = '1 hour',
+  ): Promise<
+    Array<{
+      topic: string;
+      timestamp: Date;
+      avgWeight: number;
+      totalEngagement: number;
+      mentionCount: number;
+    }>
+  > {
+    const query = `
+      WITH time_buckets AS (
+        SELECT
+          topic,
+          time_bucket('${interval}', created_at) as bucket,
+          AVG(weight) as avg_weight,
+          SUM(
+            (engagement_metrics->>'likes')::numeric +
+            (engagement_metrics->>'retweets')::numeric +
+            (engagement_metrics->>'replies')::numeric
+          ) as total_engagement,
+          COUNT(*) as mention_count
+        FROM topic_weights
+        WHERE created_at >= NOW() - INTERVAL '${timeframeHours} hours'
+        GROUP BY topic, bucket
+        ORDER BY bucket DESC
+      )
+      SELECT
+        topic,
+        bucket as timestamp,
+        avg_weight,
+        total_engagement,
+        mention_count
+      FROM time_buckets
+      ORDER BY bucket DESC, avg_weight DESC
+    `;
+
+    const result = await db.query(query);
+    return result.rows;
+  },
+
+  /**
+   * Gets the top trending topics based on recent engagement and weight
+   */
+  async getTopTrendingTopics(
+    timeframeHours = 24,
+    limit = 10,
+  ): Promise<
+    Array<{
+      topic: string;
+      avgWeight: number;
+      totalEngagement: number;
+      mentionCount: number;
+      momentum: number;
+    }>
+  > {
+    const query = `
+      WITH recent_metrics AS (
+        SELECT
+          topic,
+          AVG(weight) as avg_weight,
+          SUM(
+            (engagement_metrics->>'likes')::numeric +
+            (engagement_metrics->>'retweets')::numeric +
+            (engagement_metrics->>'replies')::numeric
+          ) as total_engagement,
+          COUNT(*) as mention_count,
+          -- Calculate momentum (weight trend over time)
+          COALESCE(
+            REGR_SLOPE(
+              weight,
+              EXTRACT(EPOCH FROM created_at)
+            ),
+            0
+          ) as momentum
+        FROM topic_weights
+        WHERE created_at >= NOW() - INTERVAL '${timeframeHours} hours'
+        GROUP BY topic
+      )
+      SELECT *
+      FROM recent_metrics
+      ORDER BY (avg_weight * 0.4 + total_engagement * 0.3 + mention_count * 0.1 + momentum * 0.2) DESC
+      LIMIT $1
+    `;
+
+    const result = await db.query(query, [limit]);
+    return result.rows;
+  },
 };
 
 export const agentSettingQueries = {
