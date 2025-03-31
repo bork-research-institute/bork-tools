@@ -908,6 +908,7 @@ export const tweetQueries = {
       avgReplies50: number;
       avgViews50: number;
       last50TweetsUpdatedAt: Date;
+      influenceScore: number;
     },
   ): Promise<void> => {
     const query = `
@@ -917,8 +918,9 @@ export const tweetQueries = {
         avg_retweets_50 = $2,
         avg_replies_50 = $3,
         avg_views_50 = $4,
-        last_50_tweets_updated_at = $5
-      WHERE username = $6
+        last_50_tweets_updated_at = $5,
+        influence_score = $6
+      WHERE username = $7
     `;
 
     try {
@@ -928,6 +930,7 @@ export const tweetQueries = {
         metrics.avgReplies50,
         metrics.avgViews50,
         metrics.last50TweetsUpdatedAt,
+        metrics.influenceScore,
         username,
       ]);
     } catch (error) {

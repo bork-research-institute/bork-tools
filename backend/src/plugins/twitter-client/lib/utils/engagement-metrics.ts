@@ -1,6 +1,7 @@
 import { elizaLogger } from '@elizaos/core';
 import { tweetQueries } from '../../../bork-extensions/src/db/queries';
 import type { TargetAccount } from '../../lib/types/account';
+import type { DatabaseTweet } from '../types/twitter';
 
 /**
  * Updates engagement metrics for an account based on their last 50 tweets.
@@ -10,6 +11,7 @@ export async function updateAccountEngagementMetrics(
   account: TargetAccount,
   context = '[TwitterAccounts]',
   skipSearch = false, // New parameter to skip the search when we're already processing tweets
+  providedTweets?: DatabaseTweet[], // Optional parameter for tweets we already have
 ): Promise<void> {
   try {
     // Check if account was updated recently to avoid excessive API calls
@@ -19,18 +21,10 @@ export async function updateAccountEngagementMetrics(
       ? (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60)
       : 999; // Large number if never updated
 
-    // Skip if updated within the last 24 hours and not forcing an update
-    if (hoursSinceLastUpdate < 24 && skipSearch) {
+    // Only skip if we've updated recently AND we're not processing new tweets
+    if (hoursSinceLastUpdate < 24 && !skipSearch && !providedTweets) {
       elizaLogger.info(
         `${context} Skipping engagement metrics update for ${account.username} - updated ${hoursSinceLastUpdate.toFixed(1)} hours ago`,
-      );
-      return;
-    }
-
-    // Skip search if requested (when we're already processing tweets)
-    if (skipSearch) {
-      elizaLogger.info(
-        `${context} Skipping tweet search for ${account.username} - already processing tweets from this account`,
       );
       return;
     }
@@ -40,8 +34,10 @@ export async function updateAccountEngagementMetrics(
       `${context} Updating engagement metrics for ${account.username}`,
     );
 
-    // Get tweets from database instead of API
-    const tweets = await tweetQueries.getTweetsByUsername(account.username, 50);
+    // Use provided tweets or fetch from database
+    const tweets =
+      providedTweets ||
+      (await tweetQueries.getTweetsByUsername(account.username, 50));
 
     elizaLogger.info(
       `${context} Found ${tweets.length} tweets in database for ${account.username}`,
@@ -67,6 +63,17 @@ export async function updateAccountEngagementMetrics(
         ((avgLikes * 3 + avgRetweets * 5 + avgReplies * 2) / totalFollowers) *
         100;
 
+      // Calculate influence score based on multiple factors
+      const followerWeight = Math.log10(totalFollowers + 1) / 8; // Normalize follower count (0-1)
+      const engagementWeight = engagementRate / 100; // Normalize engagement rate (0-1)
+      const reachMultiplier = avgViews > 0 ? Math.log10(avgViews + 1) / 6 : 0.5; // View reach factor
+
+      // Combine factors for influence score (0-1)
+      const influenceScore = Math.min(
+        1,
+        (followerWeight * 0.3 + engagementWeight * 0.5) * (1 + reachMultiplier),
+      );
+
       // Update the account metrics
       await tweetQueries.updateTargetAccountMetrics(account.username, {
         avgLikes50: avgLikes,
@@ -74,6 +81,7 @@ export async function updateAccountEngagementMetrics(
         avgReplies50: avgReplies,
         avgViews50: avgViews,
         last50TweetsUpdatedAt: new Date(),
+        influenceScore,
       });
 
       elizaLogger.info(
@@ -84,12 +92,13 @@ export async function updateAccountEngagementMetrics(
           avgReplies: avgReplies.toFixed(2),
           avgViews: avgViews > 0 ? avgViews.toFixed(2) : 'n/a',
           engagementRate: `${engagementRate.toFixed(4)}%`,
+          influenceScore: influenceScore.toFixed(4),
           tweetsAnalyzed: tweets.length,
         },
       );
     } else {
       elizaLogger.warn(
-        `${context} No tweets found in database for ${account.username} and search is skipped`,
+        `${context} No tweets found in database for ${account.username}`,
       );
     }
   } catch (error) {

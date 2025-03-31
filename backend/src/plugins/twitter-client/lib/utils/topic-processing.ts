@@ -196,6 +196,62 @@ export async function getRecentTopicWeights(
 }
 
 /**
+ * Gets aggregated topic weights suitable for search term selection
+ * Combines recent engagement with historical data
+ * @param timeframeHours Optional timeframe in hours to look back for recent weights
+ * @returns Array of topic weights with aggregated scores
+ */
+export async function getAggregatedTopicWeights(
+  timeframeHours = 168, // Default to 1 week
+): Promise<TopicWeightRow[]> {
+  try {
+    // Get topic trends to calculate momentum
+    const trends = await tweetQueries.getTopicTrends(timeframeHours);
+
+    // Create a map of topic trends
+    const trendMap = new Map(
+      trends.map((trend) => [
+        trend.topic,
+        {
+          avgWeight: trend.avgWeight,
+          totalEngagement: trend.totalEngagement,
+          mentionCount: trend.mentionCount,
+          // Calculate momentum as the rate of change in weight
+          momentum: trend.avgWeight / Math.max(1, trend.mentionCount),
+        },
+      ]),
+    );
+
+    // Get recent weights
+    const recentWeights =
+      await tweetQueries.getRecentTopicWeights(timeframeHours);
+
+    // Aggregate weights by topic
+    const topicMap = new Map<string, TopicWeightRow>();
+
+    for (const weight of recentWeights) {
+      const trend = trendMap.get(weight.topic);
+      if (!topicMap.has(weight.topic)) {
+        topicMap.set(weight.topic, {
+          ...weight,
+          // Adjust weight based on trend data
+          weight: trend
+            ? weight.weight * 0.6 + trend.avgWeight * 0.2 + trend.momentum * 0.2
+            : weight.weight,
+        });
+      }
+    }
+
+    return Array.from(topicMap.values());
+  } catch (error) {
+    elizaLogger.error('[Topic Processing] Error getting aggregated weights:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
+/**
  * Initializes topic weights if they don't exist and retrieves them
  * @param defaultTopics Default topics to use when initializing
  * @param logPrefix Prefix for log messages
@@ -206,13 +262,13 @@ export async function initializeAndGetTopicWeights(
   logPrefix = '[Topic Processing]',
 ): Promise<TopicWeightRow[]> {
   try {
-    // Get topic weights from the last 24 hours
-    let topicWeights = await tweetQueries.getRecentTopicWeights(24);
+    // First try to get aggregated weights
+    let topicWeights = await getAggregatedTopicWeights();
 
     // Initialize if none exist
     if (!topicWeights.length) {
       elizaLogger.info(
-        `${logPrefix} No recent topic weights found, creating initial entries`,
+        `${logPrefix} No topic weights found, creating initial entries`,
       );
 
       // Create initial weight entries for each default topic
@@ -251,12 +307,38 @@ export async function initializeAndGetTopicWeights(
         `${logPrefix} Created initial entries for ${defaultTopics.length} default topics`,
       );
 
-      // Reload the topic weights
-      topicWeights = await tweetQueries.getRecentTopicWeights(24);
+      // Get the aggregated weights again
+      topicWeights = await getAggregatedTopicWeights();
 
       if (!topicWeights.length) {
         elizaLogger.error(`${logPrefix} Failed to initialize topic weights`);
         return []; // Return empty array if initialization failed
+      }
+    }
+
+    // Ensure all default topics are present with at least minimal weight
+    const existingTopics = new Set(topicWeights.map((tw) => tw.topic));
+    for (const topic of defaultTopics) {
+      if (!existingTopics.has(topic)) {
+        topicWeights.push({
+          id: uuidv4(),
+          topic,
+          weight: 0.3, // Lower initial weight for missing topics
+          impact_score: 0.3,
+          created_at: new Date(),
+          engagement_metrics: {
+            likes: 0,
+            retweets: 0,
+            replies: 0,
+            virality: 0.3,
+            conversionPotential: 0.3,
+            communityBuilding: 0.3,
+            thoughtLeadership: 0.3,
+          },
+          sentiment: 'neutral',
+          confidence: 0.3,
+          tweet_id: 'initial',
+        });
       }
     }
 
