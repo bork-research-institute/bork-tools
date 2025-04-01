@@ -25,7 +25,13 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         const data = await mindshareService.getTopicWeights();
         const totalWeight = data.reduce((sum, item) => sum + item.weight, 0);
 
-        const processedData = data.map((item) => ({
+        // Create a Map to keep only unique topics with their latest data
+        const uniqueTopics = new Map();
+        for (const item of data) {
+          uniqueTopics.set(item.topic, item);
+        }
+
+        const processedData = Array.from(uniqueTopics.values()).map((item) => ({
           ...item,
           percentage: (item.weight / totalWeight) * 100,
         }));
@@ -91,7 +97,7 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
 
           return (
             <div
-              key={item.topic}
+              key={`${item.topic}-${index}`}
               className={`${getGridClass(
                 index,
               )} flex flex-col items-start p-3 rounded-lg transition-all duration-200 overflow-hidden`}
