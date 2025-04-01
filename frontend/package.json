@@ -2,15 +2,16 @@
   "name": "frontend",
   "version": "0.0.1",
   "scripts": {
-    "dotenvx": "dotenvx run -f .env.frontend.production -fk ../.env.keys",
-    "dev": "bun run dotenvx -- next dev -p 3001",
+    "dotenvx": "dotenvx run -f .env.frontend.production",
+    "dotenvx:dev": "dotenvx run -f .env.frontend.production -fk ../.env.keys",
+    "dev": "bun run dotenvx:dev -- next dev -p 3001",
+    "build:dev": "bun run dotenvx:dev -- next build",
     "build": "bun run dotenvx -- next build",
     "start": "bun run dotenvx -- next start",
     "lint": "biome check .",
     "format": "biome format . --write"
   },
   "dependencies": {
-    "@dotenvx/dotenvx": "^1.38.5",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-navigation-menu": "^1.2.5",
@@ -24,8 +25,6 @@
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-query": "^5.66.11",
-    "@types/d3": "^7.4.3",
-    "@types/react-grid-layout": "^1.3.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
@@ -46,8 +45,10 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/react-grid-layout": "^1.3.5",
     "autoprefixer": "^10.4.16",
     "globals": "^16.0.0",
     "postcss": "^8.4.31",
