@@ -32,7 +32,7 @@ const chains: Chain[] = [
   },
   {
     name: 'Solana',
-    available: false,
+    available: true,
     logo: '/assets/solana-logo.png',
   },
 ];

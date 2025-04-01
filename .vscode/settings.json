@@ -19,5 +19,8 @@
   },
   // Disable prettier to avoid conflicts
   "prettier.enable": false,
-  "eslint.enable": false
+  "eslint.enable": false,
+  "search.exclude": {
+    "**/.next": true
+  }
 } 

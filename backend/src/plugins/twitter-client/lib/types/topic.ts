@@ -1,3 +1,5 @@
+// FIXME: This is duplicated in bork-extensions, need to find a way to share this
+
 export interface TopicWeight {
   topic: string;
   weight: number;
@@ -7,9 +9,21 @@ export interface TopicWeight {
 }
 
 export interface TopicWeightRow {
+  id: string;
   topic: string;
   weight: number;
   impact_score: number;
-  last_updated: Date;
-  seed_weight: number;
+  created_at: Date;
+  engagement_metrics: {
+    likes: number;
+    retweets: number;
+    replies: number;
+    virality: number;
+    conversionPotential: number;
+    communityBuilding: number;
+    thoughtLeadership: number;
+  };
+  sentiment: string;
+  confidence: number;
+  tweet_id: string;
 }

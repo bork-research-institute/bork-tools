@@ -1,5 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { Pool } from 'pg';
+import { getEnv } from '../../../../config/env';
 import * as queries from './queries';
 import * as schema from './schema';
 
@@ -39,7 +40,7 @@ class DatabaseManager {
   private initPool(): void {
     if (!this.pool && !this.isClosing) {
       this.pool = new Pool({
-        connectionString: process.env.POSTGRES_URL,
+        connectionString: getEnv().POSTGRES_URL,
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,

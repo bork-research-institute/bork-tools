@@ -136,7 +136,7 @@ export async function processSingleTweet(
         const { object } = await generateObject({
           runtime,
           context,
-          modelClass: ModelClass.MEDIUM,
+          modelClass: ModelClass.SMALL,
           schema: tweetAnalysisSchema,
         });
 
@@ -388,33 +388,16 @@ export async function processSingleTweet(
                 client,
               );
 
-              // Update topic weights for non-spam tweets
-              try {
-                if (topicWeights.length > 0) {
-                  await updateTopicWeights(
-                    topicWeights,
-                    [
-                      ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
-                      ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
-                    ],
-                    parsedAnalysis.contentAnalysis.engagementAnalysis
-                      .overallScore || 0.5,
-                    logPrefix,
-                  );
-                }
-              } catch (topicError) {
-                // Log but don't fail the whole transaction
-                elizaLogger.error(
-                  `${logPrefix} Error updating topic weights:`,
-                  {
-                    error:
-                      topicError instanceof Error
-                        ? topicError.message
-                        : String(topicError),
-                    tweetId: tweet.tweet_id,
-                  },
-                );
-              }
+              // Update topic weights with the new analysis
+              await updateTopicWeights(
+                [
+                  ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
+                  ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
+                ],
+                parsedAnalysis,
+                tweet,
+                logPrefix,
+              );
             } catch (innerError) {
               elizaLogger.error(`${logPrefix} Error in transaction:`, {
                 error:

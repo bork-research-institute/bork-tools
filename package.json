@@ -3,20 +3,16 @@
   "private": true,
   "workspaces": ["frontend", "backend"],
   "scripts": {
-    "dotenvx": "dotenvx",
-    "backend:decrypt": "dotenvx decrypt -f .env.backend.production",
-    "backend:encrypt": "dotenvx encrypt -f .env.backend.production",
-    "dev": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend dev",
-    "build": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend build",
-    "backend:dev": "dotenvx run -f .env.backend.production -- bun run --cwd backend dev",
-    "install:all": "bun install"
-  },
-  "dependencies": {
-    "@dotenvx/dotenvx": "^1.38.5",
-    "react-grid-layout": "^1.5.1"
+    "frontend:dev": "bun run --cwd frontend dev",
+    "frontend:build": "bun run --cwd frontend build",
+    "backend:dev": "bun run --cwd backend dev",
+    "install:all": "bun install",
+    "install:frontend": "bun install --cwd frontend",
+    "install:backend": "bun install --cwd backend"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
+    "@dotenvx/dotenvx": "^1.39.0",
     "@types/bun": "latest",
     "typescript": "^5"
   }

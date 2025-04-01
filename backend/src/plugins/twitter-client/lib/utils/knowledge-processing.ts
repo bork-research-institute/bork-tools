@@ -44,11 +44,21 @@ export async function extractAndStoreKnowledge(
     }
 
     // Extract entities from the analysis
-    const entities = analysis.contentAnalysis.entities || [];
-    const topics = analysis.contentAnalysis.topics || [];
+    const entities = [
+      ...(analysis.contentAnalysis.entities.people || []),
+      ...(analysis.contentAnalysis.entities.organizations || []),
+      ...(analysis.contentAnalysis.entities.products || []),
+      ...(analysis.contentAnalysis.entities.locations || []),
+      ...(analysis.contentAnalysis.entities.events || []),
+    ];
+    const topics = [
+      ...(analysis.contentAnalysis.primaryTopics || []),
+      ...(analysis.contentAnalysis.secondaryTopics || []),
+    ];
     const tweetType = analysis.contentAnalysis.type;
     const sentiment = analysis.contentAnalysis.sentiment;
-    const impactScore = analysis.contentAnalysis.impactScore || 0.5;
+    const impactScore =
+      analysis.contentAnalysis.engagementAnalysis?.overallScore || 0.5;
 
     // Create the base knowledge item for the tweet itself
     const tweetKnowledgeId = stringToUuid(`tweet-knowledge-${tweet.tweet_id}`);

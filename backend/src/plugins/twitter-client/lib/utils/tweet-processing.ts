@@ -4,10 +4,7 @@ import type { TwitterService } from '../../lib/services/twitter-service';
 import type { TopicWeightRow } from '../types/topic';
 import type { Tweet } from '../types/twitter';
 import { processSingleTweet } from './analysis-processing';
-import {
-  groupTweetsByUsername,
-  updateMetricsForAuthors,
-} from './author-metrics-processing';
+import { updateMetricsForAuthors } from './author-metrics-processing';
 import { mergeTweetContent } from './tweet-merging';
 import { prepareTweetsForMerging, validateTweets } from './tweet-validation';
 
@@ -43,13 +40,10 @@ export async function processTweets(
       `[TwitterAccounts] Processing ${mergedTweets.length} tweets`,
     );
 
-    // Step 4: Group tweets by username for batch processing
-    const tweetsByUsername = groupTweetsByUsername(mergedTweets);
+    // Step 4: Update metrics for all tweet authors
+    await updateMetricsForAuthors(mergedTweets, '[Tweet Processing]');
 
-    // Step 5: Update metrics for all tweet authors
-    await updateMetricsForAuthors(tweetsByUsername, '[Tweet Processing]');
-
-    // Step 6: Process each tweet individually
+    // Step 5: Process each tweet individually
     for (const tweet of mergedTweets) {
       await processSingleTweet(
         runtime,

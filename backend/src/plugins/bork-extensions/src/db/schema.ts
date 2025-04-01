@@ -1,5 +1,6 @@
 import type { DatabaseTweet } from '../../../twitter-client/lib/types/twitter';
 
+// FIXME: This needs to be split into multiple files
 export interface Account {
   id: string;
   createdAt: Date;
@@ -221,16 +222,42 @@ export interface AgentPrompt {
 }
 
 export interface TopicWeight {
+  id: string;
   topic: string;
   weight: number;
   impactScore: number;
-  lastUpdated: Date;
+  timestamp: Date;
+  engagementMetrics: {
+    likes: number;
+    retweets: number;
+    replies: number;
+    virality: number;
+    conversionPotential: number;
+    communityBuilding: number;
+    thoughtLeadership: number;
+  };
+  sentiment: string;
+  confidence: number;
+  tweetId: string;
 }
 
 export interface TopicWeightRow {
+  id: string;
   topic: string;
   weight: number;
   impact_score: number;
-  last_updated: Date;
-  seed_weight: number;
+  timestamp: Date;
+  engagement_metrics: {
+    likes: number;
+    retweets: number;
+    replies: number;
+    virality: number;
+    conversion_potential: number;
+    community_building: number;
+    thought_leadership: number;
+  };
+  sentiment: string;
+  confidence: number;
+  tweet_id: string;
+  created_at?: Date;
 }
