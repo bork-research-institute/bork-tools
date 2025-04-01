@@ -27,7 +27,7 @@ export async function updateYapsData(
         lastUpdated: new Date(),
       });
 
-      elizaLogger.info(`[Yaps Processing] Updated Yaps data for ${username}`, {
+      elizaLogger.debug(`[Yaps Processing] Updated Yaps data for ${username}`, {
         yapsAll: yaps.yaps_all,
         yapsL30d: yaps.yaps_l30d,
       });

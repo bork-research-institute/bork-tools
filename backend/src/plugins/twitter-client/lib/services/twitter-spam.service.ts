@@ -23,8 +23,7 @@ export class TwitterSpamService {
   }> {
     const uniqueAuthors = [...new Set(tweets.map((t) => t.userId))];
     elizaLogger.info(
-      `[TwitterSpamService] Fetching spam data for ${uniqueAuthors.length} unique authors`,
-      { context },
+      `${context} Fetching spam data for ${uniqueAuthors.length} unique authors`,
     );
 
     const spamUsers = new Set<string>();
@@ -34,19 +33,15 @@ export class TwitterSpamService {
           const spamData = await this.getSpamData(authorId);
           if (spamData && spamData.spamScore > this.spamThreshold) {
             spamUsers.add(authorId);
-            elizaLogger.debug(
-              `[TwitterSpamService] Filtered out spam user ${authorId}`,
-              {
-                context,
-                spamScore: spamData.spamScore,
-                tweetCount: spamData.tweetCount,
-                violations: spamData.violations,
-              },
-            );
+            elizaLogger.debug(`${context} Filtered out spam user ${authorId}`, {
+              spamScore: spamData.spamScore,
+              tweetCount: spamData.tweetCount,
+              violations: spamData.violations,
+            });
           }
         } catch (error) {
           elizaLogger.error(
-            `[TwitterSpamService] Error fetching spam data for user ${authorId}:`,
+            `${context} Error fetching spam data for user ${authorId}:`,
             error,
           );
         }
@@ -60,15 +55,14 @@ export class TwitterSpamService {
     const spammedTweets = tweets.length - filteredTweets.length;
 
     elizaLogger.info(
-      `[TwitterSpamService] Filtered ${spammedTweets} tweets from ${spamUsers.size} spam users`,
-      {
-        context,
-        totalTweets: tweets.length,
-        spammedTweets,
-        spamUsers: spamUsers.size,
-        remainingTweets: filteredTweets.length,
-      },
+      `${context} Filtered ${spammedTweets} tweets from ${spamUsers.size} spam users`,
     );
+    elizaLogger.debug({
+      totalTweets: tweets.length,
+      spammedTweets,
+      spamUsers: spamUsers.size,
+      remainingTweets: filteredTweets.length,
+    });
 
     return {
       filteredTweets,
