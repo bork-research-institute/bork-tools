@@ -1,4 +1,3 @@
-import { get } from '@dotenvx/dotenvx';
 import { z } from 'zod';
 
 const envSchema = z.object({
@@ -18,13 +17,15 @@ export type Env = z.infer<typeof envSchema>;
 export function getEnv(): Env {
   // Access runtime config
   const envParse = envSchema.safeParse({
-    POSTGRES_URL: get('POSTGRES_URL'),
-    TWITTER_USERNAME: get('TWITTER_USERNAME'),
-    TWITTER_PASSWORD: get('TWITTER_PASSWORD'),
-    TWITTER_EMAIL: get('TWITTER_EMAIL'),
-    TWITTER_DRY_RUN: get('TWITTER_DRY_RUN'),
-    TWITTER_TARGET_USERS: get('TWITTER_TARGET_USERS'),
-    OPENAI_API_KEY: get('OPENAI_API_KEY'),
+    POSTGRES_URL: process.env.POSTGRES_URL,
+    TWITTER_USERNAME: process.env.TWITTER_USERNAME,
+    TWITTER_PASSWORD: process.env.TWITTER_PASSWORD,
+    TWITTER_EMAIL: process.env.TWITTER_EMAIL,
+    TWITTER_DRY_RUN: process.env.TWITTER_DRY_RUN,
+    TWITTER_TARGET_USERS: process.env.TWITTER_TARGET_USERS,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    TWITTER_POLL_INTERVAL: process.env.TWITTER_POLL_INTERVAL,
+    INJECTIVE_ENABLED: process.env.INJECTIVE_ENABLED,
   });
 
   if (!envParse.success) {
