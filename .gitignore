@@ -10,14 +10,8 @@ node_modules/
 # dotenv environment variable files
 .env.keys
 
-# Next.js build output
-.next
-
 # IntelliJ based IDEs
 .idea
 
 # Finder (MacOS) folder config
 .DS_Store
-
-# Next
-.next

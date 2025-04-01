@@ -19,5 +19,6 @@
   },
   // Disable prettier to avoid conflicts
   "prettier.enable": false,
-  "eslint.enable": false
+  "eslint.enable": false,
+  "explorer.excludeGitIgnore": true
 } 

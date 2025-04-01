@@ -12,6 +12,7 @@ import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
 import { initializeClients } from '../clients';
 import { configureApiRoutes } from '../config/api-routes';
+import { getEnv } from '../config/env';
 import {
   getTokenForProvider,
   loadCharacters,
@@ -102,7 +103,7 @@ export const startAgents = async () => {
   let db: (IDatabaseAdapter & IDatabaseCacheAdapter) | undefined;
   try {
     db = new PostgresDatabaseAdapter({
-      connectionString: process.env.POSTGRES_URL,
+      connectionString: getEnv().POSTGRES_URL,
       parseInputs: true,
     });
 

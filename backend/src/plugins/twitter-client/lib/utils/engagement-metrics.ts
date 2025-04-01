@@ -22,6 +22,7 @@ export async function updateAccountEngagementMetrics(
       : 999; // Large number if never updated
 
     // Only skip if we've updated recently AND we're not processing new tweets
+    // FIXME: Seems odd we check that skipSearch is false to skip search :D. I believe we can get rid of skipSearch in that case
     if (hoursSinceLastUpdate < 24 && !skipSearch && !providedTweets) {
       elizaLogger.info(
         `${context} Skipping engagement metrics update for ${account.username} - updated ${hoursSinceLastUpdate.toFixed(1)} hours ago`,
