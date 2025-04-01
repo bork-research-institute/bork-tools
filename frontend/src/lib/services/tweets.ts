@@ -55,7 +55,7 @@ export const tweetService = {
         .from('tweet_analysis')
         .select(`
           *,
-          tweets!tweet_analysis_tweet_id_fkey (
+          tweets (
             text,
             permanent_url,
             username,
@@ -94,7 +94,7 @@ export const tweetService = {
 
       const processedTweets = data
         .map((row) => {
-          const tweet = row.tweets;
+          const tweet = row.tweets[0];
           if (!tweet) {
             return null;
           }
@@ -137,6 +137,7 @@ export const tweetService = {
             ...row,
             ...weightedScores,
             content: tweet.text,
+            content: tweet.text,
             permanent_url: tweet.permanent_url,
             username: tweet.username,
             name: tweet.name,
@@ -152,6 +153,7 @@ export const tweetService = {
             ),
           };
         })
+        .filter(Boolean)
         .filter(Boolean)
         .sort((a, b) => {
           if (scoreFilter === 'aggregate') {
