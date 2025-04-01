@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "buildCommand": "dotenvx run -f .env.frontend.production -- bun run --cwd frontend build",
-  "outputDirectory": "frontend/.next",
-  "framework": "nextjs",
-  "rewrites": [{ "source": "/(.*)", "destination": "/frontend/$1" }]
-}
