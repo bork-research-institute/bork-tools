@@ -18,6 +18,8 @@ import type {
   YapsData,
 } from './schema';
 
+// FIXME: This needs to be split into multiple files
+
 /**
  * Execute a function within a transaction and automatically release the client
  */
@@ -1023,6 +1025,7 @@ export const tweetQueries = {
     return result.rows.map((row) => ({
       ...row,
       engagement_metrics:
+        // TODO Validate this, I believe the logic is wrong here
         typeof row.engagement_metrics === 'string'
           ? JSON.parse(row.engagement_metrics)
           : row.engagement_metrics,

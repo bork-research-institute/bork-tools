@@ -1,5 +1,6 @@
 import type { DatabaseTweet } from '../../../twitter-client/lib/types/twitter';
 
+// FIXME: This needs to be split into multiple files
 export interface Account {
   id: string;
   createdAt: Date;

@@ -1,3 +1,5 @@
+// FIXME: This is duplicated in bork-extensions, need to find a way to share this
+
 export interface TopicWeight {
   topic: string;
   weight: number;
