@@ -136,7 +136,7 @@ export async function processSingleTweet(
         const { object } = await generateObject({
           runtime,
           context,
-          modelClass: ModelClass.MEDIUM,
+          modelClass: ModelClass.SMALL,
           schema: tweetAnalysisSchema,
         });
 
