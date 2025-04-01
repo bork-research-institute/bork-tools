@@ -55,7 +55,7 @@ export const tweetService = {
         .from('tweet_analysis')
         .select(`
           *,
-          tweets (
+          tweets!tweet_analysis_tweet_id_fkey (
             text,
             permanent_url,
             username,
@@ -94,7 +94,7 @@ export const tweetService = {
 
       const processedTweets = data
         .map((row) => {
-          const tweet = row.tweets[0];
+          const tweet = row.tweets;
           if (!tweet) {
             return null;
           }
