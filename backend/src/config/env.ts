@@ -8,8 +8,8 @@ const envSchema = z.object({
   TWITTER_DRY_RUN: z.string().min(1),
   TWITTER_TARGET_USERS: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
-  TWITTER_POLL_INTERVAL: z.number().min(1),
-  INJECTIVE_ENABLED: z.boolean(),
+  TWITTER_POLL_INTERVAL: z.string().transform((val) => Number.parseInt(val)),
+  INJECTIVE_ENABLED: z.string().transform((val) => val === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;
