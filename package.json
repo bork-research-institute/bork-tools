@@ -4,8 +4,8 @@
   "workspaces": ["frontend", "backend"],
   "scripts": {
     "dotenvx": "dotenvx",
-    "dev": "bun run --cwd frontend dev",
-    "build": "bun run --cwd frontend build",
+    "frontend:dev": "bun run --cwd frontend dev",
+    "frontend:build": "bun run --cwd frontend build",
     "backend:dev": "bun run --cwd backend dev",
     "install:all": "bun install"
   },

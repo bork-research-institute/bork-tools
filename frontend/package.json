@@ -2,9 +2,10 @@
   "name": "frontend",
   "version": "0.0.1",
   "scripts": {
-    "dev": "dotenvx run -f .env.frontend.production -- next dev -p 3001",
-    "build": "dotenvx run -f .env.frontend.production -- next build",
-    "start": "dotenvx run -f .env.frontend.production -- next start",
+    "dotenvx": "dotenvx run -f .env.frontend.production -fk ../.env.keys",
+    "dev": "bun run dotenvx -- next dev -p 3001",
+    "build": "bun run dotenvx -- next build",
+    "start": "bun run dotenvx -- next start",
     "lint": "biome check .",
     "format": "biome format . --write"
   },
