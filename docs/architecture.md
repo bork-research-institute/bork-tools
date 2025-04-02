@@ -4,32 +4,30 @@ This document outlines the architecture of the Twitter Bot system using Mermaid 
 
 ## Component Overview
 
-![Generated Diagram](generated/diagrams/diagram-1.svg)
+![Generated Diagram](generated/diagram-1.svg)
 
 ## Data Flow
 
-![Generated Diagram](generated/diagrams/diagram-3.svg)
-
-
+![Generated Diagram](generated/diagram-2.svg)
 
 
 ## Client Details
 
 ### Accounts Client Flow
 
-![Generated Diagram](generated/diagrams/diagram-2.svg)
+![Generated Diagram](generated/diagram-3.svg)
 
 ### Search Client Flow
 
-![Generated Diagram](generated/diagrams/diagram-4.svg)
+![Generated Diagram](generated/diagram-4.svg)
 
 ### Interaction Client Flow
 
-![Generated Diagram](generated/diagrams/diagram-5.svg)
+![Generated Diagram](generated/diagram-5.svg)
 
 ### Discovery Client Flow
 
-![Generated Diagram](generated/diagrams/diagram-6.svg)
+![Generated Diagram](generated/diagram-6.svg)
 
 ## Service Responsibilities
 
@@ -66,11 +64,11 @@ The following improvements enhance our system's ability to analyze social media 
 
 ### Analytics Components Overview
 
-![Generated Diagram](generated/diagrams/diagram-7.svg)
+![Generated Diagram](generated/diagram-7.svg)
 
 ### Analytics Data Flow
 
-![Generated Diagram](generated/diagrams/diagram-8.svg)
+![Generated Diagram](generated/diagram-8.svg)
 
 ### New Components
 
