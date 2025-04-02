@@ -8,14 +8,16 @@ This document outlines the architecture of the Twitter Bot system using Mermaid 
 
 ## Data Flow
 
-![Generated Diagram](generated/diagrams/diagram-2.svg)
+![Generated Diagram](generated/diagrams/diagram-3.svg)
+
+
 
 
 ## Client Details
 
 ### Accounts Client Flow
 
-![Generated Diagram](generated/diagrams/diagram-3.svg)
+![Generated Diagram](generated/diagrams/diagram-2.svg)
 
 ### Search Client Flow
 

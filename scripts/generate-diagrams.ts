@@ -1,53 +1,39 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { spawn } from 'bun';
 
 // Directory configuration
 const DOCS_DIR = 'docs';
-const MERMAID_DIR = join(DOCS_DIR, 'mermaid');
-const GENERATED_DIR = join(DOCS_DIR, 'generated');
-const DIAGRAMS_DIR = join(GENERATED_DIR, 'diagrams');
+const MERMAID_DIR = `${DOCS_DIR}/mermaid`;
+const GENERATED_DIR = `${DOCS_DIR}/generated`;
 
-// Ensure directories exist
-if (!Bun.file(GENERATED_DIR).exists()) {
+console.log('Starting diagram generation...');
+console.log(`Using directories:
+- Mermaid files: ${MERMAID_DIR}
+- Generated SVGs: ${GENERATED_DIR}
+`);
+
+// Ensure generated directory exists
+if (!(await Bun.file(GENERATED_DIR).exists())) {
   await Bun.write(`${GENERATED_DIR}/.gitkeep`, '');
-}
-if (!Bun.file(DIAGRAMS_DIR).exists()) {
-  await Bun.write(`${DIAGRAMS_DIR}/.gitkeep`, '');
-}
-if (!Bun.file(MERMAID_DIR).exists()) {
-  await Bun.write(`${MERMAID_DIR}/.gitkeep`, '');
+  console.log(`Created directory: ${GENERATED_DIR}`);
 }
 
-// Read the architecture.md file
-const architectureFile = join(DOCS_DIR, 'architecture.md');
-const content = await Bun.file(architectureFile).text();
+// Get all .mmd files
+const mermaidFiles = await readdir(MERMAID_DIR);
+const diagramFiles = mermaidFiles.filter((file) => file.endsWith('.mmd'));
 
-// Extract mermaid diagrams and save them to separate files
-const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
-let match: RegExpExecArray | null = null;
-let diagramIndex = 0;
+console.log(`Found ${diagramFiles.length} diagram files`);
 
-// First pass: Extract and save diagrams
-match = mermaidRegex.exec(content);
-while (match !== null) {
-  diagramIndex++;
-  const diagramContent = match[1];
-  const mermaidFile = join(MERMAID_DIR, `diagram-${diagramIndex}.mmd`);
+// Generate SVGs for each diagram
+for (const file of diagramFiles) {
+  const diagramNumber = file.match(/diagram-(\d+)\.mmd/)?.[1];
+  if (!diagramNumber) {
+    console.warn(`Skipping file ${file} - doesn't match expected format`);
+    continue;
+  }
 
-  // Save Mermaid definition to its own file
-  await Bun.write(mermaidFile, diagramContent);
-
-  match = mermaidRegex.exec(content);
-}
-
-// Second pass: Generate SVGs from Mermaid files
-const mermaidFiles = (await readdir(MERMAID_DIR)).filter((file) =>
-  file.endsWith('.mmd'),
-);
-for (const [index, file] of mermaidFiles.entries()) {
-  const inputFile = join(MERMAID_DIR, file);
-  const outputFile = join(DIAGRAMS_DIR, `diagram-${index + 1}.svg`);
+  const inputFile = `${MERMAID_DIR}/${file}`;
+  const outputFile = `${GENERATED_DIR}/diagram-${diagramNumber}.svg`;
 
   try {
     const proc = spawn([
@@ -59,25 +45,32 @@ for (const [index, file] of mermaidFiles.entries()) {
       outputFile,
       '-b',
       'transparent',
+      '--scale',
+      '1.2',
     ]);
-    await proc.exited;
-    console.log(`Generated diagram ${index + 1}`);
+
+    // Log stdout and stderr
+    const text = await new Response(proc.stdout).text();
+    if (text) {
+      console.log('stdout:', text);
+    }
+
+    const error = await new Response(proc.stderr).text();
+    if (error) {
+      console.error('stderr:', error);
+    }
+
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      console.log(`✓ Generated diagram ${diagramNumber}`);
+    } else {
+      console.error(
+        `✗ Error generating diagram ${diagramNumber}: Exit code ${exitCode}`,
+      );
+    }
   } catch (error) {
-    console.error(`Error generating diagram ${index + 1}:`, error);
+    console.error(`✗ Error generating diagram ${diagramNumber}:`, error);
   }
 }
 
-// Update the architecture.md file to only include SVG references
-const updatedContent = content.replace(
-  /```mermaid\n([\s\S]*?)\n```\n*/g,
-  (_, __, offset) => {
-    const currentIndex =
-      Math.floor(content.slice(0, offset).match(/```mermaid/g)?.length || 0) +
-      1;
-    return `![Generated Diagram](generated/diagrams/diagram-${currentIndex}.svg)\n\n`;
-  },
-);
-
-await Bun.write(architectureFile, updatedContent);
-
-console.log('Diagram generation complete!');
+console.log('\nDiagram generation complete!');
