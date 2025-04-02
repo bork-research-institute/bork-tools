@@ -1,0 +1,47 @@
+graph TB
+    subgraph Inputs
+        mentions[/"Dynamic: Mentions
+        - Direct mentions
+        - Replies"/]
+        context[/"Dynamic: Conversation Context
+        - Thread history
+        - User history"/]
+        profile[/"Static: Bot Profile
+        - Personality
+        - Response patterns"/]
+    end
+
+    subgraph Process
+        monitor["Monitor Mentions"]
+        build["Build Conversation Thread"]
+        evaluate["Evaluate Response Need
+        - Spam check
+        - Context analysis"]
+        generate["Generate Response
+        - Context-aware
+        - Personality-aligned"]
+    end
+
+    subgraph Outputs
+        responses["Direct Responses"]
+        memory["Conversation Memory
+        - Thread context
+        - User interaction history"]
+        metrics["Interaction Metrics
+        - Response time
+        - Engagement quality"]
+    end
+
+    mentions --> monitor
+    context --> build
+    profile --> evaluate
+    monitor --> build
+    build --> evaluate
+    evaluate --> generate
+    generate --> responses
+    generate --> memory
+    generate --> metrics
+
+    style Inputs fill:#e1f3d8,stroke:#333,stroke-width:1px
+    style Process fill:#fff7de,stroke:#333,stroke-width:1px
+    style Outputs fill:#f2e1ff,stroke:#333,stroke-width:1px

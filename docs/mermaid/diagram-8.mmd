@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant TS as Twitter Service
+    participant EP as Event Processor
+    participant AE as Analytics Engine
+    participant ML as ML Pipeline
+    participant DW as Data Warehouse
+    participant IN as Insights API
+
+    Note over TS,IN: Real-time Processing Flow
+    
+    loop Stream Processing
+        TS->>EP: Social Media Events
+        EP->>AE: Processed Events
+        
+        par Parallel Analysis
+            AE->>AE: Sentiment Analysis
+            AE->>AE: Network Analysis
+            AE->>AE: Topic Modeling
+            AE->>AE: Media Analysis
+        end
+        
+        AE->>ML: Feature Vectors
+        ML->>ML: Apply Models
+        
+        par Store & Serve
+            ML->>DW: Store Results
+            ML->>IN: Real-time Insights
+        end
+    end
+    
+    Note over TS,IN: Batch Processing Flow
+    
+    loop Daily Analysis
+        DW->>ML: Historical Data
+        ML->>ML: Train Models
+        ML->>ML: Detect Patterns
+        ML->>DW: Update Models
+        ML->>IN: Trend Reports
+    end 

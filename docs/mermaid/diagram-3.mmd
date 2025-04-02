@@ -1,0 +1,52 @@
+graph TB
+    subgraph Inputs
+        config[/"Static: Twitter Config
+        - Target accounts list
+        - Tweet limits
+        - Engagement thresholds"/]
+        topics[/"Static: Topic Weights
+        - Topic definitions
+        - Weight values"/]
+        timeline[/"Dynamic: Account Timelines
+        - Recent tweets
+        - Engagement metrics"/]
+    end
+
+    subgraph Process
+        init["Initialize Topic Weights"]
+        select["Select Target Accounts
+        (Weighted Random)"]
+        fetch["Fetch Recent Tweets"]
+        filter["Filter & Score Tweets
+        - Engagement check
+        - Spam filtering"]
+        process["Process Valid Tweets
+        - Topic matching
+        - AI response generation"]
+    end
+
+    subgraph Outputs
+        responses["AI Generated Responses"]
+        engagement["Engagement Actions
+        - Likes
+        - Retweets
+        - Replies"]
+        metrics["Performance Metrics
+        - Response rate
+        - Engagement success"]
+    end
+
+    config --> init
+    topics --> init
+    init --> select
+    select --> fetch
+    timeline --> fetch
+    fetch --> filter
+    filter --> process
+    process --> responses
+    process --> engagement
+    process --> metrics
+
+    style Inputs fill:#e1f3d8,stroke:#333,stroke-width:1px
+    style Process fill:#fff7de,stroke:#333,stroke-width:1px
+    style Outputs fill:#f2e1ff,stroke:#333,stroke-width:1px

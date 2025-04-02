@@ -1,0 +1,61 @@
+graph TB
+    %% Analytics Components
+    AnalyticsEngine[Analytics Engine]
+    TrendDetector[Trend Detector]
+    SentimentAnalyzer[Sentiment Analyzer]
+    NetworkAnalyzer[Network Analyzer]
+    DataWarehouse[(Data Warehouse)]
+    
+    %% Stream Processing
+    StreamProcessor[Stream Processor]
+    EventBus[Event Bus]
+    
+    %% ML Components
+    MLPipeline[ML Pipeline]
+    ModelRegistry[Model Registry]
+    FeatureStore[Feature Store]
+    
+    %% Existing Components
+    TwitterService[Twitter Service]
+    CacheService[Cache Service]
+    KaitoService[Kaito Service]
+    
+    %% New Data Sources
+    MediaAnalyzer[Media Analyzer]
+    HashtagAnalyzer[Hashtag Analyzer]
+    UserBehaviorTracker[User Behavior Tracker]
+    
+    %% Relationships
+    TwitterService --> EventBus
+    EventBus --> StreamProcessor
+    StreamProcessor --> AnalyticsEngine
+    StreamProcessor --> DataWarehouse
+    
+    AnalyticsEngine --> TrendDetector
+    AnalyticsEngine --> SentimentAnalyzer
+    AnalyticsEngine --> NetworkAnalyzer
+    
+    TrendDetector --> MLPipeline
+    SentimentAnalyzer --> MLPipeline
+    NetworkAnalyzer --> MLPipeline
+    
+    MLPipeline --> ModelRegistry
+    MLPipeline --> FeatureStore
+    
+    CacheService --> DataWarehouse
+    KaitoService --> AnalyticsEngine
+    
+    MediaAnalyzer --> AnalyticsEngine
+    HashtagAnalyzer --> AnalyticsEngine
+    UserBehaviorTracker --> AnalyticsEngine
+    
+    %% Styling
+    classDef analytics fill:#f9d6ff,stroke:#333,stroke-width:1px
+    classDef storage fill:#ffb366,stroke:#333,stroke-width:1px
+    classDef ml fill:#b3e6ff,stroke:#333,stroke-width:1px
+    classDef processor fill:#c2f0c2,stroke:#333,stroke-width:1px
+    
+    class AnalyticsEngine,TrendDetector,SentimentAnalyzer,NetworkAnalyzer analytics;
+    class DataWarehouse,FeatureStore,ModelRegistry storage;
+    class MLPipeline,StreamProcessor processor;
+    class MediaAnalyzer,HashtagAnalyzer,UserBehaviorTracker analytics; 
