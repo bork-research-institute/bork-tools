@@ -27,3 +27,13 @@ export interface TopicWeightRow {
   confidence: number;
   tweet_id: string;
 }
+
+export interface EngagementMetrics {
+  likes: number;
+  retweets: number;
+  replies: number;
+  virality: number;
+  conversionPotential: number;
+  communityBuilding: number;
+  thoughtLeadership: number;
+}

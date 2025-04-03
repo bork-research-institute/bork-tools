@@ -5,8 +5,8 @@ import { tweetQueries } from '../../bork-extensions/src/db/queries';
 import { mapTweet } from '../lib/mappers/tweet-mapper';
 import { TwitterConfigService } from '../lib/services/twitter-config-service';
 import type { TwitterService } from '../lib/services/twitter-service';
-import { initializeAndGetTopicWeights } from '../lib/utils/topic-processing';
-import { processTweets } from '../lib/utils/tweet-processing';
+import { processTweets } from '../lib/utils/analysis/process-tweets';
+import { initializeAndGetTopicWeights } from '../lib/utils/topics/topics';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;

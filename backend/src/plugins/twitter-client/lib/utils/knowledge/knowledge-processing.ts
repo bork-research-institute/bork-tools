@@ -6,8 +6,8 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import type { TweetAnalysis } from '../types/analysis';
-import type { DatabaseTweet } from '../types/twitter';
+import type { TweetAnalysis } from '../../types/analysis';
+import type { DatabaseTweet } from '../../types/twitter';
 
 /**
  * Extracts knowledge from a tweet analysis and stores it in the database

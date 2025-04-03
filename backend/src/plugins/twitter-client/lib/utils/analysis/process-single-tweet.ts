@@ -8,19 +8,19 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import { extractAndRepairAnalysis } from '../helpers/repair-tweet-analysis';
-import type { TwitterService } from '../services/twitter-service';
-import { tweetAnalysisTemplate } from '../templates/analysis';
-import type { TweetAnalysis } from '../types/analysis';
-import { tweetAnalysisSchema } from '../types/response/tweet-analysis';
-import type { TopicWeightRow } from '../types/topic';
-import type { DatabaseTweet } from '../types/twitter';
-import { extractAndStoreKnowledge } from './knowledge-processing';
-import { fetchAndFormatKnowledge } from './knowledge-processing';
-import { storeMentions } from './mentions-processing';
-import { updateUserSpamData } from './spam-processing';
-import { updateTopicWeights } from './topic-processing';
+import { tweetQueries } from '../../../../bork-extensions/src/db/queries';
+import { extractAndRepairAnalysis } from '../../helpers/repair-tweet-analysis';
+import { updateUserSpamData } from '../../helpers/spam-helper';
+import type { TwitterService } from '../../services/twitter-service';
+import { tweetAnalysisTemplate } from '../../templates/analysis';
+import type { TweetAnalysis } from '../../types/analysis';
+import { tweetAnalysisSchema } from '../../types/response/tweet-analysis';
+import type { TopicWeightRow } from '../../types/topic';
+import type { DatabaseTweet } from '../../types/twitter';
+import { storeMentions } from '../accounts/mentions-processing';
+import { extractAndStoreKnowledge } from '../knowledge/knowledge-processing';
+import { fetchAndFormatKnowledge } from '../knowledge/knowledge-processing';
+import { updateTopicWeights } from '../topics/topics';
 
 /**
  * Processes a single tweet by analyzing its content, detecting spam,

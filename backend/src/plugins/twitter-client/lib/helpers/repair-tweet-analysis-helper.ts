@@ -1,6 +1,5 @@
 import { elizaLogger } from '@elizaos/core';
 import type { TweetAnalysis } from '../types/analysis';
-import {} from '../utils/text-processing';
 
 /**
  * Creates a default TweetAnalysis object with reasonable default values

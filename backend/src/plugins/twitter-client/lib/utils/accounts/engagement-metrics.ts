@@ -1,7 +1,7 @@
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import type { TargetAccount } from '../../lib/types/account';
-import type { DatabaseTweet } from '../types/twitter';
+import { tweetQueries } from '../../../../bork-extensions/src/db/queries';
+import type { TargetAccount } from '../../types/account';
+import type { DatabaseTweet } from '../../types/twitter';
 
 /**
  * Updates engagement metrics for an account based on their last 50 tweets.
