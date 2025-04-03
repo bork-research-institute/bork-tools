@@ -2,8 +2,8 @@ import { elizaLogger } from '@elizaos/core';
 import {
   tweetQueries,
   userMentionQueries,
-} from '../../../bork-extensions/src/db/queries';
-import type { DatabaseTweet } from '../types/twitter';
+} from '../../../../bork-extensions/src/db/queries';
+import type { DatabaseTweet } from '../../types/twitter';
 
 function getMentionsFromText(text: string): string[] {
   const mentionRegex = /@(\w+)/g;

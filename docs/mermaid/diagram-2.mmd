@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant TC as Twitter Clients
+    participant TS as Twitter Service
+    participant Auth as Auth Service
+    participant Cache as Cache Service
+    participant Spam as Spam Service
+    participant Twitter as Twitter API
+    participant Eliza as Eliza Core
+
+    TC->>TS: Initialize
+    TS->>Auth: Authenticate
+    Auth->>Twitter: Login
+    Twitter-->>Auth: Cookies/Session
+    
+    loop Monitoring
+        TC->>TS: Monitor Events
+        TS->>Twitter: Fetch Updates
+        Twitter-->>TS: New Data
+        TS->>Cache: Store Data
+        TS->>Spam: Filter Content
+        
+        alt Valid Content
+            TS->>Eliza: Generate Response
+            Eliza-->>TS: AI Response
+            TS->>Twitter: Post Response
+        end
+    end

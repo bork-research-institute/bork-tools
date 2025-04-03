@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../bork-extensions/src/db/queries';
-import type { DatabaseTweet } from '../types/twitter';
+import { tweetQueries } from '../../../../bork-extensions/src/db/queries';
+import type { DatabaseTweet } from '../../types/twitter';
 import { updateAccountEngagementMetrics } from './engagement-metrics';
 /**
  * Updates metrics for all tweet authors

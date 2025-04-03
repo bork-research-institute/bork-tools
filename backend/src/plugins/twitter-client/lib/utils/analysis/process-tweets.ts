@@ -1,12 +1,12 @@
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
-import type { TwitterService } from '../../lib/services/twitter-service';
-import type { TopicWeightRow } from '../types/topic';
-import type { Tweet } from '../types/twitter';
-import { processSingleTweet } from './analysis-processing';
-import { updateMetricsForAuthors } from './author-metrics-processing';
-import { mergeTweetContent } from './tweet-merging';
-import { prepareTweetsForMerging, validateTweets } from './tweet-validation';
+import type { TwitterService } from '../../services/twitter-service';
+import type { TopicWeightRow } from '../../types/topic';
+import type { Tweet } from '../../types/twitter';
+import { updateMetricsForAuthors } from '../accounts/update-account-influence-score';
+import { mergeTweetContent } from '../tweet-merging';
+import { prepareTweetsForMerging, validateTweets } from '../tweet-validation';
+import { processSingleTweet } from './process-single-tweet';
 
 /**
  * Main entry point for processing tweets.
