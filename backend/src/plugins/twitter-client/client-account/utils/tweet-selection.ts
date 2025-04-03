@@ -39,7 +39,7 @@ export async function selectTweetsFromAccounts(
           config.search.engagementThresholds,
         );
 
-      elizaLogger.info(
+      elizaLogger.debug(
         `[TwitterAccounts] Fetched ${accountTweets.length} tweets from ${account.username}`,
         { spammedTweets },
       );
@@ -77,7 +77,7 @@ export async function selectTweetsFromAccounts(
       );
 
       if (validTweets.length > unprocessedTweets.length) {
-        elizaLogger.info(
+        elizaLogger.debug(
           `[TwitterAccounts] Filtered out ${
             validTweets.length - unprocessedTweets.length
           } already processed tweets from ${account.username}`,
@@ -111,13 +111,13 @@ export async function selectTweetsFromAccounts(
 
       elizaLogger.info(
         `[TwitterAccounts] Selected ${selectedTweets.length} tweets meeting criteria from ${mappedTweets.length} unprocessed tweets for ${account.username}`,
-        {
-          minLikes: thresholds.minLikes,
-          minRetweets: thresholds.minRetweets,
-          minReplies: thresholds.minReplies,
-          maxQualityTweets: config.search.tweetLimits.qualityTweetsPerAccount,
-        },
       );
+      elizaLogger.debug({
+        minLikes: thresholds.minLikes,
+        minRetweets: thresholds.minRetweets,
+        minReplies: thresholds.minReplies,
+        maxQualityTweets: config.search.tweetLimits.qualityTweetsPerAccount,
+      });
 
       results.push({
         tweets: selectedTweets,

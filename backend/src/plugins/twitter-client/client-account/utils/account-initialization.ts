@@ -82,7 +82,7 @@ export async function initializeTargetAccounts(
           last50TweetsUpdatedAt: null,
         });
 
-        elizaLogger.info(
+        elizaLogger.debug(
           `[TwitterAccounts] Initialized target account: ${username}`,
         );
       } catch (error) {

@@ -77,21 +77,19 @@ export class TwitterRequestService {
           return searchResults;
         }
 
-        elizaLogger.info(
-          `${context} Found ${searchResults.tweets.length} tweets:`,
-          {
-            tweets: searchResults.tweets.map((t) => ({
-              id: t.id,
-              username: t.username,
-              text: `${t.text?.slice(0, 50)}...`,
-              likes: t.likes,
-              retweets: t.retweets,
-              replies: t.replies,
-              conversationId: t.conversationId,
-              threadSize: t.thread?.length || 0,
-            })),
-          },
-        );
+        elizaLogger.info(`${context} Found ${searchResults.tweets.length}`);
+        elizaLogger.debug('tweets:', {
+          tweets: searchResults.tweets.map((t) => ({
+            id: t.id,
+            username: t.username,
+            text: `${t.text?.slice(0, 50)}...`,
+            likes: t.likes,
+            retweets: t.retweets,
+            replies: t.replies,
+            conversationId: t.conversationId,
+            threadSize: t.thread?.length || 0,
+          })),
+        });
 
         return searchResults;
       } catch (error) {

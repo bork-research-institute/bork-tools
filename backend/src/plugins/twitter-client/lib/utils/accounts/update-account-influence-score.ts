@@ -24,15 +24,15 @@ export async function updateMetricsForAuthors(
 
     elizaLogger.info(
       `${context} Grouped tweets by ${tweetsByAuthor.size} unique authors`,
-      {
-        authorCounts: Array.from(tweetsByAuthor.entries()).map(
-          ([username, tweets]) => ({
-            username,
-            tweetCount: tweets.length,
-          }),
-        ),
-      },
     );
+    elizaLogger.debug({
+      authorCounts: Array.from(tweetsByAuthor.entries()).map(
+        ([username, tweets]) => ({
+          username,
+          tweetCount: tweets.length,
+        }),
+      ),
+    });
 
     // Get all target accounts once
     const accounts = await tweetQueries.getTargetAccounts();
@@ -75,7 +75,8 @@ export async function updateMetricsForAuthors(
       }
     }
 
-    elizaLogger.info(`${context} Completed metrics update processing`, {
+    elizaLogger.info(`${context} Completed metrics update processing`);
+    elizaLogger.debug({
       totalAuthors: tweetsByAuthor.size,
       processedAuthors,
       skippedAuthors,

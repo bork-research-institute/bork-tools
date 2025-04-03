@@ -69,7 +69,7 @@ export async function selectTargetAccounts(
     elizaLogger.info(
       `[TwitterAccounts] Selected ${accountsToProcess.length} accounts ` +
         `(${yapsSelected.length} by yaps, ${influenceSelected.length} by influence) ` +
-        `from ${targetAccounts.length} total accounts: ` +
+        `from ${targetAccounts.length} total accounts with config ${config.search.tweetLimits.accountsToProcess}: ` +
         `${accountsToProcess.map((a) => a.username).join(', ')}`,
     );
 
