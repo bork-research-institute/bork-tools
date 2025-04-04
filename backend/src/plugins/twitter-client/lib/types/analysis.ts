@@ -46,6 +46,9 @@ export interface ContentAnalysis {
   hashtagsUsed: string[];
   qualityMetrics: QualityMetrics;
   engagementAnalysis: EngagementAnalysis;
+  summary?: string;
+  keyPoints?: string[];
+  threadSummary?: string;
 }
 
 export interface CallToAction {

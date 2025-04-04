@@ -55,12 +55,23 @@ export async function extractAndStoreKnowledge(
     // Create the base knowledge item for the tweet itself
     const tweetKnowledgeId = stringToUuid(`tweet-knowledge-${tweet.tweet_id}`);
 
-    // Create a knowledge entry for the tweet content with metadata
+    // Format analysis content for storage
+    const analysisContent = {
+      mainContent: analysis.contentAnalysis.summary || tweet.text,
+      keyPoints: analysis.contentAnalysis.keyPoints || [],
+      entities: analysis.contentAnalysis.entities || [],
+      sentiment: analysis.contentAnalysis.sentiment,
+      type: analysis.contentAnalysis.type,
+      topics: topics,
+      originalText: tweet.text,
+    };
+
+    // Create a knowledge entry for the analysis content with metadata
     const tweetKnowledge: RAGKnowledgeItem = {
       id: tweetKnowledgeId,
       agentId: runtime.agentId,
       content: {
-        text: tweet.text,
+        text: JSON.stringify(analysisContent),
         metadata: {
           source: 'twitter',
           sourceId: tweet.tweet_id,
@@ -83,89 +94,59 @@ export async function extractAndStoreKnowledge(
           isMain: true,
           isThreadMerged: tweet.isThreadMerged,
           threadSize: tweet.threadSize || 1,
+          analysisVersion: '1.0', // Add version tracking for analysis format
         },
       },
       embedding: undefined,
       createdAt: Date.now(),
     };
 
-    // Generate embedding for the tweet knowledge
+    // Generate embedding for the analysis knowledge
     const tweetMemory: Memory = {
       id: tweetKnowledgeId,
       content: {
-        text: tweet.text,
+        text: JSON.stringify(analysisContent),
       },
       agentId: runtime.agentId,
       userId: stringToUuid(`twitter-user-${tweet.userId}`),
       roomId: stringToUuid(uuidv4()),
     };
+
+    elizaLogger.info(
+      `${logPrefix} Generating embedding for analysis of tweet ${tweet.tweet_id}`,
+    );
+
     await runtime.messageManager.addEmbeddingToMemory(tweetMemory);
+
     if (tweetMemory.embedding) {
+      elizaLogger.info(
+        `${logPrefix} Successfully generated embedding for tweet ${tweet.tweet_id}`,
+        {
+          embeddingSize:
+            tweetMemory.embedding instanceof Float32Array
+              ? tweetMemory.embedding.length
+              : tweetMemory.embedding.length,
+          embeddingType:
+            tweetMemory.embedding instanceof Float32Array
+              ? 'Float32Array'
+              : 'Array',
+        },
+      );
+
       tweetKnowledge.embedding =
         tweetMemory.embedding instanceof Float32Array
           ? tweetMemory.embedding
           : new Float32Array(tweetMemory.embedding);
+    } else {
+      elizaLogger.warn(
+        `${logPrefix} Failed to generate embedding for tweet ${tweet.tweet_id}`,
+      );
     }
 
     // Store the main tweet knowledge
     await runtime.databaseAdapter.createKnowledge(tweetKnowledge);
     elizaLogger.info(
-      `${logPrefix} Stored main tweet knowledge for ${tweet.tweet_id}`,
-    );
-
-    // If the tweet is a thread, also store a summarized version
-    if (tweet.isThreadMerged && tweet.threadSize > 1) {
-      const threadSummaryText = `Thread summary: ${tweet.text.substring(0, 200)}...`;
-      const threadSummary: RAGKnowledgeItem = {
-        id: stringToUuid(`tweet-thread-${tweet.tweet_id}`),
-        agentId: runtime.agentId,
-        content: {
-          text: threadSummaryText,
-          metadata: {
-            source: 'twitter',
-            sourceId: tweet.tweet_id,
-            sourceUrl: tweet.permanentUrl,
-            authorUsername: tweet.username,
-            authorUserId: tweet.userId?.toString(),
-            isThreadSummary: true,
-            threadSize: tweet.threadSize,
-            topics,
-            timestamp: tweet.timestamp,
-            originalId: tweetKnowledgeId,
-            isChunk: true,
-            chunkIndex: 0,
-          },
-        },
-        embedding: undefined,
-        createdAt: Date.now(),
-      };
-
-      // Generate embedding for the thread summary
-      const summaryMemory: Memory = {
-        id: threadSummary.id,
-        content: {
-          text: threadSummaryText,
-        },
-        agentId: runtime.agentId,
-        userId: stringToUuid(`twitter-user-${tweet.userId}`),
-        roomId: stringToUuid(uuidv4()),
-      };
-      await runtime.messageManager.addEmbeddingToMemory(summaryMemory);
-      if (summaryMemory.embedding) {
-        threadSummary.embedding =
-          summaryMemory.embedding instanceof Float32Array
-            ? summaryMemory.embedding
-            : new Float32Array(summaryMemory.embedding);
-      }
-
-      await runtime.databaseAdapter.createKnowledge(threadSummary);
-      elizaLogger.info(
-        `${logPrefix} Stored thread summary for ${tweet.tweet_id}`,
-      );
-    }
-
-    elizaLogger.info(
-      `${logPrefix} Successfully completed knowledge extraction for tweet ${tweet.tweet_id}`,
+      `${logPrefix} Stored main tweet analysis knowledge for ${tweet.tweet_id}`,
     );
   } catch (error) {
     elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
@@ -203,6 +184,10 @@ export async function fetchAndFormatKnowledge(
       roomId: stringToUuid(uuidv4()),
     };
 
+    elizaLogger.info(
+      `${logPrefix} Generating embedding for tweet ${tweet.tweet_id} to search for relevant knowledge`,
+    );
+
     // Generate embedding for the tweet text
     await runtime.messageManager.addEmbeddingToMemory(tweetMemory);
 
@@ -213,6 +198,20 @@ export async function fetchAndFormatKnowledge(
       );
       return '';
     }
+
+    elizaLogger.info(
+      `${logPrefix} Successfully generated search embedding for tweet ${tweet.tweet_id}`,
+      {
+        embeddingSize:
+          tweetMemory.embedding instanceof Float32Array
+            ? tweetMemory.embedding.length
+            : tweetMemory.embedding.length,
+        embeddingType:
+          tweetMemory.embedding instanceof Float32Array
+            ? 'Float32Array'
+            : 'Array',
+      },
+    );
 
     // Convert the embedding to Float32Array if needed
     const embedding =
@@ -236,6 +235,10 @@ export async function fetchAndFormatKnowledge(
       return '';
     }
 
+    elizaLogger.info(
+      `${logPrefix} Found ${relevantKnowledge.length} relevant knowledge items for tweet ${tweet.tweet_id}`,
+    );
+
     // Format the knowledge context
     const knowledgeContext = `\n\nRelevant Knowledge:\n${relevantKnowledge
       .map((k) => {
@@ -247,7 +250,22 @@ export async function fetchAndFormatKnowledge(
             retweets?: number;
             replies?: number;
           }) || {};
-        return `- ${k.content.text}
+
+        interface AnalysisContent {
+          mainContent: string;
+          keyPoints?: string[];
+        }
+
+        let analysisContent: AnalysisContent;
+        try {
+          analysisContent = JSON.parse(k.content.text) as AnalysisContent;
+        } catch {
+          // Handle legacy format or invalid JSON
+          analysisContent = { mainContent: k.content.text };
+        }
+
+        return `- ${analysisContent.mainContent}
+${analysisContent.keyPoints?.length ? `Key Points:\n${analysisContent.keyPoints.map((point) => `  - ${point}`).join('\n')}\n` : ''}
 Type: ${metadata.tweetType || 'unknown'}
 Confidence: ${metadata.confidence || 'unknown'}
 Similarity: ${(k.similarity || 0).toFixed(2)}

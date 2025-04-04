@@ -16,8 +16,8 @@ import {
   twitterMessageHandlerTemplate,
   twitterShouldRespondTemplate,
 } from '../lib/templates/interaction';
+import { wait } from './utils/helpers';
 import { sendTweetAndCreateMemory } from './utils/send-tweet-and-create-memory';
-import { wait } from './utils/utils';
 
 export class TwitterInteractionClient {
   private readonly twitterService: TwitterService;
