@@ -1,11 +1,14 @@
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
+import { mergeTweetContent } from '../../helpers/tweet-merging-helper';
+import {
+  prepareTweetsForMerging,
+  validateTweets,
+} from '../../helpers/tweet-validation-helper';
 import type { TwitterService } from '../../services/twitter-service';
 import type { TopicWeightRow } from '../../types/topic';
 import type { Tweet } from '../../types/twitter';
 import { updateMetricsForAuthors } from '../accounts/update-account-influence-score';
-import { mergeTweetContent } from '../tweet-merging';
-import { prepareTweetsForMerging, validateTweets } from '../tweet-validation';
 import { processSingleTweet } from './process-single-tweet';
 
 /**

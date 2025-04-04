@@ -7,7 +7,6 @@ import {
   composeContext,
   elizaLogger,
   generateMessageResponse,
-  getEmbeddingZeroVector,
   stringToUuid,
 } from '@elizaos/core';
 import { messageHandlerTemplate } from '../templates/base-templates';
@@ -118,9 +117,11 @@ export class MessageService {
         ...userMessage,
         userId: agent.agentId,
         content: response,
-        embedding: getEmbeddingZeroVector(),
         createdAt: Date.now(),
       };
+
+      // Generate embedding for the response
+      await agent.messageManager.addEmbeddingToMemory(responseMessage);
       await agent.messageManager.createMemory(responseMessage);
 
       state = await agent.updateRecentMessageState(state);

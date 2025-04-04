@@ -1,8 +1,7 @@
-import { getEmbeddingZeroVector } from '@elizaos/core';
-import type { Content, Memory, UUID } from '@elizaos/core';
+import type { Content, IAgentRuntime, Memory, UUID } from '@elizaos/core';
 import { stringToUuid } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import type { TwitterService } from '../services/twitter-service';
+import type { TwitterService } from '../../lib/services/twitter-service';
 
 const MAX_TWEET_LENGTH = 280; // Updated to Twitter's current character limit
 
@@ -26,6 +25,7 @@ export const isValidTweet = (tweet: Tweet): boolean => {
 
 export async function sendTweet(
   twitterService: TwitterService,
+  runtime: IAgentRuntime,
   content: Content,
   roomId: UUID,
   agentId: UUID,
@@ -44,22 +44,29 @@ export async function sendTweet(
     await wait(1000, 2000);
   }
 
-  const memories: Memory[] = sentTweets.map((tweet) => ({
-    id: stringToUuid(`${tweet.id}-${agentId}`),
-    agentId,
-    userId: agentId,
-    content: {
-      text: tweet.text,
-      source: 'twitter',
-      url: tweet.permanentUrl,
-      inReplyTo: tweet.inReplyToStatusId
-        ? stringToUuid(`${tweet.inReplyToStatusId}-${agentId}`)
-        : undefined,
-    },
-    roomId,
-    embedding: getEmbeddingZeroVector(),
-    createdAt: tweet.timestamp * 1000,
-  }));
+  const memories: Memory[] = [];
+
+  for (const tweet of sentTweets) {
+    const memory: Memory = {
+      id: stringToUuid(`${tweet.id}-${agentId}`),
+      agentId,
+      userId: agentId,
+      content: {
+        text: tweet.text,
+        source: 'twitter',
+        url: tweet.permanentUrl,
+        inReplyTo: tweet.inReplyToStatusId
+          ? stringToUuid(`${tweet.inReplyToStatusId}-${agentId}`)
+          : undefined,
+      },
+      roomId,
+      createdAt: tweet.timestamp * 1000,
+    };
+
+    // Generate embedding for the tweet memory
+    await runtime.messageManager.addEmbeddingToMemory(memory);
+    memories.push(memory);
+  }
 
   return memories;
 }

@@ -7,7 +7,6 @@ import {
   elizaLogger,
   generateMessageResponse,
   generateShouldRespond,
-  getEmbeddingZeroVector,
   stringToUuid,
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
@@ -395,7 +394,7 @@ Text: ${tweet.text}
           'twitter',
         );
 
-        await this.runtime.messageManager.createMemory({
+        const memory: Memory = {
           id: stringToUuid(`${currentTweet.id}-${this.runtime.agentId}`),
           agentId: this.runtime.agentId,
           content: {
@@ -414,8 +413,11 @@ Text: ${tweet.text}
             currentTweet.userId === this.twitterService.getProfile()?.id
               ? this.runtime.agentId
               : stringToUuid(currentTweet.userId),
-          embedding: getEmbeddingZeroVector(),
-        });
+        };
+
+        // Generate embedding before creating memory
+        await this.runtime.messageManager.addEmbeddingToMemory(memory);
+        await this.runtime.messageManager.createMemory(memory);
       }
 
       if (visited.has(currentTweet.id)) {

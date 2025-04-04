@@ -9,7 +9,7 @@ import {
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 import { tweetQueries } from '../../../../bork-extensions/src/db/queries';
-import { extractAndRepairAnalysis } from '../../helpers/repair-tweet-analysis';
+import { extractAndRepairAnalysis } from '../../helpers/repair-tweet-analysis-helper';
 import { updateUserSpamData } from '../../helpers/spam-helper';
 import type { TwitterService } from '../../services/twitter-service';
 import { tweetAnalysisTemplate } from '../../templates/analysis';
