@@ -1,6 +1,6 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { DatabaseTweet } from '@/lib/types/twitter';
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../../extensions/src/db/queries';
-import type { DatabaseTweet } from '../../types/twitter';
 import { updateAccountEngagementMetrics } from './engagement-metrics';
 /**
  * Updates metrics for all tweet authors

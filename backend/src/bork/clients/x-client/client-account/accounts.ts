@@ -1,10 +1,10 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import { KaitoService } from '@/lib/services/kaito-service';
+import { TwitterConfigService } from '@/lib/services/twitter-config-service';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import { processTweets } from '@/lib/utils/analysis/process-tweets';
+import { initializeTopicWeights } from '@/lib/utils/topics/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../extensions/src/db/queries';
-import { KaitoService } from '../../lib/services/kaito-service';
-import { TwitterConfigService } from '../../lib/services/twitter-config-service';
-import type { TwitterService } from '../../lib/services/twitter-service';
-import { processTweets } from '../../lib/utils/analysis/process-tweets';
-import { initializeTopicWeights } from '../../lib/utils/topics/topics';
 import { initializeTargetAccounts } from './utils/account-initialization';
 import { selectTargetAccounts } from './utils/account-selection';
 import { selectTweetsFromAccounts } from './utils/tweet-selection';

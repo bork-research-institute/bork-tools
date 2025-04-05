@@ -1,4 +1,4 @@
-import type { DatabaseTweet } from '../../../clients/lib/types/twitter';
+import type { DatabaseTweet } from '@/lib/types/twitter';
 
 // FIXME: This needs to be split into multiple files
 export interface Account {

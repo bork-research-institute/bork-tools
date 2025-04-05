@@ -1,9 +1,9 @@
+import { tweetQueries } from '@/extensions/src/db/queries.js';
+import type { TweetAnalysis } from '@/lib/types/analysis.js';
+import type { EngagementMetrics, TopicWeightRow } from '@/lib/types/topic.js';
+import type { DatabaseTweet } from '@/lib/types/twitter.js';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../../extensions/src/db/queries.js';
-import type { TweetAnalysis } from '../../types/analysis.js';
-import type { EngagementMetrics, TopicWeightRow } from '../../types/topic.js';
-import type { DatabaseTweet } from '../../types/twitter.js';
 
 export async function initializeTopicWeights(
   runtime: IAgentRuntime,

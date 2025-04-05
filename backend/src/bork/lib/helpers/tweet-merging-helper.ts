@@ -1,7 +1,7 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../extensions/src/db/queries';
 import type { TwitterService } from '../services/twitter-service';
 import type { DatabaseTweet, MergedTweet } from '../types/twitter';
 

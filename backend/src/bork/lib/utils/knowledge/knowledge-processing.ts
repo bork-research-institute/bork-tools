@@ -1,3 +1,5 @@
+import type { TweetAnalysis } from '@/lib/types/analysis';
+import type { DatabaseTweet } from '@/lib/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -6,8 +8,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import type { TweetAnalysis } from '../../types/analysis';
-import type { DatabaseTweet } from '../../types/twitter';
 
 /**
  * Extracts knowledge from a tweet analysis and stores it in the database

@@ -1,10 +1,7 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TargetAccount, WeightedAccount } from '@/lib/types/account';
+import type { TwitterConfig } from '@/lib/types/config';
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../../extensions/src/db/queries';
-import type {
-  TargetAccount,
-  WeightedAccount,
-} from '../../../lib/types/account';
-import type { TwitterConfig } from '../../../lib/types/config';
 import { selectAccountsWithWeights } from './selection-utils';
 import { updateYapsData } from './yaps-processing';
 

@@ -1,12 +1,12 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import { mapTweet } from '@/lib/mappers/tweet-mapper';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import type { TargetAccount } from '@/lib/types/account';
+import type { TwitterConfig } from '@/lib/types/config';
+import type { TweetSelectionResult } from '@/lib/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../../extensions/src/db/queries';
-import { mapTweet } from '../../../lib/mappers/tweet-mapper';
-import type { TwitterService } from '../../../lib/services/twitter-service';
-import type { TargetAccount } from '../../../lib/types/account';
-import type { TwitterConfig } from '../../../lib/types/config';
-import type { TweetSelectionResult } from '../../../lib/types/twitter';
 
 /**
  * Selects tweets from target accounts based on engagement criteria

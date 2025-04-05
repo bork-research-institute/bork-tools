@@ -1,13 +1,13 @@
-import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
-import type { PoolClient } from 'pg';
-import { v4 as uuidv4 } from 'uuid';
-import type { TargetAccount } from '../../../clients/lib/types/account';
-import type { TopicWeightRow } from '../../../clients/lib/types/topic';
-import type { DatabaseTweet } from '../../../clients/lib/types/twitter';
+import type { TargetAccount } from '@/lib/types/account';
+import type { TopicWeightRow } from '@/lib/types/topic';
+import type { DatabaseTweet } from '@/lib/types/twitter';
 import type {
   TwitterConfig,
   TwitterConfigRow,
-} from '../twitter-extensions/types/config';
+} from '@/lib/types/twitter-config';
+import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
+import type { PoolClient } from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 import { db } from './index';
 import type {
   AgentPrompt,

@@ -1,7 +1,4 @@
-import type {
-  TargetAccount,
-  WeightedAccount,
-} from '../../../lib/types/account';
+import type { TargetAccount, WeightedAccount } from '@/lib/types/account';
 
 /**
  * Performs weighted random selection of accounts from a pool

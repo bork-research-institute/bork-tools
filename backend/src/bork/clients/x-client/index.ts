@@ -1,11 +1,11 @@
+import { cleanupPool } from '@/extensions/src/db';
+import { TwitterService } from '@/lib/services/twitter-service';
 import {
   type ClientInstance,
   type IAgentRuntime,
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
-import { cleanupPool } from '../../extensions/src/db';
-import { TwitterService } from '../lib/services/twitter-service';
 import { TwitterAccountsClient } from './client-account/accounts';
 import { TwitterAccountDiscoveryClient } from './client-discovery/account-discovery';
 import { TwitterInteractionClient } from './client-interactions/interactions';

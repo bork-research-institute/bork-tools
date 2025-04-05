@@ -1,8 +1,8 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import type { TwitterConfig } from '@/lib/types/config';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { tweetQueries } from '../../../../extensions/src/db/queries';
-import type { TwitterService } from '../../../lib/services/twitter-service';
-import type { TwitterConfig } from '../../../lib/types/config';
 
 export async function initializeTargetAccounts(
   twitterService: TwitterService,

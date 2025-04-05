@@ -1,3 +1,9 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import {
+  twitterMessageHandlerTemplate,
+  twitterShouldRespondTemplate,
+} from '@/lib/templates/interaction';
 import {
   type IAgentRuntime,
   type Memory,
@@ -10,12 +16,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
-import { tweetQueries } from '../../../extensions/src/db/queries';
-import type { TwitterService } from '../../lib/services/twitter-service';
-import {
-  twitterMessageHandlerTemplate,
-  twitterShouldRespondTemplate,
-} from '../../lib/templates/interaction';
 import { wait } from './utils/helpers';
 import { sendTweetAndCreateMemory } from './utils/send-tweet-and-create-memory';
 

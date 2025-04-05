@@ -1,3 +1,12 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import { extractAndRepairAnalysis } from '@/lib/helpers/repair-tweet-analysis-helper';
+import { updateUserSpamData } from '@/lib/helpers/spam-helper';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import { tweetAnalysisTemplate } from '@/lib/templates/analysis';
+import type { TweetAnalysis } from '@/lib/types/analysis';
+import { tweetAnalysisSchema } from '@/lib/types/response/tweet-analysis';
+import type { TopicWeightRow } from '@/lib/types/topic';
+import type { DatabaseTweet } from '@/lib/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -8,15 +17,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../../extensions/src/db/queries';
-import { extractAndRepairAnalysis } from '../../helpers/repair-tweet-analysis-helper';
-import { updateUserSpamData } from '../../helpers/spam-helper';
-import type { TwitterService } from '../../services/twitter-service';
-import { tweetAnalysisTemplate } from '../../templates/analysis';
-import type { TweetAnalysis } from '../../types/analysis';
-import { tweetAnalysisSchema } from '../../types/response/tweet-analysis';
-import type { TopicWeightRow } from '../../types/topic';
-import type { DatabaseTweet } from '../../types/twitter';
 import { storeMentions } from '../accounts/mentions-processing';
 import { extractAndStoreKnowledge } from '../knowledge/knowledge-processing';
 import { fetchAndFormatKnowledge } from '../knowledge/knowledge-processing';

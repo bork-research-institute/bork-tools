@@ -1,12 +1,12 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import { mapTweet } from '@/lib/mappers/tweet-mapper';
+import { TwitterConfigService } from '@/lib/services/twitter-config-service';
+import type { TwitterService } from '@/lib/services/twitter-service';
+import { processTweets } from '@/lib/utils/analysis/process-tweets';
+import { initializeAndGetTopicWeights } from '@/lib/utils/topics/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
-import { tweetQueries } from '../../../extensions/src/db/queries';
-import { mapTweet } from '../../lib/mappers/tweet-mapper';
-import { TwitterConfigService } from '../../lib/services/twitter-config-service';
-import type { TwitterService } from '../../lib/services/twitter-service';
-import { processTweets } from '../../lib/utils/analysis/process-tweets';
-import { initializeAndGetTopicWeights } from '../../lib/utils/topics/topics';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;

@@ -1,6 +1,6 @@
+import { tweetQueries } from '@/extensions/src/db/queries.js';
+import { KaitoService } from '@/lib/services/kaito-service.js';
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from '../../../../extensions/src/db/queries.js';
-import { KaitoService } from '../../../lib/services/kaito-service.js';
 
 const kaitoService = new KaitoService();
 
