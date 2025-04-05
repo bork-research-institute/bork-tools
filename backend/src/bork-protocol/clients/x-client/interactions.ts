@@ -4,7 +4,7 @@ import {
   twitterMessageHandlerTemplate,
   twitterShouldRespondTemplate,
 } from '@/templates/interaction';
-import { sendTweetAndCreateMemory, wait } from '@/utils/tweeting/tweet';
+import { sendTweetAndCreateMemory, wait } from '@/utils/active-tweeting/tweet';
 import {
   type IAgentRuntime,
   type Memory,

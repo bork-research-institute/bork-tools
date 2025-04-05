@@ -2,7 +2,7 @@ import { tweetQueries } from '@/extensions/src/db/queries';
 import type { TargetAccount, WeightedAccount } from '@/types/account';
 import type { TwitterConfig } from '@/types/config';
 import { elizaLogger } from '@elizaos/core';
-import { updateYapsData } from './yaps';
+import { updateYapsData } from '../account-metrics/yaps';
 
 /**
  * Performs weighted random selection of accounts from a pool

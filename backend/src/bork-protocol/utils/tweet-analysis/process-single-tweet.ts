@@ -17,10 +17,10 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import { storeMentions } from '../accounts/mentions-processing';
-import { extractAndStoreKnowledge } from '../knowledge/knowledge-processing';
-import { fetchAndFormatKnowledge } from '../knowledge/knowledge-processing';
-import { updateTopicWeights } from '../topics/topics';
+import { updateTopicWeights } from '../topic-weights/topics';
+import { extractAndStoreKnowledge } from './process-knowledge';
+import { fetchAndFormatKnowledge } from './process-knowledge';
+import { storeMentions } from './process-mentions';
 
 /**
  * Processes a single tweet by analyzing its content, detecting spam,

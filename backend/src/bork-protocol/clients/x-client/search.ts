@@ -2,7 +2,8 @@ import { tweetQueries } from '@/extensions/src/db/queries';
 import { mapTweet } from '@/mappers/tweet-mapper';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
-import { initializeAndGetTopicWeights } from '@/utils/topics/topics';
+import { initializeTopicWeights } from '@/utils/initialize-db/topics';
+import { selectTopic } from '@/utils/selection/select-topic';
 import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
@@ -22,6 +23,17 @@ export class TwitterSearchClient {
 
   async start(): Promise<void> {
     elizaLogger.info('[TwitterSearch] Starting search client');
+
+    // Initialize topic weights if they don't exist
+    try {
+      await initializeTopicWeights(this.runtime);
+    } catch (error) {
+      elizaLogger.error(
+        '[TwitterAccounts] Error initializing topic weights:',
+        error,
+      );
+    }
+
     await this.onReady();
   }
 
@@ -50,14 +62,8 @@ export class TwitterSearchClient {
 
     const config = await this.twitterConfigService.getConfig();
 
-    // Get and initialize topic weights if needed
-    const defaultTopics = this.runtime.character.topics || [
-      'injective protocol',
-    ];
-    const topicWeights = await initializeAndGetTopicWeights(
-      defaultTopics,
-      '[TwitterSearch]',
-    );
+    // Get topic weights for processing
+    const topicWeights = await tweetQueries.getTopicWeights();
 
     if (topicWeights.length === 0) {
       elizaLogger.error(
@@ -67,27 +73,7 @@ export class TwitterSearchClient {
     }
 
     try {
-      // Sort topics by weight and select one with probability proportional to weight
-      const totalWeight = topicWeights.reduce((sum, tw) => sum + tw.weight, 0);
-      const randomValue = Math.random() * totalWeight;
-      let accumWeight = 0;
-      const selectedTopic =
-        topicWeights.find((tw) => {
-          accumWeight += tw.weight;
-          return randomValue <= accumWeight;
-        }) || topicWeights[0];
-
-      elizaLogger.debug(
-        '[TwitterSearch] Selected search term based on weights',
-        {
-          selectedTopic: selectedTopic.topic,
-          weight: selectedTopic.weight,
-          allWeights: topicWeights.map((tw) => ({
-            topic: tw.topic,
-            weight: tw.weight,
-          })),
-        },
-      );
+      const selectedTopic = selectTopic(topicWeights);
 
       elizaLogger.info('[TwitterSearch] Fetching search tweets');
       await new Promise((resolve) => setTimeout(resolve, 5000));

@@ -2,10 +2,10 @@ import { tweetQueries } from '@/extensions/src/db/queries';
 import { KaitoService } from '@/services/kaito/kaito-service';
 import type { TwitterService } from '@/services/twitter//twitter-service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
-import { selectTargetAccounts } from '@/utils/accounts/select-account';
-import { selectTweetsFromAccounts } from '@/utils/accounts/select-tweets';
 import { initializeTargetAccounts } from '@/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
+import { selectTargetAccounts } from '@/utils/selection/select-account';
+import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
 import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 

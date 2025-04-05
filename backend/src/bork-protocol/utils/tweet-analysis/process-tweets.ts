@@ -8,7 +8,7 @@ import type { TopicWeightRow } from '@/types/topic';
 import type { Tweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
-import { updateMetricsForAuthors } from '../accounts/update-account-influence-score';
+import { updateMetricsForAuthors } from '../account-metrics/update-influence-score';
 import { processSingleTweet } from './process-single-tweet';
 
 /**
