@@ -6,10 +6,10 @@ import {
 import { Scraper } from 'agent-twitter-client';
 import { cleanupPool } from 'src/bork-protocol/extensions/src/db';
 import { TwitterService } from 'src/bork-protocol/services/twitter-service';
-import { TwitterAccountsClient } from './client-account/accounts';
-import { TwitterAccountDiscoveryClient } from './client-discovery/account-discovery';
-import { TwitterInteractionClient } from './client-interactions/interactions';
-import { TwitterSearchClient } from './client-search/search';
+import { TwitterAccountDiscoveryClient } from './account-discovery';
+import { TwitterAccountsClient } from './accounts';
+import { TwitterInteractionClient } from './interactions';
+import { TwitterSearchClient } from './search';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;

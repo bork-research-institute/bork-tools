@@ -1,3 +1,4 @@
+import { sendTweetAndCreateMemory, wait } from '@/utils/tweeting/tweet';
 import {
   type IAgentRuntime,
   type Memory,
@@ -16,8 +17,6 @@ import {
   twitterMessageHandlerTemplate,
   twitterShouldRespondTemplate,
 } from 'src/bork-protocol/templates/interaction';
-import { wait } from './utils/helpers';
-import { sendTweetAndCreateMemory } from './utils/send-tweet-and-create-memory';
 
 export class TwitterInteractionClient {
   private readonly twitterService: TwitterService;
@@ -87,7 +86,7 @@ export class TwitterInteractionClient {
 
       uniqueTweetCandidates = uniqueTweetCandidates
         .sort((a, b) => a.id.localeCompare(b.id))
-        .filter((tweet) => tweet.userId !== profile.id);
+        .filter((tweet) => tweet.userId !== profile.userId);
 
       const lastCheckedId = await this.twitterService.getLatestCheckedTweetId(
         profile.username,
@@ -113,7 +112,7 @@ export class TwitterInteractionClient {
             `${tweet.conversationId}-${this.runtime.agentId}`,
           );
           const userIdUUID = tweet.userId
-            ? tweet.userId === profile.id
+            ? tweet.userId === profile.userId
               ? this.runtime.agentId
               : stringToUuid(tweet.userId)
             : stringToUuid('unknown-user');
@@ -168,7 +167,7 @@ export class TwitterInteractionClient {
     thread: Tweet[];
   }): Promise<void> {
     const profile = this.twitterService.getProfile();
-    if (!profile || tweet.userId === profile.id) {
+    if (!profile || tweet.userId === profile.userId) {
       return;
     }
 
@@ -410,7 +409,7 @@ Text: ${tweet.text}
           createdAt: currentTweet.timestamp * 1000,
           roomId,
           userId:
-            currentTweet.userId === this.twitterService.getProfile()?.id
+            currentTweet.userId === this.twitterService.getProfile()?.userId
               ? this.runtime.agentId
               : stringToUuid(currentTweet.userId),
         };

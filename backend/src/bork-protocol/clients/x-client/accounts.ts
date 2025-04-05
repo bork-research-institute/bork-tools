@@ -1,3 +1,6 @@
+import { initializeTargetAccounts } from '@/utils/accounts/account-initialization';
+import { selectTargetAccounts } from '@/utils/accounts/account-selection';
+import { selectTweetsFromAccounts } from '@/utils/accounts/tweet-selection';
 import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
@@ -5,9 +8,6 @@ import { KaitoService } from 'src/bork-protocol/services/kaito-service';
 import { TwitterConfigService } from 'src/bork-protocol/services/twitter-config-service';
 import type { TwitterService } from 'src/bork-protocol/services/twitter-service';
 import { initializeTopicWeights } from 'src/bork-protocol/utils/topics/topics';
-import { initializeTargetAccounts } from './utils/account-initialization';
-import { selectTargetAccounts } from './utils/account-selection';
-import { selectTweetsFromAccounts } from './utils/tweet-selection';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
