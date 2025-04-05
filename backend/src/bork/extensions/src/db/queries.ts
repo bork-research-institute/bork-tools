@@ -1,9 +1,9 @@
 import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
 import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import type { TargetAccount } from '../../../../bork/clients/lib/types/account';
-import type { TopicWeightRow } from '../../../../bork/clients/lib/types/topic';
-import type { DatabaseTweet } from '../../../../bork/clients/lib/types/twitter';
+import type { TargetAccount } from '../../../clients/lib/types/account';
+import type { TopicWeightRow } from '../../../clients/lib/types/topic';
+import type { DatabaseTweet } from '../../../clients/lib/types/twitter';
 import type {
   TwitterConfig,
   TwitterConfigRow,

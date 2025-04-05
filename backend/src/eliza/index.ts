@@ -10,7 +10,6 @@ import {
 } from '@elizaos/core';
 import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
-import { initializeClients } from '../clients';
 import { configureApiRoutes } from '../config/api-routes';
 import { getEnv } from '../config/env';
 import {
@@ -19,7 +18,8 @@ import {
   parseArguments,
 } from '../config/index';
 import { PostgresDatabaseAdapter } from '../plugins/adapter-postgres';
-import { character } from './character';
+import { character } from './character/character';
+import { initializeClients } from './clients';
 
 export function createAgent(
   character: Character,

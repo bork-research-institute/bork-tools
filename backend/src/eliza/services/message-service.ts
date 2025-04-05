@@ -9,7 +9,7 @@ import {
   generateMessageResponse,
   stringToUuid,
 } from '@elizaos/core';
-import { messageHandlerTemplate } from '../../templates/base-templates';
+import { messageHandlerTemplate } from '../templates/base-templates';
 import type { MessageRequest } from '../types/requests/message-request';
 
 export class MessageService {
