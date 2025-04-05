@@ -9,7 +9,7 @@ import {
   generateMessageResponse,
   stringToUuid,
 } from '@elizaos/core';
-import { messageHandlerTemplate } from '../templates/base-templates';
+import { messageHandlerTemplate } from '../../templates/base-templates';
 import type { MessageRequest } from '../types/requests/message-request';
 
 export class MessageService {
@@ -73,11 +73,58 @@ export class MessageService {
       await agent.messageManager.addEmbeddingToMemory(memory);
       await agent.messageManager.createMemory(memory);
 
+      // Fetch relevant knowledge using the message embedding
+      let knowledgeContent = '';
+      if (memory.embedding) {
+        try {
+          const relevantKnowledge = await agent.databaseAdapter.searchKnowledge(
+            {
+              agentId: agent.agentId,
+              embedding:
+                memory.embedding instanceof Float32Array
+                  ? memory.embedding
+                  : new Float32Array(memory.embedding),
+              match_threshold: 0.7,
+              match_count: 5,
+              searchText: text,
+            },
+          );
+
+          if (relevantKnowledge.length > 0) {
+            knowledgeContent = relevantKnowledge
+              .map((k) => {
+                const metadata = k.content.metadata || {};
+                return `- ${k.content.text}
+Type: ${metadata.type || 'unknown'}
+Confidence: ${metadata.confidence || 'unknown'}
+Similarity: ${(k.similarity || 0).toFixed(2)}
+Topics: ${Array.isArray(metadata.topics) ? metadata.topics.join(', ') : 'none'}
+Impact Score: ${metadata.impactScore || 'unknown'}`;
+              })
+              .join('\n\n');
+          }
+        } catch (error) {
+          elizaLogger.error(
+            '[MessageService] Error fetching knowledge:',
+            error,
+          );
+        }
+      }
+
       let state: State | undefined;
       try {
         state = await agent.composeState(userMessage, {
           agentName: agent.character.name,
         });
+
+        // Add knowledge to state after composition
+        if (state && knowledgeContent) {
+          state.knowledge = knowledgeContent;
+          elizaLogger.debug('[MessageService] Added knowledge to state:', {
+            knowledgeLength: knowledgeContent.length,
+            stateHasKnowledge: 'knowledge' in state,
+          });
+        }
       } catch (error) {
         elizaLogger.error('[MessageService] Error composing state:', error);
         return Response.json(
@@ -96,12 +143,13 @@ export class MessageService {
       const context = composeContext({
         state,
         template: messageHandlerTemplate,
+        templatingEngine: 'handlebars',
       });
 
       const response = await generateMessageResponse({
         runtime: agent,
         context,
-        modelClass: ModelClass.LARGE,
+        modelClass: ModelClass.SMALL,
       });
 
       if (!response) {
