@@ -1,6 +1,0 @@
-[preload]
-module = ["typescript"]
-
-[resolve]
-# Map @ and @bork to the bork directory
-alias = { "@" = "./src/bork", "@bork" = "./src/bork" } 
