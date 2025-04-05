@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import axios from 'axios';
-import type { YapsResponse } from '../types/yaps';
+import type { YapsResponse } from '../../types/yaps';
 
 export class KaitoService {
   private readonly baseUrl = 'https://api.kaito.ai/api/v1';

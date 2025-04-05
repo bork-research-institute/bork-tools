@@ -1,5 +1,5 @@
+import { tweetQueries } from '@/extensions/src/db/queries.js';
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries.js';
 import type { SpamUser } from '../types/twitter.js';
 
 /**

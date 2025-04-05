@@ -3,6 +3,10 @@
  * @description Client for interacting with Injective Protocol and performing market analysis
  */
 
+import { DatabaseService } from '@/services/injective/database-service';
+import { InjectiveService } from '@/services/injective/injective-service';
+import { MarketAnalysisService } from '@/services/injective/market-analysis-service';
+import { TimeResolution } from '@/types/injective/market-history';
 import {
   type ClientInstance,
   type IAgentRuntime,
@@ -13,10 +17,6 @@ import {
   DEFAULT_MARKET_ANALYSIS_CONFIG,
   MARKET_ANALYSIS_INTERVALS,
 } from '../../../config/injective';
-import { DatabaseService } from './services/database-service';
-import { InjectiveService } from './services/injective-service';
-import { MarketAnalysisService } from './services/market-analysis-service';
-import { TimeResolution } from './types/market-history';
 
 const RETRY_DELAY_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
 
@@ -265,10 +265,3 @@ export async function startInjectiveClient(
   await client.start();
   return client;
 }
-
-// Export services and types for external use
-export { InjectiveService } from './services/injective-service';
-export { MarketAnalysisService } from './services/market-analysis-service';
-export { DatabaseService } from './services/database-service';
-export * from './types/market-history';
-export * from './types/technical-analysis';

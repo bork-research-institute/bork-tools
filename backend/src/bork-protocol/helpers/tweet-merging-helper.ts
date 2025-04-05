@@ -1,6 +1,6 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
 import { v4 as uuidv4 } from 'uuid';
 import type { TwitterService } from '../services/twitter-service';
 import type { DatabaseTweet, MergedTweet } from '../types/twitter';

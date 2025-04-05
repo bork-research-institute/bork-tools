@@ -1,10 +1,10 @@
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { type Scraper, SearchMode, type Tweet } from 'agent-twitter-client';
-import type { TwitterProfile } from '../types/twitter';
 import type {
   TwitterEngagementThresholds,
+  TwitterProfile,
   TwitterSearchParams,
-} from '../types/twitter';
+} from '@/types/twitter';
+import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { type Scraper, SearchMode, type Tweet } from 'agent-twitter-client';
 import { TwitterAuthService } from './twitter-auth.service';
 import { TwitterCacheService } from './twitter-cache.service';
 import { TwitterRequestService } from './twitter-request.service';

@@ -1,7 +1,4 @@
-import type {
-  TargetAccount,
-  WeightedAccount,
-} from 'src/bork-protocol/types/account';
+import type { TargetAccount, WeightedAccount } from '@/types/account';
 
 /**
  * Performs weighted random selection of accounts from a pool

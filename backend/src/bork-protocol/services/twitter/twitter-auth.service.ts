@@ -1,6 +1,6 @@
+import type { TwitterProfile } from '@/types/twitter';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import type { Scraper } from 'agent-twitter-client';
-import type { TwitterProfile } from '../types/twitter';
 
 interface TwitterCookie {
   key: string;

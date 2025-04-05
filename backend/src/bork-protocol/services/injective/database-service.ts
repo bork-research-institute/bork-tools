@@ -1,6 +1,6 @@
+import { db } from '@/extensions/src/db';
+import type { MarketAnalysis } from '@/types/injective/technical-analysis';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { db } from '../../../extensions/src/db';
-import type { MarketAnalysis } from '../types/technical-analysis';
 
 export class DatabaseService {
   private readonly runtime: IAgentRuntime;

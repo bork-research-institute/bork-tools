@@ -1,4 +1,4 @@
-import type { DatabaseTweet } from 'src/bork-protocol/types/twitter';
+import type { DatabaseTweet } from '@/types/twitter';
 
 // FIXME: This needs to be split into multiple files
 export interface Account {

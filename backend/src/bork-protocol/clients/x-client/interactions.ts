@@ -1,3 +1,9 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TwitterService } from '@/services/twitter/twitter-service';
+import {
+  twitterMessageHandlerTemplate,
+  twitterShouldRespondTemplate,
+} from '@/templates/interaction';
 import { sendTweetAndCreateMemory, wait } from '@/utils/tweeting/tweet';
 import {
   type IAgentRuntime,
@@ -11,12 +17,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
-import type { TwitterService } from 'src/bork-protocol/services/twitter-service';
-import {
-  twitterMessageHandlerTemplate,
-  twitterShouldRespondTemplate,
-} from 'src/bork-protocol/templates/interaction';
 
 export class TwitterInteractionClient {
   private readonly twitterService: TwitterService;

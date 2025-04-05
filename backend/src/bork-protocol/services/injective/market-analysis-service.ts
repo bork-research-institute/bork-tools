@@ -1,3 +1,10 @@
+import type { TimeResolution } from '@/types/injective/market-history';
+import type {
+  LiquidityAnalysis,
+  MarketAnalysis,
+  OrderBookAnalysis,
+  TechnicalAnalysis,
+} from '@/types/injective/technical-analysis';
 import { Network, getNetworkEndpoints } from '@injectivelabs/networks';
 import {
   type DerivativeOrderHistory,
@@ -12,13 +19,6 @@ import {
   type SpotTrade,
 } from '@injectivelabs/sdk-ts';
 import type { OrderSide } from '@injectivelabs/ts-types';
-import type { TimeResolution } from '../types/market-history';
-import type {
-  LiquidityAnalysis,
-  MarketAnalysis,
-  OrderBookAnalysis,
-  TechnicalAnalysis,
-} from '../types/technical-analysis';
 
 export interface TimeframeConfig {
   type: 'spot' | 'derivatives';

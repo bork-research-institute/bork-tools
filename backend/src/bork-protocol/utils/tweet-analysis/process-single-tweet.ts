@@ -1,6 +1,12 @@
-import { extractAndRepairAnalysis } from '@/lib/helpers/repair-tweet-analysis-helper';
-import { updateUserSpamData } from '@/lib/helpers/spam-helper';
-import type { TwitterService } from '@/lib/services/twitter-service';
+import { tweetQueries } from '@/extensions/src/db/queries';
+import { extractAndRepairAnalysis } from '@/helpers/repair-tweet-analysis-helper';
+import { updateUserSpamData } from '@/helpers/spam-helper';
+import type { TwitterService } from '@/services/twitter/twitter-service';
+import { tweetAnalysisTemplate } from '@/templates/analysis';
+import type { TweetAnalysis } from '@/types/analysis';
+import { tweetAnalysisSchema } from '@/types/response/tweet-analysis';
+import type { TopicWeightRow } from '@/types/topic';
+import type { DatabaseTweet } from '@/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -10,12 +16,6 @@ import {
   generateObject,
   stringToUuid,
 } from '@elizaos/core';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
-import { tweetAnalysisTemplate } from 'src/bork-protocol/templates/analysis';
-import type { TweetAnalysis } from 'src/bork-protocol/types/analysis';
-import { tweetAnalysisSchema } from 'src/bork-protocol/types/response/tweet-analysis';
-import type { TopicWeightRow } from 'src/bork-protocol/types/topic';
-import type { DatabaseTweet } from 'src/bork-protocol/types/twitter';
 import { v4 as uuidv4 } from 'uuid';
 import { storeMentions } from '../accounts/mentions-processing';
 import { extractAndStoreKnowledge } from '../knowledge/knowledge-processing';

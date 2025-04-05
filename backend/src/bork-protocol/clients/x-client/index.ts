@@ -1,11 +1,11 @@
+import { cleanupPool } from '@/extensions/src/db';
+import { TwitterService } from '@/services/twitter/twitter-service';
 import {
   type ClientInstance,
   type IAgentRuntime,
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
-import { cleanupPool } from 'src/bork-protocol/extensions/src/db';
-import { TwitterService } from 'src/bork-protocol/services/twitter-service';
 import { TwitterAccountDiscoveryClient } from './account-discovery';
 import { TwitterAccountsClient } from './accounts';
 import { TwitterInteractionClient } from './interactions';

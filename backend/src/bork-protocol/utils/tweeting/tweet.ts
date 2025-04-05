@@ -1,3 +1,4 @@
+import type { TwitterService } from '@/services/twitter/twitter-service';
 import {
   type Content,
   type IAgentRuntime,
@@ -7,7 +8,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import type { TwitterService } from 'src/bork-protocol/services/twitter-service';
 
 const MAX_TWEET_LENGTH = 280; // Updated to Twitter's current character limit
 

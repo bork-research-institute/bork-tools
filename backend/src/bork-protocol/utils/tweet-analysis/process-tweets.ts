@@ -1,13 +1,13 @@
-import { mergeTweetContent } from '@/lib/helpers/tweet-merging-helper';
+import { mergeTweetContent } from '@/helpers/tweet-merging-helper';
 import {
   prepareTweetsForMerging,
   validateTweets,
-} from '@/lib/helpers/tweet-validation-helper';
-import type { TwitterService } from '@/lib/services/twitter-service';
+} from '@/helpers/tweet-validation-helper';
+import type { TwitterService } from '@/services/twitter/twitter-service';
+import type { TopicWeightRow } from '@/types/topic';
+import type { Tweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
-import type { TopicWeightRow } from 'src/bork-protocol/types/topic';
-import type { Tweet } from 'src/bork-protocol/types/twitter';
 import { updateMetricsForAuthors } from '../accounts/update-account-influence-score';
 import { processSingleTweet } from './process-single-tweet';
 

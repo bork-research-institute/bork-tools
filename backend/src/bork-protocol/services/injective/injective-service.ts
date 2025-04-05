@@ -1,14 +1,14 @@
+import {
+  type MarketHistoryItem,
+  type MarketHistoryResponse,
+  TimeResolution,
+} from '@/types/injective/market-history';
 import { Network, getNetworkEndpoints } from '@injectivelabs/networks';
 import {
   type AllChronosMarketHistory,
   IndexerGrpcSpotApi,
   IndexerRestMarketChronosApi,
 } from '@injectivelabs/sdk-ts';
-import {
-  type MarketHistoryItem,
-  type MarketHistoryResponse,
-  TimeResolution,
-} from '../types/market-history';
 
 /**
  * Service for interacting with the Injective Protocol's market data

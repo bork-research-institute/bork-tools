@@ -1,10 +1,7 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TargetAccount, WeightedAccount } from '@/types/account';
+import type { TwitterConfig } from '@/types/config';
 import { elizaLogger } from '@elizaos/core';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
-import type {
-  TargetAccount,
-  WeightedAccount,
-} from 'src/bork-protocol/types/account';
-import type { TwitterConfig } from 'src/bork-protocol/types/config';
 import { selectAccountsWithWeights } from './selection-utils';
 import { updateYapsData } from './yaps-processing';
 

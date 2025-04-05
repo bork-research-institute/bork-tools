@@ -1,11 +1,8 @@
+import { tweetQueries } from '@/extensions/src/db/queries.js';
+import type { TweetAnalysis } from '@/types/analysis.js';
+import type { EngagementMetrics, TopicWeightRow } from '@/types/topic.js';
+import type { DatabaseTweet } from '@/types/twitter.js';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries.js';
-import type { TweetAnalysis } from 'src/bork-protocol/types/analysis.js';
-import type {
-  EngagementMetrics,
-  TopicWeightRow,
-} from 'src/bork-protocol/types/topic.js';
-import type { DatabaseTweet } from 'src/bork-protocol/types/twitter.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function initializeTopicWeights(

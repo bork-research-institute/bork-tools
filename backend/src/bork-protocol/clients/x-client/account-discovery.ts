@@ -1,7 +1,7 @@
+import { TwitterAccountDiscoveryService } from '@/services/twitter/twitter-account-discovery-service';
+import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
+import type { TwitterService } from '@/services/twitter/twitter-service';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { TwitterAccountDiscoveryService } from 'src/bork-protocol/services/twitter-account-discovery-service';
-import { TwitterConfigService } from 'src/bork-protocol/services/twitter-config-service';
-import type { TwitterService } from 'src/bork-protocol/services/twitter-service';
 
 export class TwitterAccountDiscoveryClient {
   private readonly configService: TwitterConfigService;

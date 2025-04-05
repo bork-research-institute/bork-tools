@@ -1,3 +1,5 @@
+import type { TweetAnalysis } from '@/types/analysis';
+import type { DatabaseTweet } from '@/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -5,8 +7,6 @@ import {
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
-import type { TweetAnalysis } from 'src/bork-protocol/types/analysis';
-import type { DatabaseTweet } from 'src/bork-protocol/types/twitter';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

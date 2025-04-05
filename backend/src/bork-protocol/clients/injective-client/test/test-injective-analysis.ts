@@ -21,7 +21,7 @@ import type {
   StakingMetrics,
   TransactionMetrics,
   ValidatorMetrics,
-} from '../types/network-metrics';
+} from '../../../types/injective/network-metrics';
 
 class InjectiveAnalyzer {
   private readonly wasmApi: ChainGrpcWasmApi;

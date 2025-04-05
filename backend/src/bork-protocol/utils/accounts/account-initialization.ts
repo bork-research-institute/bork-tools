@@ -1,8 +1,8 @@
+import { tweetQueries } from '@/extensions/src/db/queries';
+import type { TwitterService } from '@/services/twitter/twitter-service';
+import type { TwitterConfig } from '@/types/config';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { tweetQueries } from 'src/bork-protocol/extensions/src/db/queries';
-import type { TwitterService } from 'src/bork-protocol/services/twitter-service';
-import type { TwitterConfig } from 'src/bork-protocol/types/config';
 
 export async function initializeTargetAccounts(
   twitterService: TwitterService,
