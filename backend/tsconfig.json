@@ -23,8 +23,8 @@
     "allowArbitraryExtensions": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/bork/*"],
-      "@bork/*": ["src/bork/*"]
+      "@/*": ["src/bork-protocol/*"],
+      "@bork/*": ["src/bork-protocol/*"]
     }
   }
 }
