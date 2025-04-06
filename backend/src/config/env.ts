@@ -9,6 +9,11 @@ const envSchema = z.object({
   TWITTER_TARGET_USERS: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
   TWITTER_POLL_INTERVAL: z.string().transform((val) => Number.parseInt(val)),
+  SEARCH_TIMEFRAME_HOURS: z
+    .string()
+    .transform((val) => Number.parseInt(val))
+    .default('24'),
+  SEARCH_PREFERRED_TOPIC: z.string().min(1).default('crypto'),
   INJECTIVE_ENABLED: z.string().transform((val) => val === 'true'),
 });
 
@@ -25,6 +30,8 @@ export function getEnv(): Env {
     TWITTER_TARGET_USERS: process.env.TWITTER_TARGET_USERS,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     TWITTER_POLL_INTERVAL: process.env.TWITTER_POLL_INTERVAL,
+    SEARCH_TIMEFRAME_HOURS: process.env.SEARCH_TIMEFRAME_HOURS,
+    SEARCH_PREFERRED_TOPIC: process.env.SEARCH_PREFERRED_TOPIC,
     INJECTIVE_ENABLED: process.env.INJECTIVE_ENABLED,
   });
 

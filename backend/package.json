@@ -4,7 +4,7 @@
   "type": "module",
   "module": "src/index.js",
   "scripts": {
-    "dotenvx": "dotenvx run -f .env.backend.local -f .env.backend.production --",
+    "dotenvx": "dotenvx run -f .env.backend.production --",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "bun run dotenvx -- bun run --watch src/index.ts",
     "build": "bun run dotenvx -- tsup src/index.ts --format esm --dts --sourcemap",
