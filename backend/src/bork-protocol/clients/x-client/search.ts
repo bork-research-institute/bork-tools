@@ -8,6 +8,7 @@ import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
+import { getEnv } from '../../../config/env';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;
@@ -61,6 +62,7 @@ export class TwitterSearchClient {
     elizaLogger.info('[TwitterSearch] Engaging with search terms');
 
     const config = await this.twitterConfigService.getConfig();
+    const env = getEnv();
 
     // Get topic weights for processing
     const topicWeights = await tweetQueries.getTopicWeights();
@@ -73,9 +75,17 @@ export class TwitterSearchClient {
     }
 
     try {
-      const selectedTopic = selectTopic(topicWeights);
+      // Use the new async selectTopic with runtime and configured timeframe
+      const selectedTopic = await selectTopic(
+        this.runtime,
+        //TODO: update to get this from runtime or twitter config
+        env.SEARCH_TIMEFRAME_HOURS,
+        env.SEARCH_PREFERRED_TOPIC,
+      );
 
-      elizaLogger.info('[TwitterSearch] Fetching search tweets');
+      elizaLogger.info('[TwitterSearch] Fetching search tweets', {
+        preferredTopic: env.SEARCH_PREFERRED_TOPIC,
+      });
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
       const { tweets: searchTweets, spammedTweets } =

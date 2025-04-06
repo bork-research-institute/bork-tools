@@ -35,20 +35,22 @@ export async function selectTopic(
       preferredTopic,
     );
 
-    // Log analysis metadata
-    elizaLogger.info('[TopicSelection] Topic relationship analysis:', {
-      preferredTopic,
-      confidence: analysis.analysisMetadata.confidence,
-      timestamp: analysis.analysisMetadata.analysisTimestamp,
-    });
-
     // Adjust weights based on topic relationships and confidence
     const adjustedWeights = topicWeights.map((tw) => {
       const relationship = analysis.relatedTopics.find(
         (r) => r.topic === tw.topic,
       );
-      if (!relationship) {
-        return tw;
+
+      // Filter out topics with low relevance or unrelated topics
+      if (
+        !relationship ||
+        relationship.relevanceScore < 0.4 ||
+        relationship.relationshipType === 'none'
+      ) {
+        return {
+          ...tw,
+          weight: 0, // Zero weight means it won't be selected
+        };
       }
 
       // Weight adjustment factors:
@@ -65,8 +67,24 @@ export async function selectTopic(
       };
     });
 
+    // Filter out topics with zero weight
+    const validWeights = adjustedWeights.filter((tw) => tw.weight > 0);
+
+    if (validWeights.length === 0) {
+      elizaLogger.warn(
+        '[TopicSelection] No sufficiently related topics found, using preferred topic',
+        { preferredTopic },
+      );
+      // If no related topics meet the threshold, use the preferred topic
+      return {
+        ...topicWeights[0],
+        topic: preferredTopic,
+        weight: 1,
+      };
+    }
+
     elizaLogger.debug('[TopicSelection] Adjusted weights:', {
-      adjustments: adjustedWeights.map((w) => ({
+      adjustments: validWeights.map((w) => ({
         topic: w.topic,
         originalWeight: topicWeights.find((tw) => tw.topic === w.topic)?.weight,
         adjustedWeight: w.weight,
@@ -75,7 +93,7 @@ export async function selectTopic(
       })),
     });
 
-    return performWeightedSelection(adjustedWeights);
+    return performWeightedSelection(validWeights);
   } catch (error) {
     elizaLogger.warn(
       '[TopicSelection] Error in relationship analysis, falling back to basic selection:',
