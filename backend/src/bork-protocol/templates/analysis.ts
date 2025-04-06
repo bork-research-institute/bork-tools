@@ -1,14 +1,5 @@
 import { ModelClass, messageCompletionFooter } from '@elizaos/core';
 
-export interface TemplateOptions {
-  modelClass?: ModelClass;
-}
-
-export interface TweetAnalysisTemplate {
-  context: string;
-  modelClass: ModelClass;
-}
-
 interface TweetAnalysisTemplateInput {
   text: string;
   public_metrics: {
