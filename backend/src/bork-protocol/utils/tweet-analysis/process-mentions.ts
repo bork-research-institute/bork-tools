@@ -1,6 +1,7 @@
 import { tweetQueries, userMentionQueries } from '@/extensions/src/db/queries';
 import type { DatabaseTweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
+import { Scraper } from 'agent-twitter-client';
 
 function getMentionsFromText(text: string): string[] {
   const mentionRegex = /@(\w+)/g;
@@ -55,6 +56,9 @@ export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
       hasIds: Array.from(allMentions),
     });
 
+    // Initialize Twitter scraper for profile fetching
+    const scraper = new Scraper();
+
     // Process each unique mention
     for (const mentionedUsername of allMentions) {
       try {
@@ -64,28 +68,30 @@ export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
         }
 
         // First ensure both users exist in target_accounts
+        // For tweet author
+        const authorProfile = await scraper.getProfile(tweet.username);
         await tweetQueries.insertTargetAccount({
           username: tweet.username,
-          userId: tweet.userId?.toString() || '',
-          displayName: tweet.name || tweet.username,
-          description: '',
-          followersCount: 0,
-          followingCount: 0,
-          friendsCount: 0,
-          mediaCount: 0,
-          statusesCount: 0,
-          likesCount: 0,
-          listedCount: 0,
-          tweetsCount: 0,
-          isPrivate: false,
-          isVerified: false,
-          isBlueVerified: false,
-          joinedAt: null,
-          location: '',
-          avatarUrl: null,
-          bannerUrl: null,
-          websiteUrl: null,
-          canDm: false,
+          userId: tweet.userId?.toString() || authorProfile?.userId || '',
+          displayName: tweet.name || authorProfile?.name || tweet.username,
+          description: authorProfile?.biography || '',
+          followersCount: authorProfile?.followersCount || 0,
+          followingCount: authorProfile?.followingCount || 0,
+          friendsCount: authorProfile?.friendsCount || 0,
+          mediaCount: authorProfile?.mediaCount || 0,
+          statusesCount: authorProfile?.tweetsCount || 0,
+          likesCount: authorProfile?.likesCount || 0,
+          listedCount: authorProfile?.listedCount || 0,
+          tweetsCount: authorProfile?.tweetsCount || 0,
+          isPrivate: authorProfile?.isPrivate || false,
+          isVerified: authorProfile?.isVerified || false,
+          isBlueVerified: authorProfile?.isBlueVerified || false,
+          joinedAt: authorProfile?.joined || null,
+          location: authorProfile?.location || '',
+          avatarUrl: authorProfile?.avatar || null,
+          bannerUrl: authorProfile?.banner || null,
+          websiteUrl: authorProfile?.website || null,
+          canDm: authorProfile?.canDm || false,
           createdAt: new Date(),
           lastUpdated: new Date(),
           isActive: true,
@@ -99,28 +105,30 @@ export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
           last50TweetsUpdatedAt: null,
         });
 
+        // For mentioned user
+        const mentionedProfile = await scraper.getProfile(mentionedUsername);
         await tweetQueries.insertTargetAccount({
           username: mentionedUsername,
-          userId: '', // We don't have the ID yet
-          displayName: mentionedUsername,
-          description: '',
-          followersCount: 0,
-          followingCount: 0,
-          friendsCount: 0,
-          mediaCount: 0,
-          statusesCount: 0,
-          likesCount: 0,
-          listedCount: 0,
-          tweetsCount: 0,
-          isPrivate: false,
-          isVerified: false,
-          isBlueVerified: false,
-          joinedAt: null,
-          location: '',
-          avatarUrl: null,
-          bannerUrl: null,
-          websiteUrl: null,
-          canDm: false,
+          userId: mentionedProfile?.userId || '',
+          displayName: mentionedProfile?.name || mentionedUsername,
+          description: mentionedProfile?.biography || '',
+          followersCount: mentionedProfile?.followersCount || 0,
+          followingCount: mentionedProfile?.followingCount || 0,
+          friendsCount: mentionedProfile?.friendsCount || 0,
+          mediaCount: mentionedProfile?.mediaCount || 0,
+          statusesCount: mentionedProfile?.tweetsCount || 0,
+          likesCount: mentionedProfile?.likesCount || 0,
+          listedCount: mentionedProfile?.listedCount || 0,
+          tweetsCount: mentionedProfile?.tweetsCount || 0,
+          isPrivate: mentionedProfile?.isPrivate || false,
+          isVerified: mentionedProfile?.isVerified || false,
+          isBlueVerified: mentionedProfile?.isBlueVerified || false,
+          joinedAt: mentionedProfile?.joined || null,
+          location: mentionedProfile?.location || '',
+          avatarUrl: mentionedProfile?.avatar || null,
+          bannerUrl: mentionedProfile?.banner || null,
+          websiteUrl: mentionedProfile?.website || null,
+          canDm: mentionedProfile?.canDm || false,
           createdAt: new Date(),
           lastUpdated: new Date(),
           isActive: true,
