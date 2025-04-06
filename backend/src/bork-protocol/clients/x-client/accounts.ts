@@ -8,6 +8,7 @@ import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
 import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { getEnv } from '../../../config/env';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
@@ -70,11 +71,18 @@ export class TwitterAccountsClient {
     elizaLogger.info('[TwitterAccounts] Starting target account monitoring');
 
     try {
-      // Get config first
+      // Get config and env first
       const config = await this.twitterConfigService.getConfig();
+      const env = getEnv();
 
       // Select accounts to process using weighted randomization
-      const accountsToProcess = await selectTargetAccounts(config);
+      const accountsToProcess = await selectTargetAccounts(
+        this.runtime,
+        config,
+        env.SEARCH_TIMEFRAME_HOURS,
+        env.SEARCH_PREFERRED_TOPIC,
+      );
+
       if (!accountsToProcess.length) {
         return;
       }
