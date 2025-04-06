@@ -8,9 +8,10 @@ import {
   settings,
   stringToUuid,
 } from '@elizaos/core';
+import { initializeClients } from 'src/bork-protocol/clients';
+import { PostgresDatabaseAdapter } from 'src/bork-protocol/plugins/adapter-postgres';
 import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
-import { initializeClients } from '../clients';
 import { configureApiRoutes } from '../config/api-routes';
 import { getEnv } from '../config/env';
 import {
@@ -18,7 +19,6 @@ import {
   loadCharacters,
   parseArguments,
 } from '../config/index';
-import { PostgresDatabaseAdapter } from '../plugins/adapter-postgres';
 import { character } from './character';
 
 export function createAgent(
