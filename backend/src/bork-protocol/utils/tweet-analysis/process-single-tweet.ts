@@ -16,6 +16,7 @@ import {
   generateObject,
   stringToUuid,
 } from '@elizaos/core';
+import { Scraper } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
 import { updateTopicWeights } from '../topic-weights/topics';
 import { extractAndStoreKnowledge } from './process-knowledge';
@@ -192,28 +193,34 @@ export async function processSingleTweet(
             `${logPrefix} Upserting non-spam tweet author @${tweet.username} to target accounts`,
           );
 
+          // Initialize Twitter scraper for profile fetching
+          const scraper = new Scraper();
+
+          // Fetch profile data for the tweet author
+          const authorProfile = await scraper.getProfile(tweet.username);
+
           await tweetQueries.insertTargetAccount({
             username: tweet.username,
-            userId: tweet.userId.toString(),
-            displayName: tweet.name || tweet.username,
-            description: '',
-            followersCount: 0,
-            followingCount: 0,
-            friendsCount: 0,
-            mediaCount: 0,
-            statusesCount: 0,
-            likesCount: 0,
-            listedCount: 0,
-            tweetsCount: 0,
-            isPrivate: false,
-            isVerified: false,
-            isBlueVerified: false,
-            joinedAt: null,
-            location: '',
-            avatarUrl: null,
-            bannerUrl: null,
-            websiteUrl: null,
-            canDm: false,
+            userId: tweet.userId.toString() || authorProfile?.userId || '',
+            displayName: tweet.name || authorProfile?.name || tweet.username,
+            description: authorProfile?.biography || '',
+            followersCount: authorProfile?.followersCount || 0,
+            followingCount: authorProfile?.followingCount || 0,
+            friendsCount: authorProfile?.friendsCount || 0,
+            mediaCount: authorProfile?.mediaCount || 0,
+            statusesCount: authorProfile?.tweetsCount || 0,
+            likesCount: authorProfile?.likesCount || 0,
+            listedCount: authorProfile?.listedCount || 0,
+            tweetsCount: authorProfile?.tweetsCount || 0,
+            isPrivate: authorProfile?.isPrivate || false,
+            isVerified: authorProfile?.isVerified || false,
+            isBlueVerified: authorProfile?.isBlueVerified || false,
+            joinedAt: authorProfile?.joined || null,
+            location: authorProfile?.location || '',
+            avatarUrl: authorProfile?.avatar || null,
+            bannerUrl: authorProfile?.banner || null,
+            websiteUrl: authorProfile?.website || null,
+            canDm: authorProfile?.canDm || false,
             createdAt: new Date(),
             lastUpdated: new Date(),
             isActive: true,
