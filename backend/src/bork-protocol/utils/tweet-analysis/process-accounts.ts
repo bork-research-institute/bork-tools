@@ -1,4 +1,8 @@
-import { tweetQueries, userMentionQueries } from '@/extensions/src/db/queries';
+import {
+  accountTopicQueries,
+  tweetQueries,
+  userMentionQueries,
+} from '@/extensions/src/db/queries';
 import type { DatabaseTweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
@@ -24,7 +28,10 @@ function getMentionsFromThread(thread: unknown[]): string[] {
   return Array.from(mentions);
 }
 
-export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
+export async function storeAccountInfo(
+  tweet: DatabaseTweet,
+  topics: string[] = [],
+): Promise<void> {
   try {
     // Skip if no username
     if (!tweet.username) {
@@ -54,56 +61,75 @@ export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
       totalUnique: allMentions.size,
       fromUsername: tweet.username,
       hasIds: Array.from(allMentions),
+      topics,
     });
 
     // Initialize Twitter scraper for profile fetching
     const scraper = new Scraper();
 
+    // First ensure both tweet author exists in target_accounts
+    const authorProfile = await scraper.getProfile(tweet.username);
+    await tweetQueries.insertTargetAccount({
+      username: tweet.username,
+      userId: tweet.userId?.toString() || authorProfile?.userId || '',
+      displayName: tweet.name || authorProfile?.name || tweet.username,
+      description: authorProfile?.biography || '',
+      followersCount: authorProfile?.followersCount || 0,
+      followingCount: authorProfile?.followingCount || 0,
+      friendsCount: authorProfile?.friendsCount || 0,
+      mediaCount: authorProfile?.mediaCount || 0,
+      statusesCount: authorProfile?.tweetsCount || 0,
+      likesCount: authorProfile?.likesCount || 0,
+      listedCount: authorProfile?.listedCount || 0,
+      tweetsCount: authorProfile?.tweetsCount || 0,
+      isPrivate: authorProfile?.isPrivate || false,
+      isVerified: authorProfile?.isVerified || false,
+      isBlueVerified: authorProfile?.isBlueVerified || false,
+      joinedAt: authorProfile?.joined || null,
+      location: authorProfile?.location || '',
+      avatarUrl: authorProfile?.avatar || null,
+      bannerUrl: authorProfile?.banner || null,
+      websiteUrl: authorProfile?.website || null,
+      canDm: authorProfile?.canDm || false,
+      createdAt: new Date(),
+      lastUpdated: new Date(),
+      isActive: true,
+      source: 'tweet_author',
+      avgLikes50: 0,
+      avgRetweets50: 0,
+      avgReplies50: 0,
+      avgViews50: 0,
+      engagementRate50: 0,
+      influenceScore: 0,
+      last50TweetsUpdatedAt: null,
+    });
+
+    // Update account-topic relationships for author
+    for (const topic of topics) {
+      try {
+        await accountTopicQueries.upsertAccountTopic(tweet.username, topic);
+      } catch (topicError) {
+        elizaLogger.error(
+          '[Mentions Processing] Error updating author account-topic relationship:',
+          {
+            error:
+              topicError instanceof Error
+                ? topicError.message
+                : String(topicError),
+            username: tweet.username,
+            topic,
+          },
+        );
+      }
+    }
+
     // Process each unique mention
     for (const mentionedUsername of allMentions) {
       try {
-        // Skip if source or target username is missing
-        if (!mentionedUsername || !tweet.username) {
+        // Skip if target username is missing
+        if (!mentionedUsername) {
           continue;
         }
-
-        // First ensure both users exist in target_accounts
-        // For tweet author
-        const authorProfile = await scraper.getProfile(tweet.username);
-        await tweetQueries.insertTargetAccount({
-          username: tweet.username,
-          userId: tweet.userId?.toString() || authorProfile?.userId || '',
-          displayName: tweet.name || authorProfile?.name || tweet.username,
-          description: authorProfile?.biography || '',
-          followersCount: authorProfile?.followersCount || 0,
-          followingCount: authorProfile?.followingCount || 0,
-          friendsCount: authorProfile?.friendsCount || 0,
-          mediaCount: authorProfile?.mediaCount || 0,
-          statusesCount: authorProfile?.tweetsCount || 0,
-          likesCount: authorProfile?.likesCount || 0,
-          listedCount: authorProfile?.listedCount || 0,
-          tweetsCount: authorProfile?.tweetsCount || 0,
-          isPrivate: authorProfile?.isPrivate || false,
-          isVerified: authorProfile?.isVerified || false,
-          isBlueVerified: authorProfile?.isBlueVerified || false,
-          joinedAt: authorProfile?.joined || null,
-          location: authorProfile?.location || '',
-          avatarUrl: authorProfile?.avatar || null,
-          bannerUrl: authorProfile?.banner || null,
-          websiteUrl: authorProfile?.website || null,
-          canDm: authorProfile?.canDm || false,
-          createdAt: new Date(),
-          lastUpdated: new Date(),
-          isActive: true,
-          source: 'tweet_author',
-          avgLikes50: 0,
-          avgRetweets50: 0,
-          avgReplies50: 0,
-          avgViews50: 0,
-          engagementRate50: 0,
-          influenceScore: 0,
-          last50TweetsUpdatedAt: null,
-        });
 
         // For mentioned user
         const mentionedProfile = await scraper.getProfile(mentionedUsername);
@@ -141,6 +167,28 @@ export async function storeMentions(tweet: DatabaseTweet): Promise<void> {
           influenceScore: 0,
           last50TweetsUpdatedAt: null,
         });
+
+        // Update account-topic relationships for mentioned user
+        for (const topic of topics) {
+          try {
+            await accountTopicQueries.upsertAccountTopic(
+              mentionedUsername,
+              topic,
+            );
+          } catch (topicError) {
+            elizaLogger.error(
+              '[Mentions Processing] Error updating mentioned user account-topic relationship:',
+              {
+                error:
+                  topicError instanceof Error
+                    ? topicError.message
+                    : String(topicError),
+                username: mentionedUsername,
+                topic,
+              },
+            );
+          }
+        }
 
         // Now create the mention relationship
         await userMentionQueries.upsertMentionRelationship(

@@ -1,4 +1,4 @@
-import { accountTopicQueries, tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/extensions/src/db/queries';
 import { extractAndRepairAnalysis } from '@/helpers/repair-tweet-analysis-helper';
 import { updateUserSpamData } from '@/helpers/spam-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
@@ -16,12 +16,11 @@ import {
   generateObject,
   stringToUuid,
 } from '@elizaos/core';
-import { Scraper } from 'agent-twitter-client';
 import { v4 as uuidv4 } from 'uuid';
 import { updateTopicWeights } from '../topic-weights/topics';
+import { storeAccountInfo } from './process-accounts';
 import { extractAndStoreKnowledge } from './process-knowledge';
 import { fetchAndFormatKnowledge } from './process-knowledge';
-import { storeMentions } from './process-mentions';
 
 /**
  * Processes a single tweet by analyzing its content, detecting spam,
@@ -77,9 +76,6 @@ export async function processSingleTweet(
       place: tweet.place,
       poll: tweet.poll,
     });
-
-    // Process mentions from the merged tweet and add to target accounts
-    await storeMentions(tweet);
 
     const template = tweetAnalysisTemplate({
       text: tweet.text, // This is the merged text
@@ -192,47 +188,6 @@ export async function processSingleTweet(
           elizaLogger.info(
             `${logPrefix} Upserting non-spam tweet author @${tweet.username} to target accounts`,
           );
-
-          // Initialize Twitter scraper for profile fetching
-          const scraper = new Scraper();
-
-          // Fetch profile data for the tweet author
-          const authorProfile = await scraper.getProfile(tweet.username);
-
-          await tweetQueries.insertTargetAccount({
-            username: tweet.username,
-            userId: tweet.userId.toString() || authorProfile?.userId || '',
-            displayName: tweet.name || authorProfile?.name || tweet.username,
-            description: authorProfile?.biography || '',
-            followersCount: authorProfile?.followersCount || 0,
-            followingCount: authorProfile?.followingCount || 0,
-            friendsCount: authorProfile?.friendsCount || 0,
-            mediaCount: authorProfile?.mediaCount || 0,
-            statusesCount: authorProfile?.tweetsCount || 0,
-            likesCount: authorProfile?.likesCount || 0,
-            listedCount: authorProfile?.listedCount || 0,
-            tweetsCount: authorProfile?.tweetsCount || 0,
-            isPrivate: authorProfile?.isPrivate || false,
-            isVerified: authorProfile?.isVerified || false,
-            isBlueVerified: authorProfile?.isBlueVerified || false,
-            joinedAt: authorProfile?.joined || null,
-            location: authorProfile?.location || '',
-            avatarUrl: authorProfile?.avatar || null,
-            bannerUrl: authorProfile?.banner || null,
-            websiteUrl: authorProfile?.website || null,
-            canDm: authorProfile?.canDm || false,
-            createdAt: new Date(),
-            lastUpdated: new Date(),
-            isActive: true,
-            source: 'tweet_author',
-            avgLikes50: 0,
-            avgRetweets50: 0,
-            avgReplies50: 0,
-            avgViews50: 0,
-            engagementRate50: 0,
-            influenceScore: 0,
-            last50TweetsUpdatedAt: null,
-          });
         }
 
         // Store analysis for non-spam tweets
@@ -396,45 +351,20 @@ export async function processSingleTweet(
               );
 
               // Update topic weights with the new analysis
-              await updateTopicWeights(
-                [
-                  ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
-                  ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
-                ],
-                parsedAnalysis,
-                tweet,
-                logPrefix,
-              );
-
-              // Update account-topic relationships
               const allTopics = [
                 ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
                 ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
               ];
 
-              // Update relationship for each topic
-              for (const topic of allTopics) {
-                try {
-                  await accountTopicQueries.upsertAccountTopic(
-                    tweet.username,
-                    topic,
-                    client, // Pass the transaction client
-                  );
-                } catch (topicError) {
-                  elizaLogger.error(
-                    `${logPrefix} Error updating account-topic relationship:`,
-                    {
-                      error:
-                        topicError instanceof Error
-                          ? topicError.message
-                          : String(topicError),
-                      username: tweet.username,
-                      topic,
-                    },
-                  );
-                  // Don't throw the error to avoid failing the whole transaction
-                }
-              }
+              await updateTopicWeights(
+                allTopics,
+                parsedAnalysis,
+                tweet,
+                logPrefix,
+              );
+
+              // Process mentions from the merged tweet and add to target accounts, including topic relationships
+              await storeAccountInfo(tweet, allTopics);
 
               // Extract and store knowledge from tweet analysis
               try {
