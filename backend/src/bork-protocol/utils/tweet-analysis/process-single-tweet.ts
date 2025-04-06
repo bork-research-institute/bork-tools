@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { accountTopicQueries, tweetQueries } from '@/extensions/src/db/queries';
 import { extractAndRepairAnalysis } from '@/helpers/repair-tweet-analysis-helper';
 import { updateUserSpamData } from '@/helpers/spam-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
@@ -405,6 +405,69 @@ export async function processSingleTweet(
                 tweet,
                 logPrefix,
               );
+
+              // Update account-topic relationships
+              const allTopics = [
+                ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
+                ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
+              ];
+
+              // Update relationship for each topic
+              for (const topic of allTopics) {
+                try {
+                  await accountTopicQueries.upsertAccountTopic(
+                    tweet.username,
+                    topic,
+                    client, // Pass the transaction client
+                  );
+                } catch (topicError) {
+                  elizaLogger.error(
+                    `${logPrefix} Error updating account-topic relationship:`,
+                    {
+                      error:
+                        topicError instanceof Error
+                          ? topicError.message
+                          : String(topicError),
+                      username: tweet.username,
+                      topic,
+                    },
+                  );
+                  // Don't throw the error to avoid failing the whole transaction
+                }
+              }
+
+              // Extract and store knowledge from tweet analysis
+              try {
+                await extractAndStoreKnowledge(
+                  runtime,
+                  tweet,
+                  parsedAnalysis,
+                  `${logPrefix} [Knowledge]`,
+                );
+                elizaLogger.info(
+                  `${logPrefix} Successfully extracted knowledge from tweet ${tweet.tweet_id}`,
+                );
+              } catch (knowledgeError) {
+                // Log but don't fail the whole process
+                elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
+                  error:
+                    knowledgeError instanceof Error
+                      ? knowledgeError.message
+                      : String(knowledgeError),
+                  tweetId: tweet.tweet_id,
+                });
+              }
+
+              elizaLogger.info(
+                `${logPrefix} Successfully processed tweet ${tweet.tweet_id}`,
+                {
+                  analysisId: analysisId.toString(),
+                  tweetId: tweet.tweet_id,
+                  isThreadMerged: tweet.isThreadMerged,
+                  textLength: tweet.text.length,
+                  originalTextLength: tweet.originalText.length,
+                },
+              );
             } catch (innerError) {
               elizaLogger.error(`${logPrefix} Error in transaction:`, {
                 error:
@@ -417,39 +480,6 @@ export async function processSingleTweet(
               throw innerError; // Rethrow to trigger rollback
             }
           });
-
-          // Extract and store knowledge from tweet analysis
-          try {
-            await extractAndStoreKnowledge(
-              runtime,
-              tweet,
-              parsedAnalysis,
-              `${logPrefix} [Knowledge]`,
-            );
-            elizaLogger.info(
-              `${logPrefix} Successfully extracted knowledge from tweet ${tweet.tweet_id}`,
-            );
-          } catch (knowledgeError) {
-            // Log but don't fail the whole process
-            elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
-              error:
-                knowledgeError instanceof Error
-                  ? knowledgeError.message
-                  : String(knowledgeError),
-              tweetId: tweet.tweet_id,
-            });
-          }
-
-          elizaLogger.info(
-            `${logPrefix} Successfully processed tweet ${tweet.tweet_id}`,
-            {
-              analysisId: analysisId.toString(),
-              tweetId: tweet.tweet_id,
-              isThreadMerged: tweet.isThreadMerged,
-              textLength: tweet.text.length,
-              originalTextLength: tweet.originalText.length,
-            },
-          );
         } catch (txError) {
           elizaLogger.error(`${logPrefix} Transaction failed:`, {
             error: txError instanceof Error ? txError.message : String(txError),

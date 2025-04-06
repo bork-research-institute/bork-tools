@@ -261,3 +261,11 @@ export interface TopicWeightRow {
   tweet_id: string;
   created_at?: Date;
 }
+
+export interface AccountTopic {
+  username: string;
+  topic: string;
+  mentionCount: number;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+}

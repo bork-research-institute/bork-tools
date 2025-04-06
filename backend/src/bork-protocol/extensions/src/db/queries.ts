@@ -7,6 +7,7 @@ import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './index';
 import type {
+  AccountTopic,
   AgentPrompt,
   AgentSetting,
   ConsciousnessStream,
@@ -1637,5 +1638,97 @@ export const twitterConfigQueries = {
         },
       },
     };
+  },
+};
+
+export const accountTopicQueries = {
+  /**
+   * Upserts a relationship between an account and a topic, incrementing the mention count
+   */
+  async upsertAccountTopic(
+    username: string,
+    topic: string,
+    client?: PoolClient,
+  ): Promise<void> {
+    const query = `
+      INSERT INTO account_topics (
+        username,
+        topic,
+        mention_count,
+        first_seen_at,
+        last_seen_at
+      ) VALUES ($1, $2, 1, NOW(), NOW())
+      ON CONFLICT (username, topic) 
+      DO UPDATE SET
+        mention_count = account_topics.mention_count + 1,
+        last_seen_at = NOW()
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        await c.query(query, [username, topic]);
+      });
+    } catch (error) {
+      elizaLogger.error('Error upserting account topic:', {
+        error: error instanceof Error ? error.message : String(error),
+        username,
+        topic,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Gets all topics associated with an account
+   */
+  async getAccountTopics(username: string): Promise<AccountTopic[]> {
+    const query = `
+      SELECT 
+        topic,
+        mention_count as "mentionCount",
+        first_seen_at as "firstSeenAt",
+        last_seen_at as "lastSeenAt"
+      FROM account_topics
+      WHERE username = $1
+      ORDER BY mention_count DESC
+    `;
+
+    try {
+      const result = await db.query<AccountTopic>(query, [username]);
+      return result.rows;
+    } catch (error) {
+      elizaLogger.error('Error getting account topics:', {
+        error: error instanceof Error ? error.message : String(error),
+        username,
+      });
+      return [];
+    }
+  },
+
+  /**
+   * Gets all accounts associated with a topic
+   */
+  async getTopicAccounts(topic: string): Promise<AccountTopic[]> {
+    const query = `
+      SELECT 
+        username,
+        mention_count as "mentionCount",
+        first_seen_at as "firstSeenAt",
+        last_seen_at as "lastSeenAt"
+      FROM account_topics
+      WHERE topic = $1
+      ORDER BY mention_count DESC
+    `;
+
+    try {
+      const result = await db.query<AccountTopic>(query, [topic]);
+      return result.rows;
+    } catch (error) {
+      elizaLogger.error('Error getting topic accounts:', {
+        error: error instanceof Error ? error.message : String(error),
+        topic,
+      });
+      return [];
+    }
   },
 };
