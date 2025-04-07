@@ -57,10 +57,9 @@ export class KaitoService {
         `${this.baseUrl}/yaps?${queryParams.toString()}`,
       );
 
-      elizaLogger.info('[KaitoService] Successfully fetched Yaps data', {
-        userId: params.userId,
-        username: params.username,
-      });
+      elizaLogger.info(
+        `[KaitoService] Successfully fetched Yaps data for ${params.username}`,
+      );
 
       return response.data;
     } catch (error) {

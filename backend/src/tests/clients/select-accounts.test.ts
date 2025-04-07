@@ -1,8 +1,14 @@
-import { accountTopicQueries, tweetQueries } from '@/extensions/src/db/queries';
+import { expect } from 'bun:test';
+import type { tweetQueries } from '@/extensions/src/db/queries';
+import type { TargetAccount } from '@/types/account';
+import { selectTargetAccounts } from '@/utils/selection/select-account';
+import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { selectTargetAccounts } from '../../bork-protocol/utils/selection/select-account';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
 import { mockTopicRelationships } from '../mock-data/topic-relationships';
+
+const SEARCH_TIMEFRAME_HOURS = 168;
+const PREFERRED_TOPIC = 'cryptocurrency';
 
 // Config with realistic limits
 const testConfig = {
@@ -31,121 +37,114 @@ const testConfig = {
 };
 
 export interface AccountSelectionTestResult {
-  basicSelection: Awaited<ReturnType<typeof selectTargetAccounts>>;
-  preferredSelection: Awaited<ReturnType<typeof selectTargetAccounts>>;
+  basicSelection: TargetAccount[];
+  preferredSelection: TargetAccount[];
   mockTopicWeights: typeof mockTopicWeights;
   mockTopicRelationships: typeof mockTopicRelationships;
   targetAccounts: Awaited<ReturnType<typeof tweetQueries.getTargetAccounts>>;
   yapsData: Awaited<ReturnType<typeof tweetQueries.getYapsForAccounts>>;
   topicAccounts: {
     topic: string;
-    accounts: Awaited<ReturnType<typeof accountTopicQueries.getTopicAccounts>>;
-  }[];
+    accounts: TargetAccount[];
+  };
 }
 
-export async function testSelectAccounts(
-  runtime: IAgentRuntime,
-): Promise<AccountSelectionTestResult> {
+export async function testSelectAccounts(runtime: IAgentRuntime) {
+  elizaLogger.info('[Test] Starting account selection test');
+
   try {
-    // Get real target accounts from DB
-    const targetAccounts = await tweetQueries.getTargetAccounts();
-    elizaLogger.info('[Test] Retrieved target accounts:', {
-      count: targetAccounts.length,
-      sample: targetAccounts.slice(0, 3).map((a) => ({
-        username: a.username,
-        influenceScore: a.influenceScore,
-      })),
+    // Fetch topic weights from the last week
+    const topicWeights = await getAggregatedTopicWeights(
+      SEARCH_TIMEFRAME_HOURS,
+    ); // 168 hours = 1 week
+    elizaLogger.info('[Test] Fetched topic weights:', {
+      count: topicWeights.length,
+      sample: topicWeights.slice(0, 1),
     });
 
-    // Update config with real target accounts
-    testConfig.targetAccounts = targetAccounts.map((a) => a.username);
-
-    // Get yaps data for all accounts
-    const userIds = targetAccounts.map((a) => a.userId);
-    const yapsData = await tweetQueries.getYapsForAccounts(userIds);
-    elizaLogger.info('[Test] Retrieved yaps data:', {
-      count: yapsData.length,
-      sample: yapsData.slice(0, 3).map((y) => ({
-        userId: y.userId,
-        yapsL24h: y.yapsL24h,
-      })),
-    });
-
-    // Get topic accounts for relevant topics
-    const relevantTopics = mockTopicWeights
-      .filter((tw) => tw.weight > 0.5) // Focus on high-weight topics
-      .map((tw) => tw.topic);
-
-    const topicAccounts = await Promise.all(
-      relevantTopics.map(async (topic) => ({
-        topic,
-        accounts: await accountTopicQueries.getTopicAccounts(topic),
-      })),
-    );
-
-    elizaLogger.info('[Test] Retrieved topic accounts:', {
-      topicCount: topicAccounts.length,
-      sample: topicAccounts.slice(0, 2).map((ta) => ({
-        topic: ta.topic,
-        accountCount: ta.accounts.length,
-        sampleAccounts: ta.accounts.slice(0, 2).map((a) => ({
-          username: a.username,
-          mentionCount: a.mentionCount,
-        })),
-      })),
-    });
-
-    // Test without preferred topic
-    elizaLogger.info('[Test] Running basic selection test');
-    const basicSelection = await selectTargetAccounts(runtime, testConfig, 24);
-    elizaLogger.info('[Test] Basic selection results:', {
-      count: basicSelection.length,
-      accounts: basicSelection.map((a) => ({
-        username: a.username,
-        influenceScore: targetAccounts.find((ta) => ta.userId === a.userId)
-          ?.influenceScore,
-        yaps: yapsData.find((y) => y.userId === a.userId)?.yapsL24h,
-      })),
-    });
-
-    // Test with preferred topic
-    const preferredTopic = relevantTopics[0]; // Use first high-weight topic
-    elizaLogger.info(
-      `[Test] Running preferred topic selection test with topic: "${preferredTopic}"`,
-    );
-    const preferredSelection = await selectTargetAccounts(
+    // Test 1: Basic account selection without preferred topic
+    const basicResult = await selectTargetAccounts(
       runtime,
       testConfig,
-      24,
-      preferredTopic,
+      undefined,
+      topicWeights,
     );
-    elizaLogger.info('[Test] Preferred selection results:', {
-      preferredTopic,
-      count: preferredSelection.length,
-      accounts: preferredSelection.map((a) => ({
-        username: a.username,
-        influenceScore: targetAccounts.find((ta) => ta.userId === a.userId)
-          ?.influenceScore,
-        yaps: yapsData.find((y) => y.userId === a.userId)?.yapsL24h,
-        topicMentions:
-          topicAccounts
-            .find((ta) => ta.topic === preferredTopic)
-            ?.accounts.find((acc) => acc.username === a.username)
-            ?.mentionCount || 0,
-      })),
+    elizaLogger.info('[Test] Basic account selection result:', {
+      selectedAccounts: basicResult.map((account) => account.username),
+    });
+
+    // Verify basic selection results
+    expect(basicResult).toBeDefined();
+    expect(basicResult.length).toBeGreaterThan(0);
+    expect(basicResult.length).toBeLessThanOrEqual(
+      testConfig.search.tweetLimits.accountsToProcess,
+    );
+
+    // Verify each selected account has required properties
+    for (const account of basicResult) {
+      expect(account.userId).toBeDefined();
+      expect(account.username).toBeDefined();
+      expect(account.influenceScore).toBeDefined();
+    }
+
+    // Test 2: Account selection with preferred topic
+    const preferredResult = await selectTargetAccounts(
+      runtime,
+      testConfig,
+      PREFERRED_TOPIC,
+      topicWeights,
+    );
+    elizaLogger.info('[Test] Preferred topic selection result:', {
+      PREFERRED_TOPIC,
+      selectedAccounts: preferredResult.map((account) => account.username),
+    });
+
+    // Verify preferred selection results
+    expect(preferredResult).toBeDefined();
+    expect(preferredResult.length).toBeGreaterThan(0);
+    expect(preferredResult.length).toBeLessThanOrEqual(
+      testConfig.search.tweetLimits.accountsToProcess,
+    );
+
+    // Verify each selected account has required properties
+    for (const account of preferredResult) {
+      expect(account.userId).toBeDefined();
+      expect(account.username).toBeDefined();
+      expect(account.influenceScore).toBeDefined();
+    }
+
+    // Verify that preferred selection has different results from basic selection
+    expect(preferredResult).not.toEqual(basicResult);
+
+    // Log detailed analysis of the results
+    elizaLogger.info('[Test] Account selection analysis:', {
+      basic: {
+        accountCount: basicResult.length,
+        usernames: basicResult.map((account) => account.username),
+      },
+      preferred: {
+        accountCount: preferredResult.length,
+        usernames: preferredResult.map((account) => account.username),
+      },
     });
 
     return {
-      basicSelection,
-      preferredSelection,
+      basicSelection: basicResult,
+      preferredSelection: preferredResult,
       mockTopicWeights,
       mockTopicRelationships,
-      targetAccounts,
-      yapsData,
-      topicAccounts,
+      targetAccounts: [], // Will be populated from DB
+      yapsData: [], // Will be populated from DB
+      topicAccounts: {
+        topic: PREFERRED_TOPIC,
+        accounts: preferredResult,
+      },
     };
   } catch (error) {
-    elizaLogger.error('[Test] Error in account selection test:', error);
+    elizaLogger.error('[Test] Error in account selection test:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     throw error;
   }
 }
