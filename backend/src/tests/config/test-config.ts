@@ -3,7 +3,8 @@ import type { IAgentRuntime } from '@elizaos/core';
 // Test enable/disable flags
 export const TEST_FLAGS = {
   TOPIC_RELATIONSHIPS: false,
-  TOPIC_SELECTION: true,
+  TOPIC_SELECTION: false,
+  ACCOUNT_SELECTION: true,
   // Add more flags here as needed
 } as const;
 
@@ -37,11 +38,23 @@ export const testConfig: TestConfig[] = [
     enabled: TEST_FLAGS.TOPIC_SELECTION,
     testFn: async (runtime) => {
       const { testSelectTopics } = await import(
-        '../utils/topic-selection-test-utils'
+        '../clients/select-topics.test'
       );
       return testSelectTopics(runtime);
     },
-    description: 'Tests topic selection with and without preferences',
+    description:
+      'Tests topic selection with weight adjustments and relationships',
+  },
+  {
+    name: 'account-selection',
+    enabled: TEST_FLAGS.ACCOUNT_SELECTION,
+    testFn: async (runtime) => {
+      const { testSelectAccounts } = await import(
+        '../clients/select-accounts.test'
+      );
+      return testSelectAccounts(runtime);
+    },
+    description: 'Tests account selection with real data and topic preferences',
   },
   // Add more tests here as needed
 ];
