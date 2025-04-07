@@ -11,12 +11,13 @@ import { ApiClient } from '../../api/api';
 import { initializeDbCache } from '../../cache/initialize-db-cache';
 import { getTokenForProvider } from '../../config';
 import { getEnv } from '../../config/env';
-import { testGetRelatedTopics } from '../clients/get-related-topics.test';
+import { type TestResult, testConfig } from '../config/test-config';
 
 describe('Eliza Agent', () => {
   let db: PostgresDatabaseAdapter;
   let runtime: AgentRuntime;
   let isShuttingDown = false;
+  let directClient: ApiClient | undefined;
 
   const cleanup = async () => {
     elizaLogger.info('Running cleanup...');
@@ -28,27 +29,55 @@ describe('Eliza Agent', () => {
 
     isShuttingDown = true;
 
-    // Stop the runtime first
-    if (runtime) {
-      try {
+    try {
+      // First stop the API client to prevent new requests
+      if (directClient?.app?.server) {
+        elizaLogger.info('Stopping API client...');
+        await directClient.app.stop();
+        directClient = undefined;
+      }
+
+      // Then stop the runtime which might have pending operations
+      if (runtime) {
+        elizaLogger.info('Stopping runtime...');
         await runtime.stop();
-        runtime = null;
-      } catch (error) {
-        elizaLogger.error('Error stopping runtime:', { error });
+        runtime = undefined;
       }
-    }
 
-    // Then close the database
-    if (db) {
-      try {
-        await db.close();
-        db = null;
-      } catch (error) {
-        elizaLogger.error('Error closing database:', { error });
+      // Wait a short time for any in-flight DB operations to complete
+      elizaLogger.info('Waiting for pending operations to complete...');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Finally close the database
+      if (db) {
+        elizaLogger.info('Closing database connection...');
+        try {
+          // Close the database connection which will properly end the pool
+          await db.close();
+          db = undefined;
+          elizaLogger.info('Database connection closed successfully');
+        } catch (dbError) {
+          elizaLogger.error('Error closing database:', {
+            error: dbError instanceof Error ? dbError.message : dbError,
+          });
+        }
       }
-    }
 
-    isShuttingDown = false;
+      elizaLogger.info('Cleanup completed successfully');
+    } catch (error) {
+      elizaLogger.error('Error during cleanup:', {
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
+      });
+    } finally {
+      isShuttingDown = false;
+    }
   };
 
   beforeAll(async () => {
@@ -79,7 +108,13 @@ describe('Eliza Agent', () => {
   });
 
   async function startTestAgent() {
-    const directClient = new ApiClient();
+    directClient = new ApiClient();
+
+    // Start the API server
+    await directClient.app.listen(0); // Use port 0 for random available port
+    elizaLogger.info('Started API server on port:', {
+      port: directClient.app.server.port,
+    });
 
     // Test character configuration
     const testCharacter: Character = {
@@ -137,7 +172,6 @@ describe('Eliza Agent', () => {
   }
 
   it('should start agent with direct client, run tests, and handle shutdown', async () => {
-    let directClient: ApiClient | undefined;
     try {
       const result = await startTestAgent();
       runtime = result.runtime;
@@ -146,31 +180,41 @@ describe('Eliza Agent', () => {
       expect(runtime).toBeDefined();
       expect(runtime).toBeInstanceOf(AgentRuntime);
 
-      // Run topic selection test
-      const topicResults = await testGetRelatedTopics(runtime);
-      expect(topicResults.topicWeights).toBeDefined();
-      expect(topicResults.analysis).toBeDefined();
-      expect(topicResults.selectedTopic).toBeDefined();
-    } catch (error) {
-      elizaLogger.error('Error in agent test:', { error });
-      throw error;
-    } finally {
-      elizaLogger.info('Running test cleanup...');
+      // Run enabled tests from config
+      const testResults = new Map<string, TestResult>();
 
-      // First stop the API client
-      if (directClient) {
+      for (const test of testConfig) {
+        if (!test.enabled) {
+          elizaLogger.info(`[Test] Skipping disabled test: ${test.name}`);
+          continue;
+        }
+
+        elizaLogger.info(`[Test] Running test: ${test.name}`);
         try {
-          await directClient.app.stop();
-          directClient = null;
-        } catch (cleanupError) {
-          elizaLogger.error('Error stopping directClient during cleanup:', {
-            error: cleanupError,
+          const data = await test.testFn(runtime);
+          testResults.set(test.name, { success: true, data });
+          elizaLogger.info(`[Test] Successfully completed: ${test.name}`);
+        } catch (error) {
+          elizaLogger.error(`[Test] Failed: ${test.name}`, { error });
+          testResults.set(test.name, {
+            success: false,
+            error: error instanceof Error ? error : new Error(String(error)),
           });
         }
       }
 
-      // Then run the full cleanup
-      await cleanup();
+      // Verify all enabled tests ran successfully
+      for (const [testName, result] of testResults) {
+        expect(result.success, `Test "${testName}" should succeed`).toBe(true);
+        if (!result.success) {
+          elizaLogger.error(`Test "${testName}" failed:`, {
+            error: result.error,
+          });
+        }
+      }
+    } catch (error) {
+      elizaLogger.error('Error in agent test:', { error });
+      throw error;
     }
   });
 });

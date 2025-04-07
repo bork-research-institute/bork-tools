@@ -13,7 +13,7 @@
     "lint": "biome lint --write .",
     "lint:unsafe": "biome lint --write --unsafe .",
     "test:market": "bun run src/plugins/injective-client/test/test-market-analysis.ts",
-    "test:watch": "bun run dotenvx -- bun test --timeout 1000000 --watch"
+    "test:watch": "bun run dotenvx -- bun test src/tests/eliza/index.test.ts --timeout 1000000 --watch"
   },
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",
