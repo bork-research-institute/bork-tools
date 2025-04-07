@@ -6,6 +6,7 @@
     "frontend:dev": "bun run --cwd frontend dev",
     "frontend:build": "bun run --cwd frontend build",
     "backend:dev": "bun run --cwd backend dev",
+    "backend:test": "bun run --cwd backend test:watch",
     "install:all": "bun install",
     "install:frontend": "bun install --cwd frontend",
     "install:backend": "bun install --cwd backend",

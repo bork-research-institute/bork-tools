@@ -1013,17 +1013,30 @@ export const tweetQueries = {
    */
   async getRecentTopicWeights(timeframeHours = 24): Promise<TopicWeightRow[]> {
     const query = `
+      WITH recent_weights AS (
+        SELECT 
+          topic,
+          AVG(weight) as weight,
+          AVG(impact_score) as impact_score,
+          MAX(created_at) as created_at,
+          (array_agg(id ORDER BY created_at DESC))[1] as id,
+          (array_agg(tweet_id ORDER BY created_at DESC))[1] as tweet_id,
+          (array_agg(sentiment ORDER BY created_at DESC))[1] as sentiment,
+          AVG(confidence) as confidence,
+          (array_agg(engagement_metrics ORDER BY created_at DESC))[1] as engagement_metrics
+        FROM topic_weights
+        WHERE created_at >= NOW() - INTERVAL '${timeframeHours} hours'
+        GROUP BY topic
+        ORDER BY weight DESC
+      )
       SELECT *
-      FROM topic_weights
-      WHERE created_at >= NOW() - INTERVAL '${timeframeHours} hours'
-      ORDER BY created_at DESC
+      FROM recent_weights
     `;
 
     const result = await db.query(query);
     return result.rows.map((row) => ({
       ...row,
       engagement_metrics:
-        // TODO Validate this, I believe the logic is wrong here
         typeof row.engagement_metrics === 'string'
           ? JSON.parse(row.engagement_metrics)
           : row.engagement_metrics,

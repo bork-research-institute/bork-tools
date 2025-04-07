@@ -187,7 +187,6 @@ export async function getRecentTopicWeights(
 
 /**
  * Gets aggregated topic weights suitable for search term selection
- * Combines recent engagement with historical data
  * @param timeframeHours Optional timeframe in hours to look back for recent weights
  * @returns Array of topic weights with aggregated scores
  */
@@ -195,58 +194,6 @@ export async function getAggregatedTopicWeights(
   timeframeHours = 168, // Default to 1 week
 ): Promise<TopicWeightRow[]> {
   try {
-    elizaLogger.info(
-      `[TopicWeights] Getting aggregated weights for last ${timeframeHours} hours`,
-    );
-
-    // First check if we have any topic weights at all
-    const allWeights = await tweetQueries.getTopicWeights();
-    elizaLogger.info(
-      `[TopicWeights] Total topic weights in database: ${allWeights.length}`,
-    );
-
-    if (allWeights.length === 0) {
-      elizaLogger.warn('[TopicWeights] No topic weights found in database');
-      return [];
-    }
-
-    // Get topic trends to calculate momentum
-    const trends = await tweetQueries.getTopicTrends(timeframeHours);
-    elizaLogger.info(
-      `[TopicWeights] Found ${trends.length} topic trends in the last ${timeframeHours} hours`,
-    );
-
-    if (trends.length === 0) {
-      elizaLogger.warn(
-        `[TopicWeights] No topic trends found in the last ${timeframeHours} hours`,
-      );
-      // Fall back to using raw weights if no trends
-      return allWeights;
-    }
-
-    // Log some sample trend data for debugging
-    if (trends.length > 0) {
-      elizaLogger.debug('[TopicWeights] Sample trend data:', {
-        firstTrend: trends[0],
-        lastTrend: trends[trends.length - 1],
-        trendCount: trends.length,
-      });
-    }
-
-    // Create a map of topic trends
-    const trendMap = new Map(
-      trends.map((trend) => [
-        trend.topic,
-        {
-          avgWeight: trend.avgWeight,
-          totalEngagement: trend.totalEngagement,
-          mentionCount: trend.mentionCount,
-          // Calculate momentum as the rate of change in weight
-          momentum: trend.avgWeight / Math.max(1, trend.mentionCount),
-        },
-      ]),
-    );
-
     // Get recent weights
     const recentWeights =
       await tweetQueries.getRecentTopicWeights(timeframeHours);
@@ -258,21 +205,15 @@ export async function getAggregatedTopicWeights(
       elizaLogger.warn(
         `[TopicWeights] No recent weights found in the last ${timeframeHours} hours`,
       );
-      return allWeights;
     }
 
-    // Aggregate weights by topic
+    // Group weights by topic and calculate average weight
     const topicMap = new Map<string, TopicWeightRow>();
 
     for (const weight of recentWeights) {
-      const trend = trendMap.get(weight.topic);
       if (!topicMap.has(weight.topic)) {
         topicMap.set(weight.topic, {
           ...weight,
-          // Adjust weight based on trend data
-          weight: trend
-            ? weight.weight * 0.6 + trend.avgWeight * 0.2 + trend.momentum * 0.2
-            : weight.weight,
         });
       }
     }
