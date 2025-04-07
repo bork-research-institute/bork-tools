@@ -119,7 +119,7 @@ export async function extractAndStoreKnowledge(
     await runtime.messageManager.addEmbeddingToMemory(tweetMemory);
 
     if (tweetMemory.embedding) {
-      elizaLogger.info(
+      elizaLogger.debug(
         `${logPrefix} Successfully generated embedding for tweet ${tweet.tweet_id}`,
         {
           embeddingSize:
@@ -145,7 +145,7 @@ export async function extractAndStoreKnowledge(
 
     // Store the main tweet knowledge
     await runtime.databaseAdapter.createKnowledge(tweetKnowledge);
-    elizaLogger.info(
+    elizaLogger.debug(
       `${logPrefix} Stored main tweet analysis knowledge for ${tweet.tweet_id}`,
     );
   } catch (error) {

@@ -137,7 +137,6 @@ export const tweetService = {
             ...row,
             ...weightedScores,
             content: tweet.text,
-            content: tweet.text,
             permanent_url: tweet.permanent_url,
             username: tweet.username,
             name: tweet.name,
