@@ -4,37 +4,12 @@ import type { TargetAccount } from '@/types/account';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { testTwitterConfig } from '../config/test-config';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
 import { mockTopicRelationships } from '../mock-data/topic-relationships';
 
 const SEARCH_TIMEFRAME_HOURS = 168;
 const PREFERRED_TOPIC = 'cryptocurrency';
-
-// Config with realistic limits
-const testConfig = {
-  search: {
-    tweetLimits: {
-      accountsToProcess: 5, // Increased to get a better sample
-      targetAccounts: 20,
-      qualityTweetsPerAccount: 5,
-    },
-    parameters: {
-      lang: 'en',
-      maxResults: 100,
-      filterLevel: 'medium' as const,
-      excludeReplies: true,
-      excludeRetweets: true,
-      includeQuotes: false,
-      includeThreads: false,
-    },
-    engagementThresholds: {
-      minLikes: 10,
-      minRetweets: 5,
-      minReplies: 2,
-    },
-  },
-  targetAccounts: [] as string[], // Will be populated from DB
-};
 
 export interface AccountSelectionTestResult {
   basicSelection: TargetAccount[];
@@ -65,7 +40,7 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
     // Test 1: Basic account selection without preferred topic
     const basicResult = await selectTargetAccounts(
       runtime,
-      testConfig,
+      testTwitterConfig,
       undefined,
       topicWeights,
     );
@@ -77,7 +52,7 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
     expect(basicResult).toBeDefined();
     expect(basicResult.length).toBeGreaterThan(0);
     expect(basicResult.length).toBeLessThanOrEqual(
-      testConfig.search.tweetLimits.accountsToProcess,
+      testTwitterConfig.search.tweetLimits.accountsToProcess,
     );
 
     // Verify each selected account has required properties
@@ -90,7 +65,7 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
     // Test 2: Account selection with preferred topic
     const preferredResult = await selectTargetAccounts(
       runtime,
-      testConfig,
+      testTwitterConfig,
       PREFERRED_TOPIC,
       topicWeights,
     );
@@ -103,7 +78,7 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
     expect(preferredResult).toBeDefined();
     expect(preferredResult.length).toBeGreaterThan(0);
     expect(preferredResult.length).toBeLessThanOrEqual(
-      testConfig.search.tweetLimits.accountsToProcess,
+      testTwitterConfig.search.tweetLimits.accountsToProcess,
     );
 
     // Verify each selected account has required properties
