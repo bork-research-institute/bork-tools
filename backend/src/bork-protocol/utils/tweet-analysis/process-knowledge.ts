@@ -109,6 +109,7 @@ export async function extractAndStoreKnowledge(
       },
       agentId: runtime.agentId,
       userId: stringToUuid(`twitter-user-${tweet.userId}`),
+      // TODO Should we create a random room all the time?
       roomId: stringToUuid(uuidv4()),
     };
 
