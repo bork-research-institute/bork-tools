@@ -306,7 +306,7 @@ export async function mergeTweetContent(
           },
         };
         await tweetQueries.saveTweetObject(dbTweet, client);
-        elizaLogger.info(
+        elizaLogger.debug(
           '[Tweet Processing] Saved original tweet to database:',
           {
             tweetId: tweet.tweet_id,
@@ -352,7 +352,7 @@ export async function mergeTweetContent(
         processedTweets.push(processedTweet);
         processedIds.add(tweet.tweet_id);
 
-        elizaLogger.info(
+        elizaLogger.debug(
           '[Tweet Merging] Successfully merged tweet with related content:',
           {
             tweetId: tweet.tweet_id,

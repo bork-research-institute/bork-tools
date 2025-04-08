@@ -195,8 +195,43 @@ export async function getAggregatedTopicWeights(
   timeframeHours = 168, // Default to 1 week
 ): Promise<TopicWeightRow[]> {
   try {
+    elizaLogger.info(
+      `[TopicWeights] Getting aggregated weights for last ${timeframeHours} hours`,
+    );
+
+    // First check if we have any topic weights at all
+    const allWeights = await tweetQueries.getTopicWeights();
+    elizaLogger.info(
+      `[TopicWeights] Total topic weights in database: ${allWeights.length}`,
+    );
+
+    if (allWeights.length === 0) {
+      elizaLogger.warn('[TopicWeights] No topic weights found in database');
+      return [];
+    }
+
     // Get topic trends to calculate momentum
     const trends = await tweetQueries.getTopicTrends(timeframeHours);
+    elizaLogger.info(
+      `[TopicWeights] Found ${trends.length} topic trends in the last ${timeframeHours} hours`,
+    );
+
+    if (trends.length === 0) {
+      elizaLogger.warn(
+        `[TopicWeights] No topic trends found in the last ${timeframeHours} hours`,
+      );
+      // Fall back to using raw weights if no trends
+      return allWeights;
+    }
+
+    // Log some sample trend data for debugging
+    if (trends.length > 0) {
+      elizaLogger.debug('[TopicWeights] Sample trend data:', {
+        firstTrend: trends[0],
+        lastTrend: trends[trends.length - 1],
+        trendCount: trends.length,
+      });
+    }
 
     // Create a map of topic trends
     const trendMap = new Map(
@@ -215,6 +250,16 @@ export async function getAggregatedTopicWeights(
     // Get recent weights
     const recentWeights =
       await tweetQueries.getRecentTopicWeights(timeframeHours);
+    elizaLogger.info(
+      `[TopicWeights] Found ${recentWeights.length} recent weights in the last ${timeframeHours} hours`,
+    );
+
+    if (recentWeights.length === 0) {
+      elizaLogger.warn(
+        `[TopicWeights] No recent weights found in the last ${timeframeHours} hours`,
+      );
+      return allWeights;
+    }
 
     // Aggregate weights by topic
     const topicMap = new Map<string, TopicWeightRow>();
@@ -232,7 +277,11 @@ export async function getAggregatedTopicWeights(
       }
     }
 
-    return Array.from(topicMap.values());
+    const result = Array.from(topicMap.values());
+    elizaLogger.info(
+      `[TopicWeights] Returning ${result.length} aggregated topic weights`,
+    );
+    return result;
   } catch (error) {
     elizaLogger.error('[Topic Processing] Error getting aggregated weights:', {
       error: error instanceof Error ? error.message : String(error),

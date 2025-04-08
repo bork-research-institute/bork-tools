@@ -54,7 +54,8 @@ export async function storeAccountInfo(
       ...metadataMentions,
     ]);
 
-    elizaLogger.info('[Mentions Processing] Processing mentions:', {
+    elizaLogger.info('[Mentions Processing] Processing mentions:');
+    elizaLogger.debug({
       textMentions,
       threadMentions,
       metadataMentions,
