@@ -1,4 +1,5 @@
 import { cleanupPool } from '@/extensions/src/db';
+import { TweetQueueService } from '@/services/twitter/tweet-queue.service';
 import { TwitterService } from '@/services/twitter/twitter-service';
 import {
   type ClientInstance,
@@ -18,6 +19,7 @@ export class TwitterClient implements ClientInstance {
   private searchClient: TwitterSearchClient | null = null;
   private interactionClient: TwitterInteractionClient | null = null;
   private discoveryClient: TwitterAccountDiscoveryClient | null = null;
+  private tweetQueueService: TweetQueueService | null = null;
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -60,15 +62,25 @@ export class TwitterClient implements ClientInstance {
         );
       }
 
+      // Initialize tweet queue service first
+      this.tweetQueueService = TweetQueueService.getInstance(
+        this.runtime,
+        this.twitterService,
+      );
+      await this.tweetQueueService.start();
+      elizaLogger.info('[TwitterClient] Started tweet queue service');
+
       elizaLogger.info('[TwitterClient] Initializing clients');
       // Initialize and start all clients
       this.accountsClient = new TwitterAccountsClient(
         this.twitterService,
         this.runtime,
+        this.tweetQueueService,
       );
       this.searchClient = new TwitterSearchClient(
         this.twitterService,
         this.runtime,
+        this.tweetQueueService,
       );
       this.interactionClient = new TwitterInteractionClient(
         this.twitterService,
@@ -112,6 +124,9 @@ export class TwitterClient implements ClientInstance {
       }
       if (this.accountsClient) {
         await this.accountsClient.stop();
+      }
+      if (this.tweetQueueService) {
+        await this.tweetQueueService.stop();
       }
 
       // Clean up the database pool used by the bork-extensions

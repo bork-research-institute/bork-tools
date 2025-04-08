@@ -1,27 +1,30 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
-import { KaitoService } from '@/services/kaito/kaito-service';
-import type { TwitterService } from '@/services/twitter//twitter-service';
+import type { TweetQueueService } from '@/services/twitter/tweet-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
+import type { TwitterService } from '@/services/twitter/twitter-service';
 import { initializeTargetAccounts } from '@/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
-import { processTweets } from '@/utils/tweet-analysis/process-tweets';
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import type { IAgentRuntime } from '@elizaos/core';
+import { elizaLogger } from '@elizaos/core';
 import { getEnv } from '../../../config/env';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
-  private readonly kaitoService: KaitoService;
+  private readonly tweetQueueService: TweetQueueService;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
+  constructor(
+    twitterService: TwitterService,
+    runtime: IAgentRuntime,
+    tweetQueueService: TweetQueueService,
+  ) {
     this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
-    this.kaitoService = new KaitoService();
+    this.tweetQueueService = tweetQueueService;
   }
 
   async start(): Promise<void> {
@@ -104,15 +107,11 @@ export class TwitterAccountsClient {
         return;
       }
 
-      // Get topic weights for processing
-      const topicWeights = await tweetQueries.getTopicWeights();
+      // Add tweets to the queue instead of processing them directly
+      await this.tweetQueueService.addTweets(allTweets, 'account', 2);
 
-      // Process filtered tweets
-      await processTweets(
-        this.runtime,
-        this.twitterService,
-        allTweets,
-        topicWeights,
+      elizaLogger.info(
+        '[TwitterAccounts] Successfully queued tweets from target accounts',
       );
     } catch (error) {
       // Catch-all error handler to prevent process crashes
