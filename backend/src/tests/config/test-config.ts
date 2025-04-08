@@ -100,10 +100,10 @@ export const testConfig: TestConfig[] = [
     name: 'tweet-processing',
     enabled: TEST_FLAGS.TWEET_PROCESSING,
     testFn: async (runtime) => {
-      const { testProcessTweets } = await import(
-        '../clients/process-tweets.test'
+      const { testFetchUpstreamTweets } = await import(
+        '../clients/fetch-upstream-tweets.test'
       );
-      return testProcessTweets(runtime);
+      return testFetchUpstreamTweets(runtime);
     },
     description:
       'Tests tweet validation, preparation, and merging with related tweets',

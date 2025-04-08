@@ -287,3 +287,12 @@ export interface TwitterEngagementThresholds {
   minRetweets: number;
   minReplies: number;
 }
+
+export interface TweetWithUpstream {
+  originalTweet: DatabaseTweet;
+  upstreamTweets: {
+    inReplyChain: DatabaseTweet[];
+    quotedTweets: DatabaseTweet[];
+    retweetedTweets: DatabaseTweet[];
+  };
+}

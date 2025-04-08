@@ -1,12 +1,13 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
 import { extractAndRepairAnalysis } from '@/helpers/repair-tweet-analysis-helper';
 import { updateUserSpamData } from '@/helpers/spam-helper';
+import { mapToCombinedTweet } from '@/mappers/combined-tweet-mapper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetAnalysisTemplate } from '@/templates/analysis';
 import type { TweetAnalysis } from '@/types/analysis';
 import { tweetAnalysisSchema } from '@/types/response/tweet-analysis';
 import type { TopicWeightRow } from '@/types/topic';
-import type { DatabaseTweet } from '@/types/twitter';
+import type { TweetWithUpstream } from '@/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -29,14 +30,17 @@ import { fetchAndFormatKnowledge } from './process-knowledge';
 export async function processSingleTweet(
   runtime: IAgentRuntime,
   twitterService: TwitterService,
-  tweet: DatabaseTweet,
+  processedTweet: TweetWithUpstream,
   topicWeights: TopicWeightRow[],
   logPrefix = '[Tweet Analysis]',
 ): Promise<void> {
   try {
     elizaLogger.info(
-      `${logPrefix} Starting to process tweet ${tweet.tweet_id}`,
+      `${logPrefix} Starting to process tweet ${processedTweet.originalTweet.tweet_id}`,
     );
+
+    // Map the tweet to a combined format using the external mapper
+    const tweet = mapToCombinedTweet(processedTweet);
 
     // Store tweet in cache using Twitter's numeric ID
     await twitterService.cacheTweet({

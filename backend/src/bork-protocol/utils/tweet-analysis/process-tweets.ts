@@ -1,9 +1,6 @@
 import { validateTweets } from '@/helpers/tweet-validation-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
-import {
-  getUpstreamTweets,
-  prepareTweetsForUpstreamFetching,
-} from '@/services/twitter/upstream-tweet-fetching-service';
+import { getUpstreamTweets } from '@/services/twitter/upstream-tweet-fetching-service';
 import type { TopicWeightRow } from '@/types/topic';
 import type { Tweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
@@ -29,32 +26,43 @@ export async function processTweets(
       return;
     }
 
-    // Step 2: Prepare tweets for fetching by converting to MergedTweet type
-    const tweetsToMerge = prepareTweetsForUpstreamFetching(validTweets);
-
-    // Step 3: Get upstream tweets
-    const mergedTweets = await getUpstreamTweets(
-      twitterService,
-      runtime,
-      tweetsToMerge,
-    );
-
     elizaLogger.info(
-      `[TwitterAccounts] Processing ${mergedTweets.length} tweets`,
+      `[TwitterAccounts] Processing ${validTweets.length} tweets`,
     );
 
-    // Step 4: Update metrics for all tweet authors
-    await updateMetricsForAuthors(mergedTweets, '[Tweet Processing]');
+    for (const tweet of validTweets) {
+      try {
+        // Get upstream tweets for this tweet
+        const [processedTweet] = await getUpstreamTweets(
+          twitterService,
+          runtime,
+          [tweet],
+        );
 
-    // Step 5: Process each tweet individually
-    for (const tweet of mergedTweets) {
-      await processSingleTweet(
-        runtime,
-        twitterService,
-        tweet,
-        topicWeights,
-        '[Tweet Processing]',
-      );
+        if (!processedTweet) {
+          continue;
+        }
+
+        // Step 2: Update metrics for all authors in this tweet chain
+        await updateMetricsForAuthors(processedTweet, '[Tweet Processing]');
+
+        // Step 3: Process the tweet with its full context
+        await processSingleTweet(
+          runtime,
+          twitterService,
+          processedTweet,
+          topicWeights,
+          '[Tweet Processing]',
+        );
+      } catch (error) {
+        elizaLogger.error(
+          '[Tweet Processing] Error processing individual tweet:',
+          {
+            error: error instanceof Error ? error.message : String(error),
+            tweetId: tweet.tweet_id,
+          },
+        );
+      }
     }
 
     elizaLogger.info('[TwitterAccounts] Successfully processed all tweets');

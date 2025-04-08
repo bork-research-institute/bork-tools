@@ -1,6 +1,6 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
 import type { TargetAccount } from '@/types/account';
-import type { DatabaseTweet } from '@/types/twitter';
+import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 
 /**
@@ -111,20 +111,34 @@ async function updateAccountEngagementMetrics(
 }
 
 /**
- * Updates metrics for all tweet authors
+ * Updates metrics for all tweet authors in a tweet chain
  */
 export async function updateMetricsForAuthors(
-  tweets: DatabaseTweet[],
+  processedTweet: TweetWithUpstream,
   context = '[TwitterAccounts]',
 ): Promise<void> {
   try {
+    // Collect all related tweets
+    const allRelatedTweets = [
+      processedTweet.originalTweet,
+      ...processedTweet.upstreamTweets.inReplyChain,
+      ...processedTweet.upstreamTweets.quotedTweets,
+      ...processedTweet.upstreamTweets.retweetedTweets,
+    ];
+
     elizaLogger.info(
-      `${context} Starting metrics update for ${tweets.length} tweets`,
+      `${context} Starting metrics update for tweet chain with ${allRelatedTweets.length} related tweets`,
     );
 
-    // Group tweets by author
+    // Group tweets by author, filtering out any invalid tweets
     const tweetsByAuthor = new Map<string, DatabaseTweet[]>();
-    for (const tweet of tweets) {
+    for (const tweet of allRelatedTweets) {
+      if (!tweet.username) {
+        elizaLogger.warn(`${context} Found tweet without username, skipping`, {
+          tweetId: tweet.tweet_id,
+        });
+        continue;
+      }
       const authorTweets = tweetsByAuthor.get(tweet.username) || [];
       authorTweets.push(tweet);
       tweetsByAuthor.set(tweet.username, authorTweets);
