@@ -47,9 +47,9 @@ export function validateTweets(tweets: Tweet[]): Tweet[] {
 export function prepareTweetsForMerging(tweets: Tweet[]): MergedTweet[] {
   return tweets.map((tweet) => ({
     ...tweet,
-    id: tweet.id || uuidv4(), // Internal UUID
-    tweet_id: tweet.tweet_id || tweet.id, // Twitter's numeric ID (ensure it's set)
-    originalText: tweet.text || '',
+    id: tweet.id || uuidv4(),
+    tweet_id: tweet.tweet_id,
+    originalText: tweet.text,
     isThreadMerged: false,
     threadSize: 1,
     thread: [],

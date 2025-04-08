@@ -123,9 +123,12 @@ export class TwitterService {
 
     // Fetch from Twitter if not cached
     const tweet = await this.requestService.getTweet(tweetId);
-    if (tweet) {
-      await this.cacheService.cacheTweet(tweet);
+    if (!tweet) {
+      return undefined;
     }
+
+    // Cache the tweet
+    await this.cacheService.cacheTweet(tweet);
     return tweet;
   }
 

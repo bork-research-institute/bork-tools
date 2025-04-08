@@ -6,7 +6,8 @@ export const TEST_FLAGS = {
   TOPIC_RELATIONSHIPS: false,
   TOPIC_SELECTION: false,
   ACCOUNT_SELECTION: false,
-  TWEET_SELECTION: true,
+  TWEET_SELECTION: false,
+  TWEET_PROCESSING: true,
   // Add more flags here as needed
 } as const;
 
@@ -94,6 +95,18 @@ export const testConfig: TestConfig[] = [
     },
     description:
       'Tests tweet selection from accounts based on engagement criteria',
+  },
+  {
+    name: 'tweet-processing',
+    enabled: TEST_FLAGS.TWEET_PROCESSING,
+    testFn: async (runtime) => {
+      const { testProcessTweets } = await import(
+        '../clients/process-tweets.test'
+      );
+      return testProcessTweets(runtime);
+    },
+    description:
+      'Tests tweet validation, preparation, and merging with related tweets',
   },
   // Add more tests here as needed
 ];

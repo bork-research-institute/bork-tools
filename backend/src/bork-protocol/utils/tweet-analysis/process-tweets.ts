@@ -1,8 +1,8 @@
-import { mergeTweetContent } from '@/helpers/tweet-merging-helper';
 import {
   prepareTweetsForMerging,
   validateTweets,
 } from '@/helpers/tweet-validation-helper';
+import { mergeTweetContent } from '@/services/twitter/tweet-merging-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TopicWeightRow } from '@/types/topic';
 import type { Tweet } from '@/types/twitter';
