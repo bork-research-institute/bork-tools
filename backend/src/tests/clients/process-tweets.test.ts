@@ -2,12 +2,12 @@ import { expect } from 'bun:test';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
-import {
-  prepareTweetsForMerging,
-  validateTweets,
-} from '../../bork-protocol/helpers/tweet-validation-helper';
-import { mergeTweetContent } from '../../bork-protocol/services/twitter/tweet-merging-service';
+import { validateTweets } from '../../bork-protocol/helpers/tweet-validation-helper';
 import { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
+import {
+  getUpstreamTweets,
+  prepareTweetsForUpstreamFetching,
+} from '../../bork-protocol/services/twitter/upstream-tweet-fetching-service';
 import type { MergedTweet } from '../../bork-protocol/types/twitter';
 import { mockTweets } from '../mock-data/mock-tweets';
 
@@ -76,7 +76,7 @@ export async function testProcessTweets(runtime: IAgentRuntime) {
 
     // Step 2: Prepare tweets for merging
     elizaLogger.info('[Test] Preparing tweets for merging...');
-    const tweetsToMerge = prepareTweetsForMerging(validTweets);
+    const tweetsToMerge = prepareTweetsForUpstreamFetching(validTweets);
     elizaLogger.info('[Test] Preparation results:', {
       preparedTweets: tweetsToMerge.length,
     });
@@ -85,7 +85,7 @@ export async function testProcessTweets(runtime: IAgentRuntime) {
     elizaLogger.info(
       '[Test] Merging upstream quote tweets or retweets content...',
     );
-    const mergedTweets = await mergeTweetContent(
+    const mergedTweets = await getUpstreamTweets(
       twitterService,
       runtime,
       tweetsToMerge,

@@ -1,9 +1,9 @@
-import {
-  prepareTweetsForMerging,
-  validateTweets,
-} from '@/helpers/tweet-validation-helper';
-import { mergeTweetContent } from '@/services/twitter/tweet-merging-service';
+import { validateTweets } from '@/helpers/tweet-validation-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
+import {
+  getUpstreamTweets,
+  prepareTweetsForUpstreamFetching,
+} from '@/services/twitter/upstream-tweet-fetching-service';
 import type { TopicWeightRow } from '@/types/topic';
 import type { Tweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
@@ -29,11 +29,11 @@ export async function processTweets(
       return;
     }
 
-    // Step 2: Prepare tweets for merging by converting to MergedTweet type
-    const tweetsToMerge = prepareTweetsForMerging(validTweets);
+    // Step 2: Prepare tweets for fetching by converting to MergedTweet type
+    const tweetsToMerge = prepareTweetsForUpstreamFetching(validTweets);
 
-    // Step 3: Merge tweet content with related tweets
-    const mergedTweets = await mergeTweetContent(
+    // Step 3: Get upstream tweets
+    const mergedTweets = await getUpstreamTweets(
       twitterService,
       runtime,
       tweetsToMerge,

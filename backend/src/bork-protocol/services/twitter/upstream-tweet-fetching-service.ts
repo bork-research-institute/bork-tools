@@ -6,7 +6,27 @@ import { elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseTweet, MergedTweet } from '../../types/twitter';
 
-const logger = elizaLogger;
+/**
+ * Prepares tweets for merging by converting them to MergedTweet type
+ */
+export function prepareTweetsForUpstreamFetching(
+  tweets: Tweet[],
+): MergedTweet[] {
+  return tweets.map((tweet) => ({
+    ...tweet,
+    id: tweet.id || uuidv4(),
+    tweet_id: tweet.tweet_id,
+    originalText: tweet.text,
+    isThreadMerged: false,
+    threadSize: 1,
+    thread: [],
+    hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
+    mentions: Array.isArray(tweet.mentions) ? tweet.mentions : [],
+    photos: Array.isArray(tweet.photos) ? tweet.photos : [],
+    urls: Array.isArray(tweet.urls) ? tweet.urls : [],
+    videos: Array.isArray(tweet.videos) ? tweet.videos : [],
+  }));
+}
 
 /**
  * Recursively fetches all parent tweets up the chain by following quoted_status_id,
@@ -30,7 +50,7 @@ async function fetchUpstreamTweets(
       tweet.retweetedStatusId;
 
     if (parentId) {
-      logger.info('[Tweet Merging] Fetching parent tweet:', {
+      elizaLogger.info('[Tweet Merging] Fetching parent tweet:', {
         parentId,
         childTweetId: tweet.id,
         relationship:
@@ -43,7 +63,7 @@ async function fetchUpstreamTweets(
 
       const parentTweet = await twitterService.getTweet(parentId);
       if (parentTweet) {
-        logger.info('[Tweet Merging] Successfully fetched parent tweet:', {
+        elizaLogger.info('[Tweet Merging] Successfully fetched parent tweet:', {
           parentId,
           parentText: parentTweet.text?.substring(0, 100),
           childTweetId: tweet.id,
@@ -70,7 +90,7 @@ async function fetchUpstreamTweets(
         // Continue up the chain with the parent tweet
         await fetchUpstreamTweets(parentTweet, twitterService, processedIds);
       } else {
-        logger.warn('[Tweet Merging] Parent tweet not found:', {
+        elizaLogger.warn('[Tweet Merging] Parent tweet not found:', {
           parentId,
           childTweetId: tweet.id,
           relationship:
@@ -83,7 +103,7 @@ async function fetchUpstreamTweets(
       }
     }
   } catch (error) {
-    logger.error('[Tweet Merging] Error fetching parent tweet:', {
+    elizaLogger.error('[Tweet Merging] Error fetching parent tweet:', {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       tweetId: tweet.id,
@@ -96,12 +116,12 @@ async function fetchUpstreamTweets(
 }
 
 /**
- * Merges tweet content with its parent tweets
+ * Processes tweets and establishes their relationship chain by fetching parent tweets
  * @param twitterService Twitter service instance for making API calls
- * @param tweets Array of tweets to process and merge with their parents
- * @returns Array of processed tweets with merged content
+ * @param tweets Array of tweets to process
+ * @returns Array of processed tweets with established parent relationships
  */
-export async function mergeTweetContent(
+export async function getUpstreamTweets(
   twitterService: TwitterService,
   runtime: IAgentRuntime,
   tweets: MergedTweet[],
@@ -207,85 +227,52 @@ export async function mergeTweetContent(
           },
         );
 
-        // Fetch all parent tweets
+        // Fetch and establish parent tweet relationships
         await fetchUpstreamTweets(tweet, twitterService);
 
-        // Collect all parent tweets in chronological order
-        const parentTweets: Tweet[] = [];
+        // Count the number of parent tweets in the chain
+        let chainLength = 1;
         let currentTweet: Tweet | undefined = tweet;
-
         while (currentTweet) {
-          // Add the current tweet to the list
-          parentTweets.push(currentTweet);
-
-          // Find the next parent tweet (prioritize reply -> quote -> retweet)
           if (currentTweet.inReplyToStatus) {
+            chainLength++;
             currentTweet = currentTweet.inReplyToStatus;
           } else if (currentTweet.quotedStatus) {
+            chainLength++;
             currentTweet = currentTweet.quotedStatus;
           } else if (currentTweet.retweetedStatus) {
+            chainLength++;
             currentTweet = currentTweet.retweetedStatus;
           } else {
             currentTweet = undefined;
           }
         }
 
-        // Sort tweets chronologically (oldest first)
-        const sortedTweets = parentTweets.reverse();
-
-        // Merge the content with clear attribution
-        let mergedText = '';
-        for (let i = 0; i < sortedTweets.length; i++) {
-          const currentTweet = sortedTweets[i];
-          if (!currentTweet.text) {
-            continue;
-          }
-
-          // Determine the relationship type for all tweets except the first (original)
-          let relationship = '';
-          if (i > 0) {
-            const prevTweet = sortedTweets[i - 1];
-            if (currentTweet.inReplyToStatusId === prevTweet.id) {
-              relationship = '[REPLY]';
-            } else if (currentTweet.quotedStatusId === prevTweet.id) {
-              relationship = '[QUOTE TWEET]';
-            } else if (currentTweet.retweetedStatusId === prevTweet.id) {
-              relationship = '[RETWEET]';
-            }
-          }
-
-          if (mergedText) {
-            mergedText += '>>>';
-          }
-
-          // Format: "original post/reply/quote tweet @username: 'text'"
-          const prefix = i === 0 ? '[ORIGINAL POST]' : relationship;
-          mergedText += `${prefix} @${currentTweet.username}: '${currentTweet.text}'`;
-        }
-
-        // Update the processed tweet with merged content
+        // Update the processed tweet with relationship info
         const processedTweet: DatabaseTweet = {
           ...dbTweet,
-          text: mergedText || tweet.text || '',
-          thread: sortedTweets,
-          isThreadMerged: sortedTweets.length > 1,
-          threadSize: sortedTweets.length,
+          inReplyToStatus: tweet.inReplyToStatus,
+          quotedStatus: tweet.quotedStatus,
+          retweetedStatus: tweet.retweetedStatus,
+          isThreadMerged: chainLength > 1,
+          threadSize: chainLength,
         };
 
         processedTweets.push(processedTweet);
         processedIds.add(tweet.tweet_id);
 
         elizaLogger.info(
-          '[Tweet Merging] Successfully merged tweet with parent tweets:',
+          '[Tweet Processing] Successfully established tweet relationships:',
           {
             tweetId: tweet.tweet_id,
-            parentTweetsCount: sortedTweets.length - 1,
-            mergedTextLength: mergedText.length,
-            originalTextLength: tweet.text?.length || 0,
+            chainLength,
+            hasReplyParent: !!tweet.inReplyToStatus,
+            hasQuoteParent: !!tweet.quotedStatus,
+            hasRetweetParent: !!tweet.retweetedStatus,
           },
         );
       } catch (error) {
-        elizaLogger.error('[Tweet Merging] Error processing tweet:', {
+        elizaLogger.error('[Tweet Processing] Error processing tweet:', {
           error: error instanceof Error ? error.message : String(error),
           tweetId: tweet.tweet_id,
         });

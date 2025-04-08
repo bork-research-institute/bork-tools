@@ -1,6 +1,5 @@
 import { elizaLogger } from '@elizaos/core';
-import { v4 as uuidv4 } from 'uuid';
-import type { MergedTweet, Tweet } from '../types/twitter';
+import type { Tweet } from '../types/twitter';
 
 /**
  * Validates tweets and filters out those with missing IDs
@@ -39,24 +38,4 @@ export function validateTweets(tweets: Tweet[]): Tweet[] {
   }
 
   return validTweets;
-}
-
-/**
- * Prepares tweets for merging by converting them to MergedTweet type
- */
-export function prepareTweetsForMerging(tweets: Tweet[]): MergedTweet[] {
-  return tweets.map((tweet) => ({
-    ...tweet,
-    id: tweet.id || uuidv4(),
-    tweet_id: tweet.tweet_id,
-    originalText: tweet.text,
-    isThreadMerged: false,
-    threadSize: 1,
-    thread: [],
-    hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
-    mentions: Array.isArray(tweet.mentions) ? tweet.mentions : [],
-    photos: Array.isArray(tweet.photos) ? tweet.photos : [],
-    urls: Array.isArray(tweet.urls) ? tweet.urls : [],
-    videos: Array.isArray(tweet.videos) ? tweet.videos : [],
-  }));
 }
