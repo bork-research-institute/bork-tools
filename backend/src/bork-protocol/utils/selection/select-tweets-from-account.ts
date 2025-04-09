@@ -1,5 +1,5 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
-import { mapTweet } from '@/mappers/tweet-mapper';
+import { mapApiTweet } from '@/mappers/tweet-mapper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TargetAccount } from '@/types/account';
 import type { TwitterConfig } from '@/types/config';
@@ -84,7 +84,7 @@ export async function selectTweetsFromAccounts(
       }
 
       // Map tweets to ensure all fields have default values
-      const mappedTweets = unprocessedTweets.map((tweet) => mapTweet(tweet));
+      const mappedTweets = unprocessedTweets.map((tweet) => mapApiTweet(tweet));
 
       // Collect most recent tweets that meet engagement criteria
       let processedCount = 0;
