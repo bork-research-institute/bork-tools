@@ -8,6 +8,7 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { ApiClient } from '../../api/api';
+import { startTwitterClient } from '../../bork-protocol/clients/x-client';
 import { initializeDbCache } from '../../cache/initialize-db-cache';
 import { getTokenForProvider } from '../../config';
 import { getEnv } from '../../config/env';
@@ -81,10 +82,14 @@ describe('Eliza Agent', () => {
   };
 
   beforeAll(async () => {
+    // Validate environment variables
+    const env = getEnv();
+    elizaLogger.info('[Test] Environment validated successfully');
+
     // Setup test database adapter
     try {
       db = new PostgresDatabaseAdapter({
-        connectionString: getEnv().POSTGRES_URL,
+        connectionString: env.POSTGRES_URL,
         parseInputs: true,
       });
 
@@ -166,6 +171,11 @@ describe('Eliza Agent', () => {
     });
 
     await runtime.initialize();
+
+    // Initialize Twitter client
+    const twitterClient = await startTwitterClient(runtime);
+    runtime.clients = [twitterClient];
+
     directClient.registerAgent(runtime);
 
     return { runtime, directClient };

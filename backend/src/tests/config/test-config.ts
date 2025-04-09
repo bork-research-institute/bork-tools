@@ -8,7 +8,8 @@ export const TEST_FLAGS = {
   ACCOUNT_SELECTION: false,
   TWEET_SELECTION: false,
   TWEET_PROCESSING: false,
-  INFLUENCE_SCORE: true,
+  INFLUENCE_SCORE: false,
+  TWEET_CONTEXT: true,
   // Add more flags here as needed
 } as const;
 
@@ -120,6 +121,18 @@ export const testConfig: TestConfig[] = [
     },
     description:
       'Tests influence score calculation and updates for target accounts',
+  },
+  {
+    name: 'tweet-context',
+    enabled: TEST_FLAGS.TWEET_CONTEXT,
+    testFn: async (runtime) => {
+      const { testTweetContextPreparation } = await import(
+        '../clients/process-single-tweet-context.test'
+      );
+      return testTweetContextPreparation(runtime);
+    },
+    description:
+      'Tests tweet context preparation including template generation, memory state, and knowledge fetching',
   },
   // Add more tests here as needed
 ];

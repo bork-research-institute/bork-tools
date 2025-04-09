@@ -1,10 +1,8 @@
 import { expect } from 'bun:test';
-import { TwitterService } from '@/services/twitter/twitter-service';
+import type { TwitterService } from '@/services/twitter/twitter-service';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
-import { elizaLogger } from '@elizaos/core';
-import type { IAgentRuntime } from '@elizaos/core';
+import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { Scraper } from 'agent-twitter-client';
 import { testTwitterConfig } from '../config/test-config';
 import { mockAccounts } from '../mock-data/mock-accounts';
 
@@ -37,14 +35,18 @@ export async function testSelectTweetsFromAccounts(runtime: IAgentRuntime) {
   elizaLogger.info('[Test] Starting tweet selection test');
 
   try {
-    // Initialize Twitter service
-    const twitterClient = new Scraper();
-    const twitterService = new TwitterService(twitterClient, runtime);
-    const initialized = await twitterService.initialize();
-
-    if (!initialized) {
-      throw new Error('Failed to initialize Twitter service');
+    // Get Twitter service from runtime's clients
+    const twitterClient = runtime.clients.find(
+      (client) =>
+        (client as unknown as { twitterService: TwitterService })
+          .twitterService,
+    );
+    if (!twitterClient) {
+      throw new Error('Twitter client not found in runtime');
     }
+    const twitterService = (
+      twitterClient as unknown as { twitterService: TwitterService }
+    ).twitterService;
 
     // Select tweets from accounts
     const results = await selectTweetsFromAccounts(

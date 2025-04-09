@@ -1,9 +1,8 @@
 import { expect } from 'bun:test';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
-import { Scraper } from 'agent-twitter-client';
 import { validateTweets } from '../../bork-protocol/helpers/tweet-validation-helper';
-import { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
+import type { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
 import { getUpstreamTweets } from '../../bork-protocol/services/twitter/upstream-tweet-fetching-service';
 import type { DatabaseTweet } from '../../bork-protocol/types/twitter';
 import { mockTweets } from '../mock-data/mock-tweets';
@@ -25,14 +24,18 @@ export async function testFetchUpstreamTweets(runtime: IAgentRuntime) {
   elizaLogger.info('[Test] Starting upstream tweet fetching test');
 
   try {
-    // Initialize Twitter service
-    const twitterClient = new Scraper();
-    const twitterService = new TwitterService(twitterClient, runtime);
-    const initialized = await twitterService.initialize();
-
-    if (!initialized) {
-      throw new Error('Failed to initialize Twitter service');
+    // Get Twitter service from runtime's clients
+    const twitterClient = runtime.clients.find(
+      (client) =>
+        (client as unknown as { twitterService: TwitterService })
+          .twitterService,
+    );
+    if (!twitterClient) {
+      throw new Error('Twitter client not found in runtime');
     }
+    const twitterService = (
+      twitterClient as unknown as { twitterService: TwitterService }
+    ).twitterService;
 
     // Step 1: Validate tweets
     elizaLogger.info('[Test] Validating tweets...');
