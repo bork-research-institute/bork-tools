@@ -347,7 +347,11 @@ export async function processSingleTweet(
             );
 
             // Process mentions from the merged tweet and add to target accounts, including topic relationships
-            await storeAccountInfo(processedTweet.originalTweet, allTopics);
+            await storeAccountInfo(
+              processedTweet.originalTweet,
+              twitterService,
+              allTopics,
+            );
 
             // Extract and store knowledge from tweet analysis
             try {
