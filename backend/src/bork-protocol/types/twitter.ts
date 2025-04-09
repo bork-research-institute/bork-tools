@@ -81,6 +81,12 @@ export interface DatabaseTweet extends AgentTweet {
       urls: string[];
     };
   };
+  structuredContent?: {
+    mainTweet: string;
+    replies: Array<{ text: string; username: string }>;
+    quotes: Array<{ text: string; username: string }>;
+    retweets: Array<{ text: string; username: string }>;
+  };
 }
 
 // Re-export other types

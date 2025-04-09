@@ -185,7 +185,7 @@ export async function fetchAndFormatKnowledge(
       roomId: stringToUuid(uuidv4()),
     };
 
-    elizaLogger.info(
+    elizaLogger.debug(
       `${logPrefix} Generating embedding for tweet ${tweet.tweet_id} to search for relevant knowledge`,
     );
 
@@ -200,7 +200,7 @@ export async function fetchAndFormatKnowledge(
       return '';
     }
 
-    elizaLogger.info(
+    elizaLogger.debug(
       `${logPrefix} Successfully generated search embedding for tweet ${tweet.tweet_id}`,
     );
     elizaLogger.debug({
@@ -220,18 +220,40 @@ export async function fetchAndFormatKnowledge(
         ? tweetMemory.embedding
         : new Float32Array(tweetMemory.embedding);
 
-    // Fetch relevant knowledge
-    const relevantKnowledge = await runtime.databaseAdapter.searchKnowledge({
+    elizaLogger.debug(`${logPrefix} Searching for knowledge with parameters:`, {
       agentId: runtime.agentId,
-      embedding,
-      match_threshold: 0.7,
+      match_threshold: 0.1,
       match_count: 5,
-      searchText: tweet.text,
+      textLength: tweet.text.length,
+      hasEmbedding: Boolean(embedding?.length),
+      embeddingSize: embedding?.length,
+      searchText:
+        tweet.text.slice(0, 100) + (tweet.text.length > 100 ? '...' : ''), // Log part of search text
     });
+
+    let relevantKnowledge: RAGKnowledgeItem[] = [];
+    try {
+      relevantKnowledge = await runtime.databaseAdapter.searchKnowledge({
+        agentId: runtime.agentId,
+        embedding,
+        match_threshold: 0.7,
+        match_count: 5,
+        searchText: tweet.text,
+      });
+    } catch (searchError) {
+      elizaLogger.error(`${logPrefix} Error during knowledge search:`, {
+        error:
+          searchError instanceof Error
+            ? searchError.message
+            : String(searchError),
+        stack: searchError instanceof Error ? searchError.stack : undefined,
+      });
+      return '';
+    }
 
     if (relevantKnowledge.length === 0) {
       elizaLogger.info(
-        `${logPrefix} No relevant knowledge found for tweet ${tweet.tweet_id}`,
+        `${logPrefix} No relevant knowledge found for tweet ${tweet.tweet_id}.`,
       );
       return '';
     }
@@ -282,13 +304,6 @@ Is Factual: ${metadata.isFactual ? 'Yes' : 'No'}
 Has Question: ${metadata.hasQuestion ? 'Yes' : 'No'}`;
       })
       .join('\n\n')}`;
-
-    elizaLogger.info(
-      `${logPrefix} Successfully fetched and formatted knowledge for tweet ${tweet.tweet_id}`,
-    );
-    elizaLogger.debug({
-      knowledgeCount: relevantKnowledge.length,
-    });
 
     return knowledgeContext;
   } catch (error) {
