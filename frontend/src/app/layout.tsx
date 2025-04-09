@@ -1,12 +1,14 @@
 import './globals.css';
+import { QueryClientProvider } from '@/components/providers/query-client-provider';
+import { SolanaProvider } from '@/components/providers/solana-provider';
+import { getClientEnv } from '@/lib/config/client-env';
 import { METADATA } from '@/lib/constants/metadata';
 import { PanelProvider } from '@/lib/contexts/PanelContext';
+import { SessionProvider } from 'next-auth/react';
 import { Inter } from 'next/font/google';
 import localFont from 'next/font/local';
 import type { PropsWithChildren } from 'react';
-import { QueryClientProvider } from '../components/providers/query-client-provider';
-import { SolanaProvider } from '../components/providers/solana-provider';
-import { getClientEnv } from '../lib/config/client-env';
+import { Toaster } from 'sonner';
 
 // This will throw if env vars are missing
 getClientEnv();
@@ -30,11 +32,23 @@ export default function RootLayout({ children }: PropsWithChildren) {
         suppressHydrationWarning={true}
         className={`${bolota.variable} ${inter.variable} font-sans tracking-wide`}
       >
-        <QueryClientProvider>
-          <SolanaProvider>
-            <PanelProvider>{children}</PanelProvider>
-          </SolanaProvider>
-        </QueryClientProvider>
+        <SessionProvider>
+          {/* <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            storageKey="options-theme"
+          > */}
+          <QueryClientProvider>
+            <SolanaProvider>
+              <PanelProvider>
+                {children}
+                <Toaster />
+              </PanelProvider>
+            </SolanaProvider>
+          </QueryClientProvider>
+          {/* </ThemeProvider> */}
+        </SessionProvider>
       </body>
     </html>
   );
