@@ -126,9 +126,7 @@ export async function updateMetricsForAuthors(
       ...processedTweet.upstreamTweets.retweetedTweets,
     ];
 
-    elizaLogger.info(
-      `${context} Starting metrics update for tweet chain with ${allRelatedTweets.length} related tweets`,
-    );
+    elizaLogger.info(`${context} Updating influence scores for tweet authors`);
 
     // Group tweets by author, filtering out any invalid tweets
     const tweetsByAuthor = new Map<string, DatabaseTweet[]>();
@@ -144,9 +142,6 @@ export async function updateMetricsForAuthors(
       tweetsByAuthor.set(tweet.username, authorTweets);
     }
 
-    elizaLogger.info(
-      `${context} Grouped tweets by ${tweetsByAuthor.size} unique authors`,
-    );
     elizaLogger.debug({
       authorCounts: Array.from(tweetsByAuthor.entries()).map(
         ([username, tweets]) => ({
@@ -157,10 +152,8 @@ export async function updateMetricsForAuthors(
     });
 
     // Get all target accounts once
+    // TODO: is it necessary to get all target accounts? fix
     const accounts = await tweetQueries.getTargetAccounts();
-    elizaLogger.info(
-      `${context} Retrieved ${accounts.length} target accounts from database`,
-    );
 
     // Process each author's tweets
     let processedAuthors = 0;
@@ -197,7 +190,6 @@ export async function updateMetricsForAuthors(
       }
     }
 
-    elizaLogger.info(`${context} Completed metrics update processing`);
     elizaLogger.debug({
       totalAuthors: tweetsByAuthor.size,
       processedAuthors,

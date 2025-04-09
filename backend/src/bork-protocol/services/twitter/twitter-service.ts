@@ -58,7 +58,6 @@ export class TwitterService {
     spammedTweets: number;
     spamUsers: Set<string>;
   }> {
-    elizaLogger.info(`${context} Searching tweets for query: ${query}`);
     elizaLogger.debug({
       maxTweets,
       searchMode,
@@ -74,7 +73,7 @@ export class TwitterService {
     );
 
     if (!searchResults.tweets.length) {
-      elizaLogger.info(`${context} No tweets found for query`, {
+      elizaLogger.warn(`${context} No tweets found for query`, {
         context,
         query,
       });

@@ -113,10 +113,6 @@ export async function extractAndStoreKnowledge(
       roomId: stringToUuid(uuidv4()),
     };
 
-    elizaLogger.info(
-      `${logPrefix} Generating embedding for analysis of tweet ${tweet.tweet_id}`,
-    );
-
     await runtime.messageManager.addEmbeddingToMemory(tweetMemory);
 
     if (tweetMemory.embedding) {
@@ -222,7 +218,7 @@ export async function fetchAndFormatKnowledge(
 
     elizaLogger.debug(`${logPrefix} Searching for knowledge with parameters:`, {
       agentId: runtime.agentId,
-      match_threshold: 0.1,
+      match_threshold: 0.7,
       match_count: 5,
       textLength: tweet.text.length,
       hasEmbedding: Boolean(embedding?.length),

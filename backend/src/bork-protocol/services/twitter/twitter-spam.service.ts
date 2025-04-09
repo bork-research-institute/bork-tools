@@ -22,7 +22,7 @@ export class TwitterSpamService {
     spamUsers: Set<string>;
   }> {
     const uniqueAuthors = [...new Set(tweets.map((t) => t.userId))];
-    elizaLogger.info(
+    elizaLogger.debug(
       `${context} Fetching spam data for ${uniqueAuthors.length} unique authors`,
     );
 
@@ -55,7 +55,7 @@ export class TwitterSpamService {
     const spammedTweets = tweets.length - filteredTweets.length;
 
     elizaLogger.info(
-      `${context} Filtered ${spammedTweets} tweets from ${spamUsers.size} spam users`,
+      `${context} Filtered out ${spammedTweets} tweets from ${spamUsers.size} spam users`,
     );
     elizaLogger.debug({
       totalTweets: tweets.length,

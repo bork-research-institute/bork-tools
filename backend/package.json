@@ -6,7 +6,7 @@
   "scripts": {
     "dotenvx": "dotenvx run -f .env.backend.production --",
     "test": "bun test",
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun run dotenvx -- bun run --watch src/index.ts",
     "build": "bun run dotenvx -- tsup src/index.ts --format esm --dts --sourcemap",
     "start": "bun run dotenvx -- bun run dist/index.js",
     "format": "biome format --write .",

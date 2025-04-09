@@ -32,6 +32,10 @@ export async function processTweets(
 
     for (const tweet of validTweets) {
       try {
+        elizaLogger.info(
+          `[Tweet Processing] Starting to process tweet ${tweet.tweet_id}`,
+        );
+
         // Get upstream tweets for this tweet
         const [processedTweet] = await getUpstreamTweets(
           twitterService,

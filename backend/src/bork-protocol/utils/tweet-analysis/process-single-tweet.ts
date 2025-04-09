@@ -33,10 +33,6 @@ export async function processSingleTweet(
   logPrefix = '[Tweet Analysis]',
 ): Promise<void> {
   try {
-    elizaLogger.info(
-      `${logPrefix} Starting to process tweet ${processedTweet.originalTweet.tweet_id}`,
-    );
-
     // Collect all tweets in the conversation
     const allTweets: DatabaseTweet[] = [
       processedTweet.originalTweet,
@@ -44,16 +40,6 @@ export async function processSingleTweet(
       ...processedTweet.upstreamTweets.quotedTweets,
       ...processedTweet.upstreamTweets.retweetedTweets,
     ];
-
-    elizaLogger.info(`${logPrefix} Processing tweets in conversation:`, {
-      totalTweets: allTweets.length,
-      types: {
-        original: 1,
-        replies: processedTweet.upstreamTweets.inReplyChain.length,
-        quotes: processedTweet.upstreamTweets.quotedTweets.length,
-        retweets: processedTweet.upstreamTweets.retweetedTweets.length,
-      },
-    });
 
     // Combine all unique knowledge contexts
     const knowledgeContexts: string[] = [];
@@ -79,7 +65,7 @@ export async function processSingleTweet(
           knowledgeContexts.push(item);
         }
 
-        elizaLogger.info(`${logPrefix} Found knowledge for tweet:`, {
+        elizaLogger.debug(`${logPrefix} Found knowledge for tweet:`, {
           tweetId: tweet.tweet_id,
           totalItems: knowledgeItems.length,
           uniqueItems: seenKnowledge.size,
@@ -138,6 +124,8 @@ export async function processSingleTweet(
           : ''),
       state,
     });
+
+    elizaLogger.info(`${logPrefix} Requesting an analysis from the AI...`);
 
     try {
       const { object } = await generateObject({
@@ -388,10 +376,6 @@ export async function processSingleTweet(
               {
                 analysisId: analysisId.toString(),
                 tweetId: processedTweet.originalTweet.tweet_id,
-                isThreadMerged: processedTweet.originalTweet.isThreadMerged,
-                textLength: processedTweet.originalTweet.text.length,
-                originalTextLength:
-                  processedTweet.originalTweet.originalText.length,
               },
             );
           } catch (innerError) {

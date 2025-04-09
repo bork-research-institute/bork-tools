@@ -207,13 +207,10 @@ export async function getUpstreamTweets(
         processedIds.add(tweet.tweet_id);
 
         elizaLogger.info(
-          '[Tweet Processing] Successfully established tweet relationships:',
+          '[Tweet Processing] Successfully fetched upstream tweets',
           {
             tweetId: tweet.tweet_id,
-            chainLength: totalRelatedTweets + 1,
-            hasReplyParent: mappedUpstream.inReplyChain.length > 0,
-            hasQuoteParent: mappedUpstream.quotedTweets.length > 0,
-            hasRetweetParent: mappedUpstream.retweetedTweets.length > 0,
+            upstreamTweetsLength: totalRelatedTweets + 1,
           },
         );
       } catch (error) {
