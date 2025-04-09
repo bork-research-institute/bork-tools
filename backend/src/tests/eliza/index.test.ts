@@ -1,18 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { PostgresDatabaseAdapter } from '@/plugins/adapter-postgres';
-import {
-  AgentRuntime,
-  type Character,
-  ModelProviderName,
-  elizaLogger,
-  stringToUuid,
-} from '@elizaos/core';
+import { AgentRuntime, elizaLogger } from '@elizaos/core';
 import { ApiClient } from '../../api/api';
-import { startTwitterClient } from '../../bork-protocol/clients/x-client';
 import { initializeDbCache } from '../../cache/initialize-db-cache';
 import { getTokenForProvider } from '../../config';
 import { getEnv } from '../../config/env';
-import { type TestResult, testConfig } from '../config/test-config';
+import {
+  type TestResult,
+  testCharacter,
+  testConfig,
+} from '../config/test-config';
+import { startTestTwitterClient } from '../config/test-twitter-client';
 
 describe('Eliza Agent', () => {
   let db: PostgresDatabaseAdapter;
@@ -121,30 +119,6 @@ describe('Eliza Agent', () => {
       port: directClient.app.server.port,
     });
 
-    // Test character configuration
-    const testCharacter: Character = {
-      id: stringToUuid('test-agent'),
-      name: 'Test Agent',
-      username: 'test-agent',
-      modelProvider: ModelProviderName.OPENAI,
-      system: 'You are a test agent.',
-      plugins: [],
-      settings: {
-        secrets: {},
-      },
-      bio: ['Test agent for unit testing'],
-      lore: ['Created for testing Eliza agent functionality'],
-      messageExamples: [],
-      postExamples: [],
-      adjectives: ['helpful', 'precise'],
-      topics: ['testing', 'agents'],
-      style: {
-        all: ['be concise', 'be helpful'],
-        chat: ['respond clearly'],
-        post: ['write clearly'],
-      },
-    };
-
     const token = getTokenForProvider(
       testCharacter.modelProvider,
       testCharacter,
@@ -172,8 +146,8 @@ describe('Eliza Agent', () => {
 
     await runtime.initialize();
 
-    // Initialize Twitter client
-    const twitterClient = await startTwitterClient(runtime);
+    // Initialize test Twitter client
+    const twitterClient = await startTestTwitterClient(runtime);
     runtime.clients = [twitterClient];
 
     directClient.registerAgent(runtime);

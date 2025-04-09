@@ -1,9 +1,6 @@
-import { describe, expect, test } from 'bun:test';
 import {
-  type ClientInstance,
   type IAgentRuntime,
   type Memory,
-  type State,
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
@@ -14,7 +11,6 @@ import { fetchAndFormatKnowledge } from '../../bork-protocol/utils/tweet-analysi
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
 import { mockMergedTweets } from '../mock-data/mock-tweets';
 
-// biome-ignore lint/suspicious/noExportsInTest: <explanation>
 export async function testTweetContextPreparation(runtime: IAgentRuntime) {
   elizaLogger.info('[Test] Starting tweet context preparation test');
 
@@ -97,24 +93,23 @@ export async function testTweetContextPreparation(runtime: IAgentRuntime) {
 
     // Step 4: Create memory user ID and compose state
     const memoryUserId = stringToUuid(`twitter-user-${tweet.userId}`);
-    const state = await runtime.composeState(
-      {
-        content: {
-          text: tweet.text,
-          isThreadMerged: Boolean(tweet.thread?.length),
-          threadSize: tweet.thread?.length || 1,
-          originalText: tweet.text,
-        },
-        userId: memoryUserId,
-        agentId: runtime.agentId,
-        roomId: stringToUuid(tweet.tweet_id),
-      } as Memory,
-      {
-        twitterService,
-        twitterUserName: runtime.getSetting('TWITTER_USERNAME') || '',
-        currentPost: tweet.text,
+    const memory: Memory = {
+      content: {
+        text: tweet.text,
+        isThreadMerged: Boolean(tweet.thread?.length),
+        threadSize: tweet.thread?.length || 1,
+        originalText: tweet.text,
       },
-    );
+      userId: memoryUserId,
+      agentId: runtime.agentId,
+      roomId: stringToUuid(tweet.tweet_id),
+    };
+
+    const state = await runtime.composeState(memory, {
+      twitterService,
+      twitterUserName: runtime.getSetting('TWITTER_USERNAME') || '',
+      currentPost: tweet.text,
+    });
 
     // Step 5: Fetch and format knowledge
     const knowledgeContext = await fetchAndFormatKnowledge(
@@ -133,10 +128,7 @@ export async function testTweetContextPreparation(runtime: IAgentRuntime) {
     elizaLogger.info('[Test] Context preparation result:', {
       template: template.context,
       state: {
-        memory: {
-          content: (state.memory as Memory).content,
-          userId: (state.memory as Memory).userId,
-        },
+        memory: memory,
       },
       knowledgeContext,
     });
@@ -150,69 +142,3 @@ export async function testTweetContextPreparation(runtime: IAgentRuntime) {
     throw error;
   }
 }
-
-describe('Tweet Context Preparation', () => {
-  test('should prepare tweet context with knowledge', async () => {
-    const mockTwitterService = {
-      cacheTweet: async () => {},
-      initialize: async () => true,
-    } as unknown as TwitterService;
-
-    const mockTwitterClient = {
-      twitterService: mockTwitterService,
-      runtime: {} as IAgentRuntime,
-      start: async () => {},
-      stop: async () => {},
-    } as unknown as ClientInstance;
-
-    const runtime = {
-      agentId: stringToUuid('test-agent'),
-      character: {
-        topics: ['crypto', 'defi', 'trading'],
-      },
-      composeState: async (
-        memory: Memory,
-        context: Record<string, unknown>,
-      ): Promise<State> => ({
-        memory,
-        context,
-        bio: '',
-        lore: '',
-        messageDirections: '',
-        postDirections: '',
-        conversationHistory: [],
-        conversationSummary: '',
-        conversationTopics: [],
-        conversationContext: {},
-        roomId: memory.roomId,
-        actors: 'user, agent',
-        recentMessages: '',
-        recentMessagesData: [],
-      }),
-      getSetting: (key: string): string => {
-        if (key === 'TWITTER_USERNAME') {
-          return 'test_user';
-        }
-        return '';
-      },
-      cacheManager: {
-        get: async <T>(_key: string): Promise<T | undefined> => undefined,
-        set: async <T>(_key: string, _value: T): Promise<void> => {},
-        delete: async (_key: string): Promise<void> => {},
-        clear: async (): Promise<void> => {},
-      },
-      clients: [mockTwitterClient],
-    } as unknown as IAgentRuntime;
-
-    const context = await testTweetContextPreparation(runtime);
-
-    // Verify the context
-    expect(context).toBeDefined();
-    expect(context.template).toBeDefined();
-    expect(context.state).toBeDefined();
-    expect(context.knowledgeContext).toBeDefined();
-
-    expect(context.state.memory).toBeDefined();
-    expect((context.state.memory as Memory).userId).toBeDefined();
-  });
-});

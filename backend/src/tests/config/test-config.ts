@@ -1,5 +1,6 @@
 import type { TwitterConfig } from '@/types/config';
-import type { IAgentRuntime } from '@elizaos/core';
+import type { Character, IAgentRuntime } from '@elizaos/core';
+import { ModelProviderName, stringToUuid } from '@elizaos/core';
 
 // Test enable/disable flags
 export const TEST_FLAGS = {
@@ -25,6 +26,29 @@ export interface TestConfig {
   testFn: (runtime: IAgentRuntime) => Promise<unknown>;
   description: string;
 }
+
+export const testCharacter: Character = {
+  id: stringToUuid('test-agent'),
+  name: 'Test Agent',
+  username: 'test-agent',
+  modelProvider: ModelProviderName.OPENAI,
+  system: 'You are a test agent.',
+  plugins: [],
+  settings: {
+    secrets: {},
+  },
+  bio: ['Test agent for unit testing'],
+  lore: ['Created for testing Eliza agent functionality'],
+  messageExamples: [],
+  postExamples: [],
+  adjectives: ['helpful', 'precise'],
+  topics: ['testing', 'agents'],
+  style: {
+    all: ['be concise', 'be helpful'],
+    chat: ['respond clearly'],
+    post: ['write clearly'],
+  },
+};
 
 export const testTwitterConfig: TwitterConfig = {
   search: {
