@@ -7,7 +7,8 @@ export const TEST_FLAGS = {
   TOPIC_SELECTION: false,
   ACCOUNT_SELECTION: false,
   TWEET_SELECTION: false,
-  TWEET_PROCESSING: true,
+  TWEET_PROCESSING: false,
+  INFLUENCE_SCORE: true,
   // Add more flags here as needed
 } as const;
 
@@ -107,6 +108,18 @@ export const testConfig: TestConfig[] = [
     },
     description:
       'Tests tweet validation, preparation, and merging with related tweets',
+  },
+  {
+    name: 'influence-score',
+    enabled: TEST_FLAGS.INFLUENCE_SCORE,
+    testFn: async (_runtime) => {
+      const { testUpdateInfluenceScore } = await import(
+        '../clients/update-influence-score.test'
+      );
+      return testUpdateInfluenceScore();
+    },
+    description:
+      'Tests influence score calculation and updates for target accounts',
   },
   // Add more tests here as needed
 ];
