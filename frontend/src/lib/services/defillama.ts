@@ -30,6 +30,7 @@ const CHAIN_CONFIG = {
 export async function getChainStats(chainName: keyof typeof CHAIN_CONFIG) {
   const config = CHAIN_CONFIG[chainName];
 
+  // TODO Should probably be a single request
   const [priceRes, volumeRes] = await Promise.all([
     fetch(
       `https://coins.llama.fi/prices/current/${config.priceId}?searchWidth=4h`,
