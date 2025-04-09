@@ -55,34 +55,83 @@ export async function storeAccountInfo(
       ...metadataMentions,
     ]);
 
-    elizaLogger.info('[Mentions Processing] Processing mentions:');
-    elizaLogger.debug({
-      textMentions,
-      threadMentions,
-      metadataMentions,
-      totalUnique: allMentions.size,
-      fromUsername: tweet.username,
-      hasIds: Array.from(allMentions),
-      topics,
-    });
+    elizaLogger.info(
+      '[Mentions Processing] Adding mentions to target accounts and saving relationships',
+    );
 
-    // Update account-topic relationships for author
-    for (const topic of topics) {
-      try {
-        await accountTopicQueries.upsertAccountTopic(tweet.username, topic);
-      } catch (topicError) {
-        elizaLogger.error(
-          '[Mentions Processing] Error updating author account-topic relationship:',
+    // First ensure the author account exists
+    try {
+      const authorProfile = await twitterService.getUserProfile(tweet.username);
+      if (authorProfile) {
+        await tweetQueries.insertTargetAccount({
+          username: tweet.username,
+          userId: authorProfile.userId,
+          displayName: authorProfile.displayName,
+          description: authorProfile.description,
+          followersCount: authorProfile.followersCount,
+          followingCount: authorProfile.followingCount,
+          friendsCount: authorProfile.friendsCount,
+          mediaCount: authorProfile.mediaCount,
+          statusesCount: authorProfile.statusesCount,
+          likesCount: authorProfile.likesCount,
+          listedCount: authorProfile.listedCount,
+          tweetsCount: authorProfile.tweetsCount,
+          isPrivate: authorProfile.isPrivate,
+          isVerified: authorProfile.isVerified,
+          isBlueVerified: authorProfile.isBlueVerified,
+          joinedAt: authorProfile.joinedAt,
+          location: authorProfile.location,
+          avatarUrl: authorProfile.avatarUrl,
+          bannerUrl: authorProfile.bannerUrl,
+          websiteUrl: authorProfile.websiteUrl,
+          canDm: authorProfile.canDm,
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          isActive: true,
+          source: 'author',
+          avgLikes50: 0,
+          avgRetweets50: 0,
+          avgReplies50: 0,
+          avgViews50: 0,
+          engagementRate50: 0,
+          influenceScore: 0,
+          last50TweetsUpdatedAt: null,
+        });
+
+        // Now update account-topic relationships for author
+        for (const topic of topics) {
+          try {
+            await accountTopicQueries.upsertAccountTopic(tweet.username, topic);
+          } catch (topicError) {
+            elizaLogger.error(
+              '[Mentions Processing] Error updating author account-topic relationship:',
+              {
+                error:
+                  topicError instanceof Error
+                    ? topicError.message
+                    : String(topicError),
+                username: tweet.username,
+                topic,
+              },
+            );
+          }
+        }
+      } else {
+        elizaLogger.warn(
+          '[Mentions Processing] Could not fetch author profile:',
           {
-            error:
-              topicError instanceof Error
-                ? topicError.message
-                : String(topicError),
             username: tweet.username,
-            topic,
           },
         );
       }
+    } catch (authorError) {
+      elizaLogger.error('[Mentions Processing] Error processing author:', {
+        error:
+          authorError instanceof Error
+            ? authorError.message
+            : String(authorError),
+        username: tweet.username,
+      });
     }
 
     // Process each unique mention
@@ -103,6 +152,7 @@ export async function storeAccountInfo(
           continue;
         }
 
+        // First insert the account
         await tweetQueries.insertTargetAccount({
           username: mentionedUsername,
           userId: mentionedProfile.userId,
@@ -138,7 +188,7 @@ export async function storeAccountInfo(
           last50TweetsUpdatedAt: null,
         });
 
-        // Update account-topic relationships for mentioned user
+        // Then update account-topic relationships for mentioned user
         for (const topic of topics) {
           try {
             await accountTopicQueries.upsertAccountTopic(

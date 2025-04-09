@@ -135,6 +135,8 @@ export async function processSingleTweet(
         schema: tweetAnalysisSchema,
       });
 
+      elizaLogger.info(`${logPrefix} Received analysis from the AI`);
+
       const analysis = object as TweetAnalysis;
 
       // Validate and process the analysis response
