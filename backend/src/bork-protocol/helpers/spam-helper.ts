@@ -37,7 +37,8 @@ export async function updateUserSpamData(
   try {
     await tweetQueries.updateSpamUser(userId, spamScore, reasons);
 
-    elizaLogger.info(`${context} Updated spam data for user ${userId}`, {
+    elizaLogger.info(`${context} Updated spam data for user ${userId}`);
+    elizaLogger.debug({
       spamScore,
       reasons,
     });

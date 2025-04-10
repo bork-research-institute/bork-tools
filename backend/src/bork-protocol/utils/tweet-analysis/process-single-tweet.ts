@@ -138,7 +138,8 @@ export async function processSingleTweet(
         });
 
         const analysis = object as TweetAnalysis;
-        elizaLogger.info('Generated analysis', {
+        elizaLogger.info(`${logPrefix} Generated analysis`);
+        elizaLogger.debug({
           contentType: analysis.contentAnalysis.type,
           sentiment: analysis.contentAnalysis.sentiment,
           isSpam: analysis.spamAnalysis.isSpam,
@@ -170,16 +171,16 @@ export async function processSingleTweet(
 
         if (isSpam) {
           await tweetQueries.updateTweetStatus(tweet.tweet_id, 'spam');
-          elizaLogger.info(
+          elizaLogger.warn(
             `${logPrefix} Tweet ${tweet.tweet_id} identified as spam - skipping analysis`,
-            {
-              tweetId: tweet.tweet_id,
-              spamScore: parsedAnalysis.spamAnalysis.spamScore,
-              reasons: parsedAnalysis.spamAnalysis.reasons,
-              isThreadMerged: tweet.isThreadMerged,
-              threadSize: tweet.threadSize,
-            },
           );
+          elizaLogger.debug({
+            tweetId: tweet.tweet_id,
+            spamScore: parsedAnalysis.spamAnalysis.spamScore,
+            reasons: parsedAnalysis.spamAnalysis.reasons,
+            isThreadMerged: tweet.isThreadMerged,
+            threadSize: tweet.threadSize,
+          });
           return;
         }
 
@@ -199,15 +200,15 @@ export async function processSingleTweet(
             try {
               elizaLogger.info(
                 `${logPrefix} Saving analysis for tweet ${tweet.tweet_id}`,
-                {
-                  analysisId: analysisId.toString(),
-                  tweetId: tweet.tweet_id,
-                  isThreadMerged: tweet.isThreadMerged,
-                  threadSize: tweet.threadSize,
-                  textLength: tweet.text.length,
-                  originalTextLength: tweet.originalText.length,
-                },
               );
+              elizaLogger.debug({
+                analysisId: analysisId.toString(),
+                tweetId: tweet.tweet_id,
+                isThreadMerged: tweet.isThreadMerged,
+                threadSize: tweet.threadSize,
+                textLength: tweet.text.length,
+                originalTextLength: tweet.originalText.length,
+              });
 
               // Insert the tweet analysis
               await tweetQueries.insertTweetAnalysis(
@@ -390,14 +391,14 @@ export async function processSingleTweet(
 
               elizaLogger.info(
                 `${logPrefix} Successfully processed tweet ${tweet.tweet_id}`,
-                {
-                  analysisId: analysisId.toString(),
-                  tweetId: tweet.tweet_id,
-                  isThreadMerged: tweet.isThreadMerged,
-                  textLength: tweet.text.length,
-                  originalTextLength: tweet.originalText.length,
-                },
               );
+              elizaLogger.debug({
+                analysisId: analysisId.toString(),
+                tweetId: tweet.tweet_id,
+                isThreadMerged: tweet.isThreadMerged,
+                textLength: tweet.text.length,
+                originalTextLength: tweet.originalText.length,
+              });
             } catch (innerError) {
               elizaLogger.error(`${logPrefix} Error in transaction:`, {
                 error:

@@ -109,6 +109,7 @@ export async function extractAndStoreKnowledge(
       },
       agentId: runtime.agentId,
       userId: stringToUuid(`twitter-user-${tweet.userId}`),
+      // TODO Should we create a random room all the time?
       roomId: stringToUuid(uuidv4()),
     };
 
@@ -201,17 +202,17 @@ export async function fetchAndFormatKnowledge(
 
     elizaLogger.info(
       `${logPrefix} Successfully generated search embedding for tweet ${tweet.tweet_id}`,
-      {
-        embeddingSize:
-          tweetMemory.embedding instanceof Float32Array
-            ? tweetMemory.embedding.length
-            : tweetMemory.embedding.length,
-        embeddingType:
-          tweetMemory.embedding instanceof Float32Array
-            ? 'Float32Array'
-            : 'Array',
-      },
     );
+    elizaLogger.debug({
+      embeddingSize:
+        tweetMemory.embedding instanceof Float32Array
+          ? tweetMemory.embedding.length
+          : tweetMemory.embedding.length,
+      embeddingType:
+        tweetMemory.embedding instanceof Float32Array
+          ? 'Float32Array'
+          : 'Array',
+    });
 
     // Convert the embedding to Float32Array if needed
     const embedding =
@@ -284,10 +285,10 @@ Has Question: ${metadata.hasQuestion ? 'Yes' : 'No'}`;
 
     elizaLogger.info(
       `${logPrefix} Successfully fetched and formatted knowledge for tweet ${tweet.tweet_id}`,
-      {
-        knowledgeCount: relevantKnowledge.length,
-      },
     );
+    elizaLogger.debug({
+      knowledgeCount: relevantKnowledge.length,
+    });
 
     return knowledgeContext;
   } catch (error) {

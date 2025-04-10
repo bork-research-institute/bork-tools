@@ -389,7 +389,8 @@ export function repairAnalysisResponse(
     };
   }
 
-  elizaLogger.info('[Tweet Processing] Repaired analysis response', {
+  elizaLogger.info('[Tweet Processing] Repaired analysis response');
+  elizaLogger.debug({
     wasRepaired: true,
     hadContentAnalysis: 'contentAnalysis' in partialAnalysis,
     hadSpamAnalysis: 'spamAnalysis' in partialAnalysis,
@@ -397,7 +398,6 @@ export function repairAnalysisResponse(
     hadActionableRecommendations:
       'actionableRecommendations' in partialAnalysis,
   });
-
   return result;
 }
 
@@ -499,13 +499,13 @@ export function extractAndRepairAnalysis(analysis: unknown): TweetAnalysis {
     );
     elizaLogger.info(
       '[Tweet Analysis] Using direct structured analysis object',
-      {
-        hasContentAnalysis: 'contentAnalysis' in analysis,
-        hasMarketingInsights: 'marketingInsights' in analysis,
-        hasSpamAnalysis: 'spamAnalysis' in analysis,
-        hasActionableRecommendations: 'actionableRecommendations' in analysis,
-      },
     );
+    elizaLogger.debug({
+      hasContentAnalysis: 'contentAnalysis' in analysis,
+      hasMarketingInsights: 'marketingInsights' in analysis,
+      hasSpamAnalysis: 'spamAnalysis' in analysis,
+      hasActionableRecommendations: 'actionableRecommendations' in analysis,
+    });
   } else {
     // Case 3: Unknown format - try to repair/convert whatever we got
     elizaLogger.warn('[Tweet Analysis] Response in unexpected format', {

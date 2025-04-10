@@ -87,16 +87,16 @@ async function updateAccountEngagementMetrics(
 
       elizaLogger.info(
         `${context} Updated engagement metrics for ${account.username}:`,
-        {
-          avgLikes: avgLikes.toFixed(2),
-          avgRetweets: avgRetweets.toFixed(2),
-          avgReplies: avgReplies.toFixed(2),
-          avgViews: avgViews > 0 ? avgViews.toFixed(2) : 'n/a',
-          engagementRate: `${engagementRate.toFixed(4)}%`,
-          influenceScore: influenceScore.toFixed(4),
-          tweetsAnalyzed: tweets.length,
-        },
       );
+      elizaLogger.debug({
+        avgLikes: avgLikes.toFixed(2),
+        avgRetweets: avgRetweets.toFixed(2),
+        avgReplies: avgReplies.toFixed(2),
+        avgViews: avgViews > 0 ? avgViews.toFixed(2) : 'n/a',
+        engagementRate: `${engagementRate.toFixed(4)}%`,
+        influenceScore: influenceScore.toFixed(4),
+        tweetsAnalyzed: tweets.length,
+      });
     } else {
       elizaLogger.warn(
         `${context} No tweets found in database for ${account.username}`,

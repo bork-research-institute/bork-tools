@@ -61,7 +61,8 @@ export async function analyzeTopicRelationships(
 
     const analysis = object as TopicRelationshipAnalysis;
 
-    elizaLogger.info('[Topic Analysis] Analyzed topic relationships:', {
+    elizaLogger.info('[Topic Analysis] Analyzed topic relationships:');
+    elizaLogger.debug({
       preferredTopic,
       topicCount: analysis.relatedTopics.length,
       confidence: analysis.analysisMetadata.confidence,

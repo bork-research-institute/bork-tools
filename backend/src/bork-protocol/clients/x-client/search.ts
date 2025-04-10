@@ -1,25 +1,29 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
-import { mapTweet } from '@/mappers/tweet-mapper';
+import type { TweetQueueService } from '@/services/twitter/tweet-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTopic } from '@/utils/selection/select-topic';
-import { processTweets } from '@/utils/tweet-analysis/process-tweets';
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import type { IAgentRuntime } from '@elizaos/core';
+import { elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { v4 as uuidv4 } from 'uuid';
 import { getEnv } from '../../../config/env';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;
   private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
+  private readonly tweetQueueService: TweetQueueService;
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
+  constructor(
+    twitterService: TwitterService,
+    runtime: IAgentRuntime,
+    tweetQueueService: TweetQueueService,
+  ) {
     this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
+    this.tweetQueueService = tweetQueueService;
   }
 
   async start(): Promise<void> {
@@ -64,16 +68,6 @@ export class TwitterSearchClient {
     const config = await this.twitterConfigService.getConfig();
     const env = getEnv();
 
-    // Get topic weights for processing
-    const topicWeights = await tweetQueries.getTopicWeights();
-
-    if (topicWeights.length === 0) {
-      elizaLogger.error(
-        '[TwitterSearch] Could not get topic weights - aborting search',
-      );
-      return;
-    }
-
     try {
       // Use the new async selectTopic with runtime and configured timeframe
       const selectedTopic = await selectTopic(
@@ -110,66 +104,10 @@ export class TwitterSearchClient {
         { spammedTweets },
       );
 
-      // Filter out tweets without IDs first
-      const validTweets = searchTweets.filter((tweet) => {
-        if (!tweet.id) {
-          elizaLogger.warn('[TwitterSearch] Tweet missing ID:', {
-            text: tweet.text?.substring(0, 100),
-          });
-          return false;
-        }
-        return true;
-      });
+      // Add tweets to the queue instead of processing them directly
+      await this.tweetQueueService.addTweets(searchTweets, 'search', 1);
 
-      // Check which tweets have already been processed
-      const existingTweetIds = new Set(
-        (
-          await Promise.all(
-            validTweets.map((tweet) =>
-              tweetQueries.findTweetByTweetId(tweet.id),
-            ),
-          )
-        )
-          .filter(Boolean)
-          .map((tweet) => tweet.tweet_id),
-      );
-
-      // Filter out already processed tweets
-      const unprocessedTweets = validTweets.filter(
-        (tweet) => !existingTweetIds.has(tweet.id),
-      );
-
-      if (validTweets.length > unprocessedTweets.length) {
-        elizaLogger.info(
-          `[TwitterSearch] Filtered out ${
-            validTweets.length - unprocessedTweets.length
-          } already processed tweets`,
-        );
-      }
-
-      if (unprocessedTweets.length === 0) {
-        elizaLogger.info(
-          `[TwitterSearch] No new tweets to process for term: ${selectedTopic.topic}`,
-        );
-        return;
-      }
-
-      // Map tweets to ensure all fields have default values, following same pattern as in tweet-selection.ts
-      const mappedTweets = unprocessedTweets.map((tweet) => ({
-        ...mapTweet(tweet),
-        id: uuidv4(), // Generate a UUID for our database
-        tweet_id: tweet.id, // Keep Twitter's ID
-      }));
-
-      // Process all tweets together using our processTweets utility
-      await processTweets(
-        this.runtime,
-        this.twitterService,
-        mappedTweets,
-        topicWeights,
-      );
-
-      elizaLogger.info('[TwitterSearch] Successfully processed search results');
+      elizaLogger.info('[TwitterSearch] Successfully queued search results');
     } catch (error) {
       elizaLogger.error(
         '[TwitterSearch] Error engaging with search terms:',
