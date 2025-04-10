@@ -5,7 +5,6 @@ import { initializeTargetAccounts } from '@/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
-import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { getEnv } from '../../../config/env';
 
@@ -78,11 +77,6 @@ export class TwitterAccountsClient {
       const config = await this.twitterConfigService.getConfig();
       const env = getEnv();
 
-      // Get topic weights once at the start
-      const topicWeightRows = await getAggregatedTopicWeights(
-        env.SEARCH_TIMEFRAME_HOURS,
-      );
-
       elizaLogger.info(
         '[TwitterAccounts] Requesting AI to select accounts to analyze...',
       );
@@ -91,7 +85,6 @@ export class TwitterAccountsClient {
         this.runtime,
         config,
         env.SEARCH_PREFERRED_TOPIC,
-        topicWeightRows,
       );
 
       if (!accountsToProcess.length) {
@@ -117,6 +110,10 @@ export class TwitterAccountsClient {
 
       // Add tweets to the queue instead of processing them directly
       await this.tweetQueueService.addTweets(allTweets, 'account', 2);
+
+      elizaLogger.info(
+        '[TwitterAccounts] Successfully queued tweets from target accounts',
+      );
     } catch (error) {
       // Catch-all error handler to prevent process crashes
       elizaLogger.error(

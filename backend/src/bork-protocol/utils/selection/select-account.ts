@@ -3,9 +3,10 @@ import { mapTopicWeightsByRelationship } from '@/mappers/topic-weights';
 import { mapTopicWeightRowToTopicWeight } from '@/mappers/topic-weights';
 import type { TargetAccount, WeightedAccount } from '@/types/account';
 import type { TwitterConfig } from '@/types/config';
-import type { TopicWeightRow } from '@/types/topic';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { getEnv } from '../../../config/env';
 import { updateYapsData } from '../account-metrics/yaps';
+import { getAggregatedTopicWeights } from '../topic-weights/topics';
 import { analyzeTopicRelationships } from './analyze-topic-relationships';
 
 /**
@@ -56,9 +57,15 @@ export async function selectTargetAccounts(
   runtime: IAgentRuntime,
   config: TwitterConfig,
   preferredTopic?: string,
-  topicWeightRows: TopicWeightRow[] = [],
 ): Promise<TargetAccount[]> {
   try {
+    const env = getEnv();
+
+    // Get topic weights once at the start
+    const topicWeightRows = await getAggregatedTopicWeights(
+      env.SEARCH_TIMEFRAME_HOURS,
+    );
+
     if (topicWeightRows.length === 0) {
       elizaLogger.warn('[TwitterAccounts] No topic weights provided');
       return [];
