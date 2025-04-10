@@ -40,3 +40,5 @@ next-env.d.ts
 **/*.log
 package-lock.json
 **/*.bun
+
+dist
