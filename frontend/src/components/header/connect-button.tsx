@@ -3,21 +3,27 @@ import { ConnectWalletButton } from '@/components/header/connect-wallet-button';
 import { SignInButton } from '@/components/header/sign-in-button';
 import { Button } from '@/components/ui/button';
 import { trimAddress } from '@/lib/utils/trim-address';
+import type { AuthError } from '@/types/auth';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Wallet } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 
-export function ConnectButton() {
+interface Props {
+  disabled?: boolean;
+  onError?: (error: AuthError) => void;
+}
+
+export function ConnectButton({ onError, disabled }: Props) {
   const { data: session } = useSession();
   const { connected, disconnect, publicKey } = useWallet();
 
   if (!connected) {
-    return <ConnectWalletButton />;
+    return <ConnectWalletButton disabled={disabled} />;
   }
 
   if (!session) {
-    return <SignInButton />;
+    return <SignInButton onError={onError} disabled={disabled} />;
   }
 
   return (
@@ -30,6 +36,7 @@ export function ConnectButton() {
           signOut();
         }
       }}
+      disabled={disabled}
     >
       <Wallet className="h-5 w-5" />
       <span>{connected && publicKey && trimAddress(publicKey.toString())}</span>

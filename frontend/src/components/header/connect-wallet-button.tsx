@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Wallet } from 'lucide-react';
 
-export function ConnectWalletButton() {
+interface Props {
+  disabled?: boolean;
+}
+
+export function ConnectWalletButton({ disabled }: Props) {
   const { setVisible } = useWalletModal();
 
   return (
@@ -14,6 +18,7 @@ export function ConnectWalletButton() {
       onClick={() => {
         setVisible(true);
       }}
+      disabled={disabled}
     >
       <Wallet className="h-5 w-5" />
       <span>{'connect wallet'}</span>

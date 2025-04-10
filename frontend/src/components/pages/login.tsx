@@ -3,14 +3,16 @@
 import { ConnectButton } from '@/components/header/connect-button';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { type AuthError, ERROR_MESSAGES } from '@/types/auth';
 import { Coins } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function Login() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [error, setError] = useState<AuthError | null>(null);
 
   useEffect(() => {
     if (session) {
@@ -39,9 +41,18 @@ export function Login() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+            {ERROR_MESSAGES[error]}
+          </div>
+        )}
+
         <div className="mb-8 flex flex-col space-y-4">
           <div className="flex flex-col items-center justify-center space-y-4">
-            <ConnectButton />
+            <ConnectButton
+              onError={(error) => setError(error)}
+              disabled={error !== null}
+            />
 
             <p className="text-sm text-zinc-400">
               Connect your wallet and sign in to check eligibility

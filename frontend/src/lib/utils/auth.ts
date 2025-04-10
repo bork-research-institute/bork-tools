@@ -1,23 +1,17 @@
 import {
-  type SignInSchema,
-  signInSchema,
-} from '@/lib/validators/signin-schema';
+  InvalidSignatureError,
+  NotEnoughBorkTokensError,
+  TokenBalanceError,
+} from '@/lib/errors/auth-error';
+import { signInSchema } from '@/lib/validators/signin-schema';
+import { stakerSchema } from '@/lib/validators/staker-schema';
 import bs58 from 'bs58';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import nacl from 'tweetnacl';
 
-async function verifySolanaSignature({
-  address,
-  message,
-  signature,
-}: SignInSchema) {
-  try {
-  } catch (error) {
-    console.error('Signature verification failed:', error);
-    return false;
-  }
-}
+// Minimum required $BORK tokens for access
+const MIN_BORK_REQUIRED = 100_000_000;
 
 export const { signIn, signOut, auth, handlers } = NextAuth({
   providers: [
@@ -53,20 +47,38 @@ export const { signIn, signOut, auth, handlers } = NextAuth({
             pubKeyUint8,
           );
 
-          // TODO Add the validation to check if user has enough bork
-          if (result) {
-            return {
-              id: address,
-            };
+          if (!result) {
+            console.error('Invalid signature', address);
+            throw new InvalidSignatureError('invalid_signature');
           }
-          return null;
+
+          // Check if user has enough $BORK tokens
+          const response = await fetch(
+            `https://bork-tools.vercel.app/api/stakers/${address}`,
+          );
+
+          if (!response.ok) {
+            console.error('Failed to fetch staker data:', response.statusText);
+            throw new TokenBalanceError('insufficient_tokens_fetch_error');
+          }
+
+          const data = await response.json();
+          const stakerData = stakerSchema.parse(data);
+
+          if (stakerData.total < MIN_BORK_REQUIRED) {
+            console.error('User does not have enough $BORK tokens');
+            throw new NotEnoughBorkTokensError('insufficient_tokens');
+          }
+
+          return {
+            id: address,
+            tokens: stakerData.total,
+          };
         } catch (error) {
           console.error(error);
-          return null;
+          throw error;
         }
       },
     }),
   ],
 });
-
-// TODO: Add more validations for the login flow
