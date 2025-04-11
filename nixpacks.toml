@@ -1,6 +1,6 @@
 [phases.setup]
-nodeVersion = '23.x'
 nixpkgsArchive = 'master'
+nixPkgs = ['...', 'nodejs']
 
 [phases.build]
 cmds = ["bun backend:build"]
