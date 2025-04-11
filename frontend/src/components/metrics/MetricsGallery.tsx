@@ -192,7 +192,7 @@ export function MetricsGallery() {
     const fetchRelationships = async () => {
       setRelationshipsLoading(true);
       try {
-        const data = await relationshipsService.getTopUserRelationships(50);
+        const data = await relationshipsService.getTopUserRelationships(100);
         setRelationships(data);
       } catch (error) {
         console.error('Error fetching relationships:', error);

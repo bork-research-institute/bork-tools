@@ -1,5 +1,6 @@
 'use client';
 
+import { Slider } from '@/components/ui/slider';
 import type { UserRelationship } from '@/lib/services/relationships';
 import * as d3 from 'd3';
 import { Loader2 } from 'lucide-react';
@@ -21,6 +22,8 @@ interface UserNode {
   value: number;
   x?: number;
   y?: number;
+  fx?: number;
+  fy?: number;
   fontSize?: number;
   group?: number;
 }
@@ -42,6 +45,7 @@ export function RelationshipsPanel({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 300 });
   const graphRef = useRef<ForceGraph2D>(null);
+  const [userCount, setUserCount] = useState(100); // Default to 100 users
 
   const initializeGraph = useCallback(() => {
     if (graphRef.current) {
@@ -51,7 +55,7 @@ export function RelationshipsPanel({
       graph.d3Force('charge').strength(-100);
 
       // Longer distance between connected nodes
-      graph.d3Force('link').distance(50);
+      graph.d3Force('link').distance(100);
 
       // Add collision force to prevent overlap with a fixed radius
       // @ts-ignore - d3Force exists but type is not properly defined
@@ -95,10 +99,10 @@ export function RelationshipsPanel({
     );
   }
 
-  // Get top 25 users by total mentions
+  // Get top N users by total mentions based on slider value
   const topUsers = Array.from(userMentions.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 25);
+    .slice(0, userCount);
 
   // Calculate max mentions for scaling
   const maxMentions = Math.max(...topUsers.map(([, value]) => value));
@@ -200,76 +204,161 @@ export function RelationshipsPanel({
     );
   }
 
+  const totalUsers = Array.from(userMentions.entries()).length;
+  const maxAllowedUsers = Math.min(200, totalUsers); // Cap at 200 users or total available
+
   return (
     <Panel maxHeight={maxHeight}>
-      <div ref={containerRef} className="h-[calc(100%-1rem)]">
-        <ForceGraph2D
-          ref={graphRef}
-          graphData={graphData}
-          // @ts-ignore - nodeCanvasObject exists but type is not properly defined
-          nodeCanvasObject={(node: UserNode, ctx: CanvasRenderingContext2D) => {
-            const fontSize = node.fontSize || 12;
-            ctx.font = `${fontSize}px Inter`;
+      <div className="flex flex-col h-full gap-4">
+        <div className="flex items-center gap-4 px-4">
+          <span className="text-sm text-muted-foreground min-w-[8rem]">
+            Users shown: {userCount}
+          </span>
+          <Slider
+            value={[userCount]}
+            onValueChange={(value) => setUserCount(value[0])}
+            max={maxAllowedUsers}
+            min={10}
+            step={5}
+            className="w-full"
+            aria-label="Number of users to display"
+          />
+        </div>
+        <div ref={containerRef} className="h-[calc(100%-3rem)]">
+          <ForceGraph2D
+            ref={graphRef}
+            graphData={graphData}
+            nodeLabel="id"
+            // @ts-ignore - enableNodeDrag exists but type is not properly defined
+            enableNodeDrag={true}
+            nodeRelSize={1}
+            nodeZIndex={1000}
+            linkZIndex={0}
+            // @ts-ignore - nodeCanvasObject exists but type is not properly defined
+            nodeCanvasObject={(
+              node: UserNode,
+              ctx: CanvasRenderingContext2D,
+              _globalScale: number,
+            ) => {
+              const fontSize = node.fontSize || 12;
+              ctx.font = `${fontSize}px Inter`;
 
-            // Add a background to make text more readable
-            const text = node.id.toLowerCase();
-            const textWidth = ctx.measureText(text).width;
-            const padding = 8;
+              // Add a background to make text more readable
+              const text = node.id.toLowerCase();
+              const textWidth = ctx.measureText(text).width;
+              const padding = 8;
 
-            // Draw semi-transparent background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(
-              (node.x || 0) - textWidth / 2 - padding,
-              (node.y || 0) - fontSize / 2 - padding / 2,
-              textWidth + padding * 2,
-              fontSize + padding,
-            );
+              // Calculate the rectangle dimensions
+              const rectWidth = textWidth + padding * 2;
+              const rectHeight = fontSize + padding;
 
-            // Draw text with group color
-            ctx.fillStyle = colorScale(node.group?.toString() || '0');
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, node.x || 0, node.y || 0);
-          }}
-          linkColor={(link: GraphLink) => {
-            // Handle both string and object source/target formats
-            const sourceId =
-              typeof link.source === 'string'
-                ? link.source
-                : (link.source as UserNode).id;
-            const targetId =
-              typeof link.target === 'string'
-                ? link.target
-                : (link.target as UserNode).id;
+              // Save the current canvas state
+              ctx.save();
+              ctx.translate(node.x || 0, node.y || 0);
 
-            const sourceNode = graphData.nodes.find((n) => n.id === sourceId);
-            const targetNode = graphData.nodes.find((n) => n.id === targetId);
-
-            // If either node is not found, return default color
-            if (!sourceNode || !targetNode) {
-              return '#10b98140';
-            }
-
-            // If both nodes are in the same group, use group color
-            if (
-              (sourceNode as UserNode).group === (targetNode as UserNode).group
-            ) {
-              return colorScale(
-                ((sourceNode as UserNode).group || 0).toString(),
+              // Draw semi-transparent background
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+              ctx.fillRect(
+                -textWidth / 2 - padding,
+                -fontSize / 2 - padding / 2,
+                rectWidth,
+                rectHeight,
               );
-            }
 
-            return '#10b98140';
-          }}
-          linkWidth={(link: GraphLink) => {
-            const linkObj = link as LinkObject;
-            return Math.sqrt(linkObj.value || 1) * 0.5;
-          }}
-          width={dimensions.width}
-          height={dimensions.height}
-          cooldownTicks={100}
-          warmupTicks={100}
-        />
+              // Draw text with group color
+              ctx.fillStyle = colorScale(node.group?.toString() || '0');
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(text, 0, 0);
+
+              // Restore the canvas state
+              ctx.restore();
+            }}
+            // @ts-ignore - nodePointerAreaPaint exists but type is not properly defined
+            nodePointerAreaPaint={(
+              node: UserNode,
+              _color: string,
+              ctx: CanvasRenderingContext2D,
+            ) => {
+              const fontSize = node.fontSize || 12;
+              const text = node.id.toLowerCase();
+              const textWidth = ctx.measureText(text).width;
+              const padding = 8;
+
+              // Save the current canvas state
+              ctx.save();
+              ctx.translate(node.x || 0, node.y || 0);
+
+              // Use the same exact dimensions as the visible text background
+              const rectWidth = textWidth + padding * 2;
+              const rectHeight = fontSize + padding;
+              ctx.fillRect(
+                -textWidth / 2 - padding,
+                -fontSize / 2 - padding / 2,
+                rectWidth,
+                rectHeight,
+              );
+
+              // Restore the canvas state
+              ctx.restore();
+            }}
+            onNodeDrag={(_node: UserNode) => {
+              (containerRef.current as HTMLElement).style.cursor = 'grabbing';
+            }}
+            onNodeDragEnd={(node: UserNode) => {
+              if (node) {
+                // Fix the node position after dragging
+                node.fx = node.x;
+                node.fy = node.y;
+              }
+              (containerRef.current as HTMLElement).style.cursor = 'default';
+            }}
+            onNodeHover={(node: UserNode | null) => {
+              (containerRef.current as HTMLElement).style.cursor = node
+                ? 'grab'
+                : 'default';
+            }}
+            linkColor={(link: GraphLink) => {
+              // Handle both string and object source/target formats
+              const sourceId =
+                typeof link.source === 'string'
+                  ? link.source
+                  : (link.source as UserNode).id;
+              const targetId =
+                typeof link.target === 'string'
+                  ? link.target
+                  : (link.target as UserNode).id;
+
+              const sourceNode = graphData.nodes.find((n) => n.id === sourceId);
+              const targetNode = graphData.nodes.find((n) => n.id === targetId);
+
+              // If either node is not found, return default color
+              if (!sourceNode || !targetNode) {
+                return '#10b98140';
+              }
+
+              // If both nodes are in the same group, use group color
+              if (
+                (sourceNode as UserNode).group ===
+                (targetNode as UserNode).group
+              ) {
+                return colorScale(
+                  ((sourceNode as UserNode).group || 0).toString(),
+                );
+              }
+
+              return '#10b98140';
+            }}
+            linkWidth={(link: GraphLink) => {
+              const linkObj = link as LinkObject;
+              return Math.sqrt(linkObj.value || 1) * 0.5;
+            }}
+            width={dimensions.width}
+            height={dimensions.height}
+            cooldownTicks={100}
+            warmupTicks={100}
+          />
+        </div>
       </div>
     </Panel>
   );
