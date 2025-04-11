@@ -19,6 +19,6 @@
     "@dotenvx/dotenvx": "^1.39.0",
     "@mermaid-js/mermaid-cli": "^11.4.2",
     "@types/bun": "latest",
-    "typescript": "^5",
+    "typescript": "^5"
   }
 }
