@@ -19,6 +19,9 @@
 # production
 /build
 
+# Build output
+dist/
+
 # misc
 .DS_Store
 *.pem
@@ -31,7 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 
 **/*.trace
 **/*.zip
