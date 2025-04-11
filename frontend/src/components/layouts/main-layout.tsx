@@ -1,5 +1,4 @@
 'use client';
-
 import type { PropsWithChildren } from 'react';
 import { ChatBubble } from '../chat/ChatBubble';
 import { Header } from '../header/header';

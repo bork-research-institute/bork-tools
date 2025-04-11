@@ -4,6 +4,7 @@ import { SolanaProvider } from '@/components/providers/solana-provider';
 import { getClientEnv } from '@/lib/config/client-env';
 import { METADATA } from '@/lib/constants/metadata';
 import { PanelProvider } from '@/lib/contexts/PanelContext';
+import { Analytics } from '@vercel/analytics/react';
 import { SessionProvider } from 'next-auth/react';
 import { Inter } from 'next/font/google';
 import localFont from 'next/font/local';
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
           </QueryClientProvider>
           {/* </ThemeProvider> */}
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );
