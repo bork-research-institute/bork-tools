@@ -2,13 +2,11 @@ import { expect } from 'bun:test';
 import type { tweetQueries } from '@/extensions/src/db/queries';
 import type { TargetAccount } from '@/types/account';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
-import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { testTwitterConfig } from '../config/test-config';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
 import { mockTopicRelationships } from '../mock-data/topic-relationships';
 
-const SEARCH_TIMEFRAME_HOURS = 168;
 const PREFERRED_TOPIC = 'cryptocurrency';
 
 export interface AccountSelectionTestResult {
@@ -28,22 +26,8 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
   elizaLogger.info('[Test] Starting account selection test');
 
   try {
-    // Fetch topic weights from the last week
-    const topicWeights = await getAggregatedTopicWeights(
-      SEARCH_TIMEFRAME_HOURS,
-    ); // 168 hours = 1 week
-    elizaLogger.info('[Test] Fetched topic weights:', {
-      count: topicWeights.length,
-      sample: topicWeights.slice(0, 1),
-    });
-
     // Test 1: Basic account selection without preferred topic
-    const basicResult = await selectTargetAccounts(
-      runtime,
-      testTwitterConfig,
-      undefined,
-      topicWeights,
-    );
+    const basicResult = await selectTargetAccounts(runtime, testTwitterConfig);
     elizaLogger.info('[Test] Basic account selection result:', {
       selectedAccounts: basicResult.map((account) => account.username),
     });
@@ -67,7 +51,6 @@ export async function testSelectAccounts(runtime: IAgentRuntime) {
       runtime,
       testTwitterConfig,
       PREFERRED_TOPIC,
-      topicWeights,
     );
     elizaLogger.info('[Test] Preferred topic selection result:', {
       PREFERRED_TOPIC,
