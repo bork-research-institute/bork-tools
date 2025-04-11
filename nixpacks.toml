@@ -1,0 +1,9 @@
+[phases.setup]
+nodeVersion = '23.x'
+nixpkgsArchive = 'master'
+
+[phases.build]
+cmds = ["bun backend:build"]
+
+[start]
+cmd = "bun backend:start"
