@@ -1,37 +1,87 @@
-# Start with Bun Debian image
-FROM oven/bun:debian
+# Use a multi-stage build for efficiency
+FROM oven/bun:debian AS builder
 
 # Set the working directory
 WORKDIR /app
 
-# Install dependencies for Node.js installation
-RUN apt-get update && apt-get install -y \
+# Install dependencies for native module compilation, based on official Eliza Dockerfile
+RUN apt-get update && \
+    apt-get install -y \
+    git \
+    python3 \
+    python3-pip \
     curl \
-    gnupg \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    node-gyp \
+    ffmpeg \
+    libtool-bin \
+    autoconf \
+    automake \
+    libopus-dev \
+    make \
+    g++ \
+    build-essential \
+    libcairo2-dev \
+    libjpeg-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    openssl \
+    libssl-dev \
+    libsecret-1-dev \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 23.x
 RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && npm install -g node-gyp \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy all package files to satisfy workspace requirements
+# Copy package files
 COPY package.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# Install only backend dependencies
-RUN bun install --filter "!frontend"
+# Install dependencies
+RUN bun install
 
-# Copy only the backend code
+# Copy backend code
 COPY backend ./backend/
 
-# Set working directory to backend for build and run
+# Build the application
+RUN cd backend && bun run build
+
+# Final runtime image
+FROM oven/bun:debian
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install -y \
+    git \
+    python3 \
+    ffmpeg \
+    curl \
+    gnupg \
+    ca-certificates \
+    libopus-dev \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 23.x
+RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
 WORKDIR /app
 
-# Build the application
-RUN bun backend:build
+# Copy built artifacts from builder stage
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/backend/package.json ./backend/
+COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/backend/node_modules ./backend/node_modules
 
 # Expose the port the app runs on
 EXPOSE 3000
