@@ -289,9 +289,9 @@ export function MetricsGallery() {
             <div className="flex-1 overflow-hidden">
               <TabsContent value="tweets" className="h-full">
                 <TrendingTweetsPanel
-                  maxHeight="calc(90vh - 120px)"
                   tweets={trendingTweets}
                   loading={loading}
+                  isExpanded={true}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">
@@ -533,9 +533,9 @@ export function MetricsGallery() {
             <div className="flex-1 overflow-hidden">
               <TabsContent value="tweets" className="h-full">
                 <TrendingTweetsPanel
-                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
                   tweets={trendingTweets}
                   loading={loading}
+                  isExpanded={false}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">

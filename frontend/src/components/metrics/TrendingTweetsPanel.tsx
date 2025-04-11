@@ -3,6 +3,7 @@
 import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
+import Masonry from 'react-masonry-css';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -14,9 +15,9 @@ import {
 import { Panel } from './Panel';
 
 interface TrendingTweetsPanelProps {
-  maxHeight?: string;
   tweets: TrendingTweet[];
   loading: boolean;
+  isExpanded?: boolean;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
@@ -46,9 +47,9 @@ const getScoreColor = (score: number): string => {
 };
 
 export function TrendingTweetsPanel({
-  maxHeight,
   tweets,
   loading,
+  isExpanded = false,
 }: TrendingTweetsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
@@ -84,7 +85,7 @@ export function TrendingTweetsPanel({
   // Show loading state during initial render
   if (!mounted) {
     return (
-      <Panel maxHeight={maxHeight}>
+      <Panel>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="h-9 w-[200px] rounded-md bg-white/5 animate-pulse" />
@@ -107,10 +108,20 @@ export function TrendingTweetsPanel({
     );
   }
 
+  const breakpointColumns: { [key: string]: number } = isExpanded
+    ? {
+        default: 3,
+        '1600': 3,
+        '1200': 2,
+        '800': 2,
+        '600': 1,
+      }
+    : { default: 1 };
+
   return (
-    <Panel maxHeight={maxHeight}>
+    <Panel>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between sticky top-0 z-10 bg-[#020617]/95 py-2">
           <Input
             placeholder="Search by username..."
             value={searchQuery}
@@ -143,11 +154,15 @@ export function TrendingTweetsPanel({
               : 'No trending tweets found'}
           </div>
         ) : (
-          <div className="space-y-4">
+          <Masonry
+            breakpointCols={breakpointColumns}
+            className="flex -ml-4 w-auto"
+            columnClassName="pl-4 bg-clip-padding"
+          >
             {filteredTweets.map((tweet) => (
               <div
                 key={tweet.tweet_id}
-                className="bg-gray-800 rounded-lg p-4 space-y-3"
+                className="bg-gray-800 rounded-lg p-4 space-y-3 mb-4 hover:bg-gray-800/80 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col">
@@ -223,7 +238,7 @@ export function TrendingTweetsPanel({
                 </div>
               </div>
             ))}
-          </div>
+          </Masonry>
         )}
       </div>
     </Panel>
