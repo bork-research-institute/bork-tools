@@ -1,6 +1,8 @@
-[phases]
-  build = "bun backend:build"
-  start = "bun backend:start"
+[phases.build]
+cmds = ["bun backend:build"]
+
+[start]
+cmd = "bun backend:start"
 
 [environment]
   BUN_VERSION = "1.2.8"
