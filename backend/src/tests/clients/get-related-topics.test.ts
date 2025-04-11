@@ -1,4 +1,4 @@
-import { db } from '@/extensions/src/db';
+import { db } from '@/db';
 import { topicRelationshipTemplate } from '@/templates/topic-relationship';
 import {
   type TopicRelationshipAnalysis,
@@ -99,7 +99,6 @@ export async function testGetRelatedTopics(runtime: IAgentRuntime) {
         relationshipType: rt.relationshipType,
       })),
       confidence: analysis.analysisMetadata.confidence,
-      factors: analysis.analysisMetadata.analysisFactors,
     });
 
     // 3. Select a topic using the full selection logic

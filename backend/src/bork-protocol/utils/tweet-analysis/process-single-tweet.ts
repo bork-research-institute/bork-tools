@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import { updateUserSpamData } from '@/helpers/spam-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetAnalysisTemplate } from '@/templates/analysis';

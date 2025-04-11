@@ -1,4 +1,4 @@
-import { twitterConfigQueries } from '@/extensions/src/db/queries';
+import { twitterConfigQueries } from '@/db/queries';
 import type { TwitterConfig } from '@/types/twitter-config';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 

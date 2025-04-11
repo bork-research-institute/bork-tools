@@ -1,4 +1,4 @@
-import { cleanupPool } from '@/extensions/src/db';
+import { cleanupPool } from '@/db';
 import { TweetQueueService } from '@/services/twitter/tweet-queue.service';
 import { TwitterService } from '@/services/twitter/twitter-service';
 import {

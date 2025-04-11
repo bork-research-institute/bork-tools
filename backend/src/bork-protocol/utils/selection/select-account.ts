@@ -1,4 +1,4 @@
-import { accountTopicQueries, tweetQueries } from '@/extensions/src/db/queries';
+import { accountTopicQueries, tweetQueries } from '@/db/queries';
 import { mapTopicWeightsByRelationship } from '@/mappers/topic-weights';
 import { mapTopicWeightRowToTopicWeight } from '@/mappers/topic-weights';
 import type { TargetAccount, WeightedAccount } from '@/types/account';

@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries.js';
+import { tweetQueries } from '@/db/queries.js';
 import { KaitoService } from '@/services/kaito/kaito-service.js';
 import { elizaLogger } from '@elizaos/core';
 

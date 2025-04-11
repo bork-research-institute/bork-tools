@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries.js';
+import { tweetQueries } from '@/db/queries.js';
 import type { TopicWeightRow } from '@/types/topic.js';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 

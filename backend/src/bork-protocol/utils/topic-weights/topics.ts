@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries.js';
+import { tweetQueries } from '@/db/queries.js';
 import type { TweetAnalysis } from '@/types/analysis.js';
 import type { EngagementMetrics, TopicWeightRow } from '@/types/topic.js';
 import type { DatabaseTweet } from '@/types/twitter.js';
@@ -197,7 +197,7 @@ export async function getAggregatedTopicWeights(
     // Get recent weights
     const recentWeights =
       await tweetQueries.getRecentTopicWeights(timeframeHours);
-    elizaLogger.info(
+    elizaLogger.debug(
       `[TopicWeights] Found ${recentWeights.length} recent weights in the last ${timeframeHours} hours`,
     );
 
@@ -219,7 +219,7 @@ export async function getAggregatedTopicWeights(
     }
 
     const result = Array.from(topicMap.values());
-    elizaLogger.info(
+    elizaLogger.debug(
       `[TopicWeights] Returning ${result.length} aggregated topic weights`,
     );
     return result;

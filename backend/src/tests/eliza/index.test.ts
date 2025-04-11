@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { PostgresDatabaseAdapter } from '@/plugins/adapter-postgres';
 import { AgentRuntime, elizaLogger } from '@elizaos/core';
 import { ApiClient } from '../../api/api';
-import { initializeDbCache } from '../../cache/initialize-db-cache';
 import { getTokenForProvider } from '../../config';
 import { getEnv } from '../../config/env';
+import { initializeDbCache } from '../../eliza/db-cache';
 import {
   type TestResult,
   testCharacter,

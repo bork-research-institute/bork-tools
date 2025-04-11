@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import type { TweetAnalysis } from '@/types/analysis';
 import {
   type IAgentRuntime,
