@@ -27,6 +27,17 @@ RUN apt-get update && \
     openssl \
     libssl-dev \
     libsecret-1-dev \
+    libnss3-dev \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -43,10 +54,11 @@ COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 # Install dependencies
-RUN bun install
+RUN bun install --filter "!frontend"
 
 # Copy backend code
 COPY backend ./backend/
+COPY backend/.env.backend.production ./backend/
 
 # Build the application
 RUN cd backend && bun run build
@@ -64,6 +76,17 @@ RUN apt-get update && \
     gnupg \
     ca-certificates \
     libopus-dev \
+    libnss3-dev \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -81,7 +104,7 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/backend/package.json ./backend/
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/backend/node_modules ./backend/node_modules
+COPY --from=builder /app/backend/.env.backend.production ./backend/
 
 # Expose the port the app runs on
 EXPOSE 3000
