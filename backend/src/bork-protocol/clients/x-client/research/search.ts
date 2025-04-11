@@ -5,7 +5,7 @@ import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTopic } from '@/utils/selection/select-topic';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
-import { getEnv } from '../../../config/env';
+import { getEnv } from '../../../../config/env';
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;

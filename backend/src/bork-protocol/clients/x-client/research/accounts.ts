@@ -6,7 +6,7 @@ import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { getEnv } from '../../../config/env';
+import { getEnv } from '../../../../config/env';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;

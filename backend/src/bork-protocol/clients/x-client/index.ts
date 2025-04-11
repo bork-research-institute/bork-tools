@@ -7,10 +7,10 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
-import { TwitterAccountDiscoveryClient } from './account-discovery';
-import { TwitterAccountsClient } from './accounts';
-import { TwitterInteractionClient } from './interactions';
-import { TwitterSearchClient } from './search';
+import { TwitterInteractionClient } from './creation/interactions';
+import { TwitterAccountDiscoveryClient } from './research/account-discovery';
+import { TwitterAccountsClient } from './research/accounts';
+import { TwitterSearchClient } from './research/search';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
