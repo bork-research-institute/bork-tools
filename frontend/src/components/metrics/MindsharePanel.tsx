@@ -59,11 +59,11 @@ interface InfoAreaProps {
 
 const timeFrameOptions = [
   { value: '24h', label: 'Last 24h' },
-  { value: '7d', label: 'Last 7 Days' },
-  { value: '30d', label: 'Last 30 Days' },
-  { value: '3m', label: 'Last 3 Months' },
-  { value: '6m', label: 'Last 6 Months' },
-  { value: '12m', label: 'Last 12 Months' },
+  { value: '7d', label: 'Last 7D' },
+  { value: '30d', label: 'Last 30D' },
+  { value: '3m', label: 'Last 3M' },
+  { value: '6m', label: 'Last 6M' },
+  { value: '12m', label: 'Last 12M' },
 ] as const;
 
 function MetricWithTooltip({
