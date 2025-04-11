@@ -21,8 +21,5 @@
     "@mermaid-js/mermaid-cli": "^11.4.2",
     "@types/bun": "latest",
     "typescript": "^5"
-  },
-  "engines": {
-    "node": "23.3.0"
   }
 }
