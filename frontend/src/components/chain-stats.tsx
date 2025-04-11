@@ -1,10 +1,3 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getChainStats } from '@/lib/services/defillama';
 import { cn } from '@/lib/utils/cn';
@@ -17,23 +10,11 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import Image from 'next/image';
-import { useState } from 'react';
-
-const SUPPORTED_CHAINS = ['Solana', 'Injective'] as const;
-type SupportedChain = (typeof SUPPORTED_CHAINS)[number];
-
-const CHAIN_LOGOS: Record<SupportedChain, string> = {
-  Solana: '/assets/solana-logo.png',
-  Injective: '/assets/injective-logo.png',
-};
 
 export function ChainStats() {
-  const [selectedChain, setSelectedChain] = useState<SupportedChain>('Solana');
-
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['chain-stats', selectedChain],
-    queryFn: () => getChainStats(selectedChain),
+    queryKey: ['chain-stats', 'Solana'],
+    queryFn: () => getChainStats('Solana'),
   });
 
   if (isError) {
@@ -86,36 +67,6 @@ export function ChainStats() {
           </div>
         )}
       </div>
-      <Select
-        value={selectedChain}
-        onValueChange={(value: SupportedChain) => setSelectedChain(value)}
-      >
-        <SelectTrigger className="w-36 h-7 px-2 text-xs bg-transparent text-white hover:text-white transition-colors">
-          <div className="flex items-center justify-center w-full">
-            <SelectValue placeholder="Select chain" />
-          </div>
-        </SelectTrigger>
-        <SelectContent>
-          {SUPPORTED_CHAINS.map((chain) => (
-            <SelectItem
-              key={chain}
-              value={chain}
-              className="text-xs text-white hover:text-white hover:bg-emerald-400/5"
-            >
-              <div className="flex items-center justify-center w-full gap-2">
-                <Image
-                  src={CHAIN_LOGOS[chain]}
-                  alt={`${chain} logo`}
-                  width={16}
-                  height={16}
-                  className="rounded-full"
-                />
-                <span>{chain}</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   );
 }
