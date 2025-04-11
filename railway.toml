@@ -1,3 +1,7 @@
+[setup]
+nodeVersion = '23.x'
+nixpkgsArchive = '1.2.x'
+
 [build]
 builder = "NIXPACKS"
 buildCommand = "bun backend:build"
