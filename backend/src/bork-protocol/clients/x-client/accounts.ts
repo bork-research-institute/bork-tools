@@ -1,12 +1,11 @@
+import type { TwitterService } from '@/services/twitter//twitter-service';
 import type { TweetQueueService } from '@/services/twitter/tweet-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
-import type { TwitterService } from '@/services/twitter/twitter-service';
 import { initializeTargetAccounts } from '@/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
-import type { IAgentRuntime } from '@elizaos/core';
-import { elizaLogger } from '@elizaos/core';
+import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { getEnv } from '../../../config/env';
 
 export class TwitterAccountsClient {
@@ -78,11 +77,13 @@ export class TwitterAccountsClient {
       const config = await this.twitterConfigService.getConfig();
       const env = getEnv();
 
+      elizaLogger.info(
+        '[TwitterAccounts] Requesting AI to select accounts to analyze...',
+      );
       // Select accounts to process using weighted randomization
       const accountsToProcess = await selectTargetAccounts(
         this.runtime,
         config,
-        env.SEARCH_TIMEFRAME_HOURS,
         env.SEARCH_PREFERRED_TOPIC,
       );
 

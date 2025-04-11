@@ -77,7 +77,9 @@ export class TwitterRequestService {
           return searchResults;
         }
 
-        elizaLogger.info(`${context} Found ${searchResults.tweets.length}`);
+        elizaLogger.info(
+          `${context} Found ${searchResults.tweets.length} tweets`,
+        );
         elizaLogger.debug('tweets:', {
           tweets: searchResults.tweets.map((t) => ({
             id: t.id,

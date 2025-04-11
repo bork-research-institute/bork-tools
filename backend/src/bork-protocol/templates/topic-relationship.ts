@@ -20,11 +20,6 @@ Provide relevance scores where:
 0.1-0.3 = Weak relationship/tangentially related (relationshipType: weak)
 0.0 = No meaningful relationship (relationshipType: none)
 
-For each topic, also provide:
-1. A brief explanation of the relationship
-2. Specific examples of how the topics relate
-3. Potential synergies or conflicts between the topics
-
 Your analysis should consider:
 - Semantic overlap
 - Domain relationships
@@ -34,7 +29,14 @@ Your analysis should consider:
 - Hierarchical relationships (if any)
 
 Format the response as a JSON object with:
-- relatedTopics: array of topic relationships
-- analysisMetadata: containing confidence and timestamp`,
+- relatedTopics: array of topic relationships, each containing:
+  {
+    topic: string,
+    relevanceScore: number,
+    relationshipType: "direct" | "strong" | "moderate" | "weak" | "none"
+  }
+- analysisMetadata: {
+    confidence: number (0-1)
+  }`,
   };
 }

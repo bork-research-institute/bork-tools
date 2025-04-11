@@ -1,12 +1,11 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
-import { extractAndRepairAnalysis } from '@/helpers/repair-tweet-analysis-helper';
 import { updateUserSpamData } from '@/helpers/spam-helper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetAnalysisTemplate } from '@/templates/analysis';
 import type { TweetAnalysis } from '@/types/analysis';
 import { tweetAnalysisSchema } from '@/types/response/tweet-analysis';
 import type { TopicWeightRow } from '@/types/topic';
-import type { DatabaseTweet } from '@/types/twitter';
+import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,
@@ -29,420 +28,393 @@ import { fetchAndFormatKnowledge } from './process-knowledge';
 export async function processSingleTweet(
   runtime: IAgentRuntime,
   twitterService: TwitterService,
-  tweet: DatabaseTweet,
+  processedTweet: TweetWithUpstream,
   topicWeights: TopicWeightRow[],
   logPrefix = '[Tweet Analysis]',
 ): Promise<void> {
   try {
-    elizaLogger.info(
-      `${logPrefix} Starting to process tweet ${tweet.tweet_id}`,
-    );
+    // Collect all tweets in the conversation
+    const allTweets: DatabaseTweet[] = [
+      processedTweet.originalTweet,
+      ...processedTweet.upstreamTweets.inReplyChain,
+      ...processedTweet.upstreamTweets.quotedTweets,
+      ...processedTweet.upstreamTweets.retweetedTweets,
+    ];
 
-    // Store tweet in cache using Twitter's numeric ID
-    await twitterService.cacheTweet({
-      id: tweet.tweet_id, // Use Twitter's numeric ID here
-      text: tweet.text,
-      userId: tweet.userId,
-      username: tweet.username,
-      name: tweet.name,
-      timestamp: tweet.timestamp,
-      timeParsed: tweet.timeParsed,
-      likes: tweet.likes,
-      retweets: tweet.retweets,
-      replies: tweet.replies,
-      views: tweet.views,
-      bookmarkCount: tweet.bookmarkCount,
-      conversationId: tweet.conversationId,
-      permanentUrl: tweet.permanentUrl,
-      html: tweet.html,
-      inReplyToStatus: tweet.inReplyToStatus,
-      inReplyToStatusId: tweet.inReplyToStatusId,
-      quotedStatus: tweet.quotedStatus,
-      quotedStatusId: tweet.quotedStatusId,
-      retweetedStatus: tweet.retweetedStatus,
-      retweetedStatusId: tweet.retweetedStatusId,
-      thread: tweet.thread,
-      isQuoted: tweet.isQuoted,
-      isPin: tweet.isPin,
-      isReply: tweet.isReply,
-      isRetweet: tweet.isRetweet,
-      isSelfThread: tweet.isSelfThread,
-      sensitiveContent: tweet.sensitiveContent,
-      hashtags: tweet.hashtags,
-      mentions: tweet.mentions,
-      photos: tweet.photos,
-      urls: tweet.urls,
-      videos: tweet.videos,
-      place: tweet.place,
-      poll: tweet.poll,
-    });
+    // Combine all unique knowledge contexts
+    const knowledgeContexts: string[] = [];
+    const seenKnowledge = new Set<string>();
 
+    for (const tweet of allTweets) {
+      const tweetKnowledge = await fetchAndFormatKnowledge(
+        runtime,
+        tweet,
+        `${logPrefix} [Knowledge]`,
+      );
+
+      if (tweetKnowledge) {
+        // Split knowledge into individual items and deduplicate
+        const knowledgeItems = tweetKnowledge
+          .split('\n\n')
+          .filter((item) => item.trim())
+          .filter((item) => !seenKnowledge.has(item));
+
+        // Add new unique items
+        for (const item of knowledgeItems) {
+          seenKnowledge.add(item);
+          knowledgeContexts.push(item);
+        }
+
+        elizaLogger.debug(`${logPrefix} Found knowledge for tweet:`, {
+          tweetId: tweet.tweet_id,
+          totalItems: knowledgeItems.length,
+          uniqueItems: seenKnowledge.size,
+        });
+      }
+    }
+
+    // Combine all unique knowledge contexts
+    const combinedKnowledgeContext = knowledgeContexts.join('\n\n');
+
+    // Create template using the original tweet
     const template = tweetAnalysisTemplate({
-      text: tweet.text, // This is the merged text
+      text: processedTweet.originalTweet.text,
       public_metrics: {
-        like_count: tweet.likes || 0,
-        retweet_count: tweet.retweets || 0,
-        reply_count: tweet.replies || 0,
+        like_count: processedTweet.originalTweet.likes || 0,
+        retweet_count: processedTweet.originalTweet.retweets || 0,
+        reply_count: processedTweet.originalTweet.replies || 0,
       },
       topics: runtime.character.topics || [],
       topicWeights: topicWeights.map((tw) => ({
         topic: tw.topic,
         weight: tw.weight,
       })),
-      isThreadMerged: tweet.isThreadMerged,
-      threadSize: tweet.threadSize,
-      originalText: tweet.originalText,
+      isThreadMerged: processedTweet.originalTweet.isThreadMerged,
+      threadSize: processedTweet.originalTweet.threadSize,
+      originalText: processedTweet.originalTweet.originalText,
     });
 
-    // Convert Twitter user ID to a consistent UUID for the memory context
-    const memoryUserId = stringToUuid(`twitter-user-${tweet.userId}`);
+    // Create memory for state composition
+    const memoryUserId = stringToUuid(
+      `twitter-user-${processedTweet.originalTweet.userId}`,
+    );
+    const memory: Memory = {
+      content: {
+        text: processedTweet.originalTweet.text,
+        isThreadMerged: processedTweet.originalTweet.isThreadMerged,
+        threadSize: processedTweet.originalTweet.threadSize,
+        originalText: processedTweet.originalTweet.originalText,
+      },
+      userId: memoryUserId,
+      agentId: runtime.agentId,
+      roomId: stringToUuid(processedTweet.originalTweet.tweet_id),
+    };
+
+    const state = await runtime.composeState(memory, {
+      twitterService,
+      twitterUserName: runtime.getSetting('TWITTER_USERNAME') || '',
+      currentPost: processedTweet.originalTweet.text,
+    });
+
+    const context = composeContext({
+      template:
+        template.context +
+        (combinedKnowledgeContext
+          ? `\n\nRelevant Knowledge:\n${combinedKnowledgeContext}`
+          : ''),
+      state,
+    });
+
+    elizaLogger.info(`${logPrefix} Requesting an analysis from the AI...`);
 
     try {
-      const state = await runtime.composeState(
-        {
-          content: {
-            text: tweet.text,
-            isThreadMerged: tweet.isThreadMerged,
-            threadSize: tweet.threadSize,
-            originalText: tweet.originalText,
-          },
-          userId: memoryUserId,
-          agentId: runtime.agentId,
-          roomId: uuidv4(),
-        } as Memory,
-        {
-          twitterService,
-          twitterUserName: runtime.getSetting('TWITTER_USERNAME') || '',
-          currentPost: tweet.text,
-        },
-      );
-
-      // Fetch and format knowledge context
-      const knowledgeContext = await fetchAndFormatKnowledge(
+      const { object } = await generateObject({
         runtime,
-        tweet,
-        `${logPrefix} [Knowledge]`,
-      );
-
-      const context = composeContext({
-        state,
-        template: template.context + (knowledgeContext || ''),
+        context,
+        modelClass: ModelClass.SMALL,
+        schema: tweetAnalysisSchema,
       });
 
-      try {
-        const { object } = await generateObject({
-          runtime,
-          context,
-          modelClass: ModelClass.SMALL,
-          schema: tweetAnalysisSchema,
+      elizaLogger.info(`${logPrefix} Received analysis from the AI`);
+
+      const analysis = object as TweetAnalysis;
+
+      // Validate and process the analysis response
+      if (!analysis || typeof analysis !== 'object') {
+        elizaLogger.error(`${logPrefix} Invalid analysis response:`, {
+          analysis,
+          tweetId: processedTweet.originalTweet.tweet_id,
         });
+        throw new Error('Invalid analysis response structure');
+      }
 
-        const analysis = object as TweetAnalysis;
-        elizaLogger.info(`${logPrefix} Generated analysis`);
-        elizaLogger.debug({
-          contentType: analysis.contentAnalysis.type,
-          sentiment: analysis.contentAnalysis.sentiment,
-          isSpam: analysis.spamAnalysis.isSpam,
-        });
+      // Update spam user data regardless of spam status
+      await updateUserSpamData(
+        processedTweet.originalTweet.userId?.toString() || '',
+        analysis.spamAnalysis.spamScore,
+        analysis.spamAnalysis.reasons,
+        logPrefix,
+      );
 
-        // Validate and process the analysis response
-        if (!analysis || typeof analysis !== 'object') {
-          elizaLogger.error(`${logPrefix} Invalid analysis response:`, {
-            analysis,
-            tweetId: tweet.tweet_id,
-          });
-          throw new Error('Invalid analysis response structure');
-        }
+      // Check if tweet is spam
+      const isSpam =
+        analysis.spamAnalysis.isSpam === true &&
+        analysis.spamAnalysis.spamScore > 0.7;
 
-        const parsedAnalysis = extractAndRepairAnalysis(analysis);
-
-        // Update spam user data regardless of spam status
-        await updateUserSpamData(
-          tweet.userId?.toString() || '',
-          parsedAnalysis.spamAnalysis.spamScore,
-          parsedAnalysis.spamAnalysis.reasons,
-          logPrefix,
+      if (isSpam) {
+        await tweetQueries.updateTweetStatus(
+          processedTweet.originalTweet.tweet_id,
+          'spam',
         );
+        elizaLogger.info(
+          `${logPrefix} Tweet ${processedTweet.originalTweet.tweet_id} identified as spam - skipping analysis`,
+          {
+            tweetId: processedTweet.originalTweet.tweet_id,
+            spamScore: analysis.spamAnalysis.spamScore,
+            reasons: analysis.spamAnalysis.reasons,
+            isThreadMerged: processedTweet.originalTweet.isThreadMerged,
+            threadSize: processedTweet.originalTweet.threadSize,
+          },
+        );
+        return;
+      }
 
-        // Check if tweet is spam
-        const isSpam =
-          parsedAnalysis.spamAnalysis.isSpam === true &&
-          parsedAnalysis.spamAnalysis.spamScore > 0.7;
+      // Store analysis for non-spam tweets
+      const analysisId = stringToUuid(uuidv4());
 
-        if (isSpam) {
-          await tweetQueries.updateTweetStatus(tweet.tweet_id, 'spam');
-          elizaLogger.warn(
-            `${logPrefix} Tweet ${tweet.tweet_id} identified as spam - skipping analysis`,
-          );
-          elizaLogger.debug({
-            tweetId: tweet.tweet_id,
-            spamScore: parsedAnalysis.spamAnalysis.spamScore,
-            reasons: parsedAnalysis.spamAnalysis.reasons,
-            isThreadMerged: tweet.isThreadMerged,
-            threadSize: tweet.threadSize,
-          });
-          return;
-        }
-
-        // If tweet is not spam, add author to target accounts
-        if (tweet.username && tweet.userId) {
-          elizaLogger.info(
-            `${logPrefix} Upserting non-spam tweet author @${tweet.username} to target accounts`,
-          );
-        }
-
-        // Store analysis for non-spam tweets
-        const analysisId = stringToUuid(uuidv4());
-
-        // Process analysis in a transaction
-        try {
-          await tweetQueries.processTweetsInTransaction(async (client) => {
-            try {
-              elizaLogger.info(
-                `${logPrefix} Saving analysis for tweet ${tweet.tweet_id}`,
-              );
-              elizaLogger.debug({
+      // Process analysis in a transaction
+      try {
+        await tweetQueries.processTweetsInTransaction(async (client) => {
+          try {
+            elizaLogger.debug(
+              `${logPrefix} Saving analysis for tweet ${processedTweet.originalTweet.tweet_id}`,
+              {
                 analysisId: analysisId.toString(),
-                tweetId: tweet.tweet_id,
-                isThreadMerged: tweet.isThreadMerged,
-                threadSize: tweet.threadSize,
-                textLength: tweet.text.length,
-                originalTextLength: tweet.originalText.length,
-              });
+                tweetId: processedTweet.originalTweet.tweet_id,
+                isThreadMerged: processedTweet.originalTweet.isThreadMerged,
+                threadSize: processedTweet.originalTweet.threadSize,
+                textLength: processedTweet.originalTweet.text.length,
+                originalTextLength:
+                  processedTweet.originalTweet.originalText.length,
+              },
+            );
 
-              // Insert the tweet analysis
-              await tweetQueries.insertTweetAnalysis(
-                analysisId,
-                tweet.tweet_id,
-                parsedAnalysis.contentAnalysis.type,
-                parsedAnalysis.contentAnalysis.sentiment,
-                parsedAnalysis.contentAnalysis.confidence,
-                {
-                  likes: tweet.likes || 0,
-                  retweets: tweet.retweets || 0,
-                  replies: tweet.replies || 0,
-                  spamScore: parsedAnalysis.spamAnalysis.spamScore,
-                  spamViolations: parsedAnalysis.spamAnalysis.reasons,
-                  isThreadMerged: tweet.isThreadMerged,
-                  threadSize: tweet.threadSize,
-                  originalTextLength: tweet.originalText.length,
-                  mergedTextLength: tweet.text.length,
-                  hashtagsUsed:
-                    parsedAnalysis.contentAnalysis.hashtagsUsed || [],
-                  engagementMetrics:
-                    parsedAnalysis.contentAnalysis.engagementAnalysis,
+            // Insert the tweet analysis
+            await tweetQueries.insertTweetAnalysis(
+              analysisId,
+              processedTweet.originalTweet.tweet_id,
+              analysis.contentAnalysis.type,
+              analysis.contentAnalysis.sentiment,
+              analysis.contentAnalysis.confidence,
+              {
+                likes: processedTweet.originalTweet.likes || 0,
+                retweets: processedTweet.originalTweet.retweets || 0,
+                replies: processedTweet.originalTweet.replies || 0,
+                spamScore: analysis.spamAnalysis.spamScore,
+                spamViolations: analysis.spamAnalysis.reasons,
+                isThreadMerged: processedTweet.originalTweet.isThreadMerged,
+                threadSize: processedTweet.originalTweet.threadSize,
+                originalTextLength:
+                  processedTweet.originalTweet.originalText.length,
+                mergedTextLength: processedTweet.originalTweet.text.length,
+                hashtagsUsed: analysis.contentAnalysis.hashtagsUsed || [],
+                engagementMetrics: analysis.contentAnalysis.engagementAnalysis,
+              },
+              // Flatten entities into a single array
+              [
+                ...(analysis.contentAnalysis.entities.people || []),
+                ...(analysis.contentAnalysis.entities.organizations || []),
+                ...(analysis.contentAnalysis.entities.products || []),
+                ...(analysis.contentAnalysis.entities.locations || []),
+                ...(analysis.contentAnalysis.entities.events || []),
+              ],
+              // Combine primary and secondary topics
+              [
+                ...(analysis.contentAnalysis.primaryTopics || []),
+                ...(analysis.contentAnalysis.secondaryTopics || []),
+              ],
+              analysis.contentAnalysis.engagementAnalysis.overallScore,
+              new Date(processedTweet.originalTweet.timestamp * 1000),
+              processedTweet.originalTweet.userId?.toString() || '',
+              processedTweet.originalTweet.text || '', // Use merged text
+              {
+                likes: processedTweet.originalTweet.likes || 0,
+                retweets: processedTweet.originalTweet.retweets || 0,
+                replies: processedTweet.originalTweet.replies || 0,
+              },
+              {
+                hashtags: Array.isArray(processedTweet.originalTweet.hashtags)
+                  ? processedTweet.originalTweet.hashtags
+                  : [],
+                mentions: Array.isArray(processedTweet.originalTweet.mentions)
+                  ? processedTweet.originalTweet.mentions.map((mention) => ({
+                      username: mention.username || '',
+                      id: mention.id || '',
+                    }))
+                  : [],
+                urls: Array.isArray(processedTweet.originalTweet.urls)
+                  ? processedTweet.originalTweet.urls
+                  : [],
+                topicWeights: topicWeights.map((tw) => ({
+                  topic: tw.topic,
+                  weight: tw.weight,
+                })),
+                entities: analysis.contentAnalysis.entities, // Store full entity structure
+              },
+              analysis.spamAnalysis,
+              {
+                relevance: analysis.contentAnalysis.qualityMetrics.relevance,
+                quality: analysis.contentAnalysis.qualityMetrics.clarity,
+                engagement:
+                  analysis.contentAnalysis.engagementAnalysis.overallScore,
+                authenticity:
+                  analysis.contentAnalysis.qualityMetrics.authenticity,
+                valueAdd: analysis.contentAnalysis.qualityMetrics.valueAdd,
+                callToActionEffectiveness:
+                  analysis.marketingInsights?.copywriting?.callToAction
+                    ?.effectiveness || 0,
+                trendAlignmentScore:
+                  analysis.marketingInsights?.trendAlignment?.relevanceScore ||
+                  0,
+              },
+              analysis.contentAnalysis.format,
+              // Store full marketing insights structure
+              {
+                targetAudience:
+                  analysis.marketingInsights?.targetAudience || [],
+                keyTakeaways: analysis.marketingInsights?.keyTakeaways || [],
+                contentStrategies: {
+                  whatWorked:
+                    analysis.marketingInsights?.contentStrategies?.whatWorked ||
+                    [],
+                  improvement:
+                    analysis.marketingInsights?.contentStrategies
+                      ?.improvement || [],
                 },
-                // Flatten entities into a single array
-                [
-                  ...(parsedAnalysis.contentAnalysis.entities.people || []),
-                  ...(parsedAnalysis.contentAnalysis.entities.organizations ||
-                    []),
-                  ...(parsedAnalysis.contentAnalysis.entities.products || []),
-                  ...(parsedAnalysis.contentAnalysis.entities.locations || []),
-                  ...(parsedAnalysis.contentAnalysis.entities.events || []),
-                ],
-                // Combine primary and secondary topics
-                [
-                  ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
-                  ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
-                ],
-                parsedAnalysis.contentAnalysis.engagementAnalysis.overallScore,
-                new Date(tweet.timestamp * 1000),
-                tweet.userId?.toString() || '',
-                tweet.text || '', // Use merged text
-                {
-                  likes: tweet.likes || 0,
-                  retweets: tweet.retweets || 0,
-                  replies: tweet.replies || 0,
-                },
-                {
-                  hashtags: Array.isArray(tweet.hashtags) ? tweet.hashtags : [],
-                  mentions: Array.isArray(tweet.mentions)
-                    ? tweet.mentions.map((mention) => ({
-                        username: mention.username || '',
-                        id: mention.id || '',
-                      }))
-                    : [],
-                  urls: Array.isArray(tweet.urls) ? tweet.urls : [],
-                  topicWeights: topicWeights.map((tw) => ({
-                    topic: tw.topic,
-                    weight: tw.weight,
-                  })),
-                  entities: parsedAnalysis.contentAnalysis.entities, // Store full entity structure
-                },
-                parsedAnalysis.spamAnalysis,
-                {
-                  relevance:
-                    parsedAnalysis.contentAnalysis.qualityMetrics.relevance,
-                  quality:
-                    parsedAnalysis.contentAnalysis.qualityMetrics.clarity,
-                  engagement:
-                    parsedAnalysis.contentAnalysis.engagementAnalysis
-                      .overallScore,
-                  authenticity:
-                    parsedAnalysis.contentAnalysis.qualityMetrics.authenticity,
-                  valueAdd:
-                    parsedAnalysis.contentAnalysis.qualityMetrics.valueAdd,
-                  callToActionEffectiveness:
-                    parsedAnalysis.marketingInsights?.copywriting?.callToAction
-                      ?.effectiveness || 0,
-                  trendAlignmentScore:
-                    parsedAnalysis.marketingInsights?.trendAlignment
+                trendAlignment: {
+                  currentTrends:
+                    analysis.marketingInsights?.trendAlignment?.currentTrends ||
+                    [],
+                  emergingOpportunities:
+                    analysis.marketingInsights?.trendAlignment
+                      ?.emergingOpportunities || [],
+                  relevanceScore:
+                    analysis.marketingInsights?.trendAlignment
                       ?.relevanceScore || 0,
                 },
-                parsedAnalysis.contentAnalysis.format,
-                // Store full marketing insights structure
-                {
-                  targetAudience:
-                    parsedAnalysis.marketingInsights?.targetAudience || [],
-                  keyTakeaways:
-                    parsedAnalysis.marketingInsights?.keyTakeaways || [],
-                  contentStrategies: {
-                    whatWorked:
-                      parsedAnalysis.marketingInsights?.contentStrategies
-                        ?.whatWorked || [],
-                    improvement:
-                      parsedAnalysis.marketingInsights?.contentStrategies
-                        ?.improvement || [],
-                  },
-                  trendAlignment: {
-                    currentTrends:
-                      parsedAnalysis.marketingInsights?.trendAlignment
-                        ?.currentTrends || [],
-                    emergingOpportunities:
-                      parsedAnalysis.marketingInsights?.trendAlignment
-                        ?.emergingOpportunities || [],
-                    relevanceScore:
-                      parsedAnalysis.marketingInsights?.trendAlignment
-                        ?.relevanceScore || 0,
-                  },
-                  copywriting: {
-                    effectiveElements:
-                      parsedAnalysis.marketingInsights?.copywriting
-                        ?.effectiveElements || [],
-                    hooks:
-                      parsedAnalysis.marketingInsights?.copywriting?.hooks ||
-                      [],
-                    callToAction: {
-                      present:
-                        parsedAnalysis.marketingInsights?.copywriting
-                          ?.callToAction?.present || false,
-                      type:
-                        parsedAnalysis.marketingInsights?.copywriting
-                          ?.callToAction?.type || 'none',
-                      effectiveness:
-                        parsedAnalysis.marketingInsights?.copywriting
-                          ?.callToAction?.effectiveness || 0,
-                    },
+                copywriting: {
+                  effectiveElements:
+                    analysis.marketingInsights?.copywriting
+                      ?.effectiveElements || [],
+                  hooks: analysis.marketingInsights?.copywriting?.hooks || [],
+                  callToAction: {
+                    present:
+                      analysis.marketingInsights?.copywriting?.callToAction
+                        ?.present || false,
+                    type:
+                      analysis.marketingInsights?.copywriting?.callToAction
+                        ?.type || 'none',
+                    effectiveness:
+                      analysis.marketingInsights?.copywriting?.callToAction
+                        ?.effectiveness || 0,
                   },
                 },
-                client,
-              );
+              },
+              client,
+            );
 
-              elizaLogger.info(
-                `${logPrefix} Successfully saved analysis for tweet ${tweet.tweet_id}`,
-              );
+            elizaLogger.info(
+              `${logPrefix} Successfully saved analysis for tweet ${processedTweet.originalTweet.tweet_id}`,
+            );
 
-              // Update tweet status to analyzed using Twitter's ID
-              await tweetQueries.updateTweetStatus(
-                tweet.tweet_id,
-                'analyzed',
-                undefined,
-                client,
-              );
-
-              // Update topic weights with the new analysis
-              const allTopics = [
-                ...(parsedAnalysis.contentAnalysis.primaryTopics || []),
-                ...(parsedAnalysis.contentAnalysis.secondaryTopics || []),
-              ];
-
-              await updateTopicWeights(
-                allTopics,
-                parsedAnalysis,
-                tweet,
-                logPrefix,
-              );
-
-              // Process mentions from the merged tweet and add to target accounts, including topic relationships
-              await storeAccountInfo(tweet, allTopics);
-
-              // Extract and store knowledge from tweet analysis
-              try {
-                await extractAndStoreKnowledge(
-                  runtime,
-                  tweet,
-                  parsedAnalysis,
-                  `${logPrefix} [Knowledge]`,
-                );
-                elizaLogger.info(
-                  `${logPrefix} Successfully extracted knowledge from tweet ${tweet.tweet_id}`,
-                );
-              } catch (knowledgeError) {
-                // Log but don't fail the whole process
-                elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
-                  error:
-                    knowledgeError instanceof Error
-                      ? knowledgeError.message
-                      : String(knowledgeError),
-                  tweetId: tweet.tweet_id,
-                });
-              }
-
-              elizaLogger.info(
-                `${logPrefix} Successfully processed tweet ${tweet.tweet_id}`,
-              );
-              elizaLogger.debug({
-                analysisId: analysisId.toString(),
-                tweetId: tweet.tweet_id,
-                isThreadMerged: tweet.isThreadMerged,
-                textLength: tweet.text.length,
-                originalTextLength: tweet.originalText.length,
-              });
-            } catch (innerError) {
-              elizaLogger.error(`${logPrefix} Error in transaction:`, {
-                error:
-                  innerError instanceof Error
-                    ? innerError.message
-                    : String(innerError),
-                tweetId: tweet.tweet_id,
-                phase: 'analysis_insertion',
-              });
-              throw innerError; // Rethrow to trigger rollback
-            }
-          });
-        } catch (txError) {
-          elizaLogger.error(`${logPrefix} Transaction failed:`, {
-            error: txError instanceof Error ? txError.message : String(txError),
-            tweetId: tweet.tweet_id,
-          });
-
-          // Try to update the status separately to indicate an error
-          try {
+            // Update tweet status to analyzed using Twitter's ID
             await tweetQueries.updateTweetStatus(
-              tweet.tweet_id,
-              'error',
-              `Analysis error: ${txError instanceof Error ? txError.message : String(txError)}`,
+              processedTweet.originalTweet.tweet_id,
+              'analyzed',
+              undefined,
+              client,
             );
-          } catch (statusError) {
-            elizaLogger.error(
-              `${logPrefix} Could not update error status:`,
-              statusError,
+
+            // Update topic weights with the new analysis
+            const allTopics = [
+              ...(analysis.contentAnalysis.primaryTopics || []),
+              ...(analysis.contentAnalysis.secondaryTopics || []),
+            ];
+
+            await updateTopicWeights(
+              allTopics,
+              analysis,
+              processedTweet.originalTweet,
+              logPrefix,
             );
+
+            // Process mentions from the merged tweet and add to target accounts, including topic relationships
+            await storeAccountInfo(
+              processedTweet.originalTweet,
+              twitterService,
+              allTopics,
+            );
+
+            // Extract and store knowledge from tweet analysis
+            try {
+              await extractAndStoreKnowledge(
+                runtime,
+                processedTweet.originalTweet,
+                analysis,
+                `${logPrefix} [Knowledge]`,
+              );
+              elizaLogger.info(
+                `${logPrefix} Successfully extracted knowledge from tweet ${processedTweet.originalTweet.tweet_id}`,
+              );
+            } catch (knowledgeError) {
+              // Log but don't fail the whole process
+              elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
+                error:
+                  knowledgeError instanceof Error
+                    ? knowledgeError.message
+                    : String(knowledgeError),
+                tweetId: processedTweet.originalTweet.tweet_id,
+              });
+            }
+
+            elizaLogger.info(
+              `${logPrefix} Successfully processed tweet ${processedTweet.originalTweet.tweet_id}`,
+              {
+                analysisId: analysisId.toString(),
+                tweetId: processedTweet.originalTweet.tweet_id,
+              },
+            );
+          } catch (innerError) {
+            elizaLogger.error(`${logPrefix} Error in transaction:`, {
+              error:
+                innerError instanceof Error
+                  ? innerError.message
+                  : String(innerError),
+              tweetId: processedTweet.originalTweet.tweet_id,
+              phase: 'analysis_insertion',
+            });
+            throw innerError; // Rethrow to trigger rollback
           }
-        }
-      } catch (aiError) {
-        elizaLogger.error(`${logPrefix} AI analysis error:`, {
-          error: aiError instanceof Error ? aiError.message : String(aiError),
-          tweetId: tweet.tweet_id,
+        });
+      } catch (txError) {
+        elizaLogger.error(`${logPrefix} Transaction failed:`, {
+          error: txError instanceof Error ? txError.message : String(txError),
+          tweetId: processedTweet.originalTweet.tweet_id,
         });
 
-        // Update tweet status to indicate AI error
-        await tweetQueries.updateTweetStatus(
-          tweet.tweet_id,
-          'error',
-          `AI analysis error: ${aiError instanceof Error ? aiError.message : String(aiError)}`,
-        );
+        // Try to update the status separately to indicate an error
+        try {
+          await tweetQueries.updateTweetStatus(
+            processedTweet.originalTweet.tweet_id,
+            'error',
+            `Analysis error: ${txError instanceof Error ? txError.message : String(txError)}`,
+          );
+        } catch (statusError) {
+          elizaLogger.error(
+            `${logPrefix} Could not update error status:`,
+            statusError,
+          );
+        }
       }
     } catch (contextError) {
       elizaLogger.error(`${logPrefix} Error preparing context:`, {
@@ -450,12 +422,12 @@ export async function processSingleTweet(
           contextError instanceof Error
             ? contextError.message
             : String(contextError),
-        tweetId: tweet.tweet_id,
+        tweetId: processedTweet.originalTweet.tweet_id,
       });
 
       // Update tweet status to indicate context error
       await tweetQueries.updateTweetStatus(
-        tweet.tweet_id,
+        processedTweet.originalTweet.tweet_id,
         'error',
         `Context error: ${contextError instanceof Error ? contextError.message : String(contextError)}`,
       );
@@ -465,5 +437,19 @@ export async function processSingleTweet(
       `${logPrefix} Error processing tweet:`,
       error instanceof Error ? error.message : String(error),
     );
+
+    // Try to update the status separately to indicate an error
+    try {
+      await tweetQueries.updateTweetStatus(
+        processedTweet.originalTweet.tweet_id,
+        'error',
+        `Processing error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } catch (statusError) {
+      elizaLogger.error(
+        `${logPrefix} Could not update error status:`,
+        statusError,
+      );
+    }
   }
 }

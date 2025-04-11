@@ -46,6 +46,53 @@ export class TwitterService {
     return this.authService.getProfile();
   }
 
+  public async getUserProfile(
+    username: string,
+  ): Promise<TwitterProfile | undefined> {
+    try {
+      const twitterProfile = await this.authService
+        .getClient()
+        .getProfile(username);
+      if (!twitterProfile) {
+        return undefined;
+      }
+
+      const profile: TwitterProfile = {
+        userId: twitterProfile.userId,
+        username: username,
+        displayName: twitterProfile.name || '',
+        description: twitterProfile.biography || '',
+        followersCount: twitterProfile.followersCount || 0,
+        followingCount: twitterProfile.followingCount || 0,
+        friendsCount: twitterProfile.friendsCount || 0,
+        mediaCount: twitterProfile.mediaCount || 0,
+        statusesCount: twitterProfile.statusesCount || 0,
+        likesCount: twitterProfile.likesCount || 0,
+        listedCount: twitterProfile.listedCount || 0,
+        tweetsCount: twitterProfile.tweetsCount || 0,
+        isPrivate: twitterProfile.isPrivate || false,
+        isVerified: twitterProfile.isVerified || false,
+        isBlueVerified: twitterProfile.isBlueVerified || false,
+        joinedAt: twitterProfile.joined
+          ? new Date(twitterProfile.joined)
+          : null,
+        location: twitterProfile.location || '',
+        avatarUrl: twitterProfile.avatar || null,
+        bannerUrl: twitterProfile.banner || null,
+        websiteUrl: twitterProfile.website || null,
+        canDm: twitterProfile.canDm || false,
+      };
+
+      return profile;
+    } catch (error) {
+      elizaLogger.error('[TwitterService] Error fetching Twitter profile:', {
+        error: error instanceof Error ? error.message : String(error),
+        username,
+      });
+      return undefined;
+    }
+  }
+
   public async searchTweets(
     query: string,
     maxTweets: number,
@@ -58,7 +105,6 @@ export class TwitterService {
     spammedTweets: number;
     spamUsers: Set<string>;
   }> {
-    elizaLogger.info(`${context} Searching tweets for query: ${query}`);
     elizaLogger.debug({
       maxTweets,
       searchMode,
@@ -74,7 +120,7 @@ export class TwitterService {
     );
 
     if (!searchResults.tweets.length) {
-      elizaLogger.info(`${context} No tweets found for query`, {
+      elizaLogger.warn(`${context} No tweets found for query`, {
         context,
         query,
       });
@@ -123,9 +169,12 @@ export class TwitterService {
 
     // Fetch from Twitter if not cached
     const tweet = await this.requestService.getTweet(tweetId);
-    if (tweet) {
-      await this.cacheService.cacheTweet(tweet);
+    if (!tweet) {
+      return undefined;
     }
+
+    // Cache the tweet
+    await this.cacheService.cacheTweet(tweet);
     return tweet;
   }
 

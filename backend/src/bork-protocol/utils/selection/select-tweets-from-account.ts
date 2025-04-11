@@ -1,12 +1,11 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
-import { mapTweet } from '@/mappers/tweet-mapper';
+import { mapApiTweet } from '@/mappers/tweet-mapper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TargetAccount } from '@/types/account';
 import type { TwitterConfig } from '@/types/config';
 import type { TweetSelectionResult } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Selects tweets from target accounts based on engagement criteria
@@ -85,11 +84,7 @@ export async function selectTweetsFromAccounts(
       }
 
       // Map tweets to ensure all fields have default values
-      const mappedTweets = unprocessedTweets.map((tweet) => ({
-        ...mapTweet(tweet),
-        id: uuidv4(), // Generate a UUID for our database
-        tweet_id: tweet.id, // Keep Twitter's ID
-      }));
+      const mappedTweets = unprocessedTweets.map((tweet) => mapApiTweet(tweet));
 
       // Collect most recent tweets that meet engagement criteria
       let processedCount = 0;

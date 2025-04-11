@@ -1,7 +1,10 @@
 import { accountTopicQueries, tweetQueries } from '@/extensions/src/db/queries';
+import { mapTopicWeightsByRelationship } from '@/mappers/topic-weights';
+import { mapTopicWeightRowToTopicWeight } from '@/mappers/topic-weights';
 import type { TargetAccount, WeightedAccount } from '@/types/account';
 import type { TwitterConfig } from '@/types/config';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { getEnv } from '../../../config/env';
 import { updateYapsData } from '../account-metrics/yaps';
 import { getAggregatedTopicWeights } from '../topic-weights/topics';
 import { analyzeTopicRelationships } from './analyze-topic-relationships';
@@ -47,27 +50,42 @@ function selectAccountsWithWeights(
  * @param config - Twitter configuration
  * @param timeframeHours - Number of hours to look back for topic weights
  * @param preferredTopic - Optional topic to bias selection towards related topics
+ * @param topicWeightRows - Optional topic weight rows to use instead of fetching them internally
  * @returns Array of selected target accounts
  */
 export async function selectTargetAccounts(
   runtime: IAgentRuntime,
   config: TwitterConfig,
-  timeframeHours = 24,
   preferredTopic?: string,
 ): Promise<TargetAccount[]> {
   try {
-    // Check if target accounts exist
+    const env = getEnv();
+
+    // Get topic weights once at the start
+    const topicWeightRows = await getAggregatedTopicWeights(
+      env.SEARCH_TIMEFRAME_HOURS,
+    );
+
+    if (topicWeightRows.length === 0) {
+      elizaLogger.warn('[TwitterAccounts] No topic weights provided');
+      return [];
+    }
+
+    // Get target accounts first
     const targetAccounts = await tweetQueries.getTargetAccounts();
-    if (!targetAccounts.length) {
+    if (targetAccounts.length === 0) {
       elizaLogger.warn('[TwitterAccounts] No target accounts found');
       return [];
     }
 
-    // Get topic weights and analyze relationships
-    const topicWeights = await getAggregatedTopicWeights(timeframeHours);
-    let relevantTopics = topicWeights;
+    let accountsWithTopics: TargetAccount[] = [];
 
-    if (preferredTopic && topicWeights.length > 0) {
+    // Only process topic relationships if we have a preferred topic
+    if (preferredTopic) {
+      // Convert rows to TopicWeight format for processing
+      const topicWeights = topicWeightRows.map(mapTopicWeightRowToTopicWeight);
+      let relevantTopics = topicWeights;
+
       try {
         const analysis = await analyzeTopicRelationships(
           runtime,
@@ -75,74 +93,75 @@ export async function selectTargetAccounts(
           preferredTopic,
         );
 
-        // Filter and adjust topic weights based on relationships
-        relevantTopics = topicWeights
-          .map((tw) => {
-            const relationship = analysis.relatedTopics.find(
-              (r) => r.topic === tw.topic,
+        // Use mapper to adjust weights based on relationships
+        relevantTopics = mapTopicWeightsByRelationship(topicWeights, analysis);
+
+        if (relevantTopics.length === 0) {
+          elizaLogger.warn(
+            '[TwitterAccounts] No topics found related to preferred topic',
+            { preferredTopic },
+          );
+          return [];
+        }
+
+        // Get accounts associated with relevant topics and build a map of account weights
+        const topicBasedAccounts = new Map<string, number>(); // username -> weight
+        const accountTopicMentions = new Map<string, number>(); // username -> total mentions across topics
+
+        // Fetch accounts only for relevant topics
+        const relevantTopicNames = relevantTopics.map((topic) => topic.topic);
+        const accountPromises = relevantTopicNames.map(async (topic) => {
+          const accounts = await accountTopicQueries.getTopicAccounts(topic);
+          return { topic, accounts };
+        });
+
+        const accountResults = await Promise.all(accountPromises);
+
+        // Process accounts and their weights
+        for (const { topic, accounts } of accountResults) {
+          const topicWeight =
+            relevantTopics.find((t) => t.topic === topic)?.weight || 0;
+
+          for (const account of accounts) {
+            const currentWeight = topicBasedAccounts.get(account.username) || 0;
+            const currentMentions =
+              accountTopicMentions.get(account.username) || 0;
+
+            topicBasedAccounts.set(
+              account.username,
+              currentWeight + (topicWeight * account.mentionCount) / 10,
             );
+            accountTopicMentions.set(
+              account.username,
+              currentMentions + account.mentionCount,
+            );
+          }
+        }
 
-            if (
-              !relationship ||
-              relationship.relevanceScore < 0.4 ||
-              relationship.relationshipType === 'none'
-            ) {
-              return { ...tw, weight: 0 };
-            }
-
-            return {
-              ...tw,
-              weight:
-                tw.weight * 0.3 +
-                relationship.relevanceScore * 0.5 +
-                analysis.analysisMetadata.confidence * 0.2,
-            };
-          })
-          .filter((tw) => tw.weight > 0);
+        // Filter target accounts to only those with topic relationships
+        accountsWithTopics = targetAccounts.filter((account) =>
+          accountTopicMentions.has(account.username),
+        );
       } catch (error) {
         elizaLogger.warn(
-          '[TwitterAccounts] Error in topic relationship analysis, using original weights:',
+          '[TwitterAccounts] Error in topic relationship analysis, using all target accounts:',
           {
             error: error instanceof Error ? error.message : String(error),
           },
         );
+        accountsWithTopics = targetAccounts;
       }
+    } else {
+      // If no preferred topic, use all target accounts
+      accountsWithTopics = targetAccounts;
     }
-
-    // Get accounts associated with relevant topics and build a map of account weights
-    const topicBasedAccounts = new Map<string, number>(); // username -> weight
-    const accountTopicMentions = new Map<string, number>(); // username -> total mentions across topics
-
-    for (const topic of relevantTopics) {
-      const accounts = await accountTopicQueries.getTopicAccounts(topic.topic);
-      for (const account of accounts) {
-        const currentWeight = topicBasedAccounts.get(account.username) || 0;
-        const currentMentions = accountTopicMentions.get(account.username) || 0;
-
-        topicBasedAccounts.set(
-          account.username,
-          currentWeight + (topic.weight * account.mentionCount) / 10,
-        );
-        accountTopicMentions.set(
-          account.username,
-          currentMentions + account.mentionCount,
-        );
-      }
-    }
-
-    // Filter target accounts to only those with topic relationships
-    const accountsWithTopics = targetAccounts.filter((account) =>
-      accountTopicMentions.has(account.username),
-    );
 
     if (accountsWithTopics.length === 0) {
-      elizaLogger.warn(
-        '[TwitterAccounts] No accounts found with relevant topic relationships',
-      );
+      elizaLogger.warn('[TwitterAccounts] No accounts available for selection');
       return [];
     }
 
-    // Get yaps data for filtered accounts
+    // Get yaps data for accounts
     const userIds = accountsWithTopics.map((account) => account.userId);
     const yapsData = await tweetQueries.getYapsForAccounts(userIds);
 
@@ -162,24 +181,20 @@ export async function selectTargetAccounts(
         const accountYaps = yapsData.find(
           (yaps) => yaps.userId === account.userId,
         );
-        const topicWeight = topicBasedAccounts.get(account.username) || 0;
         const yapsWeight = 1 + (accountYaps?.yapsL24h || 0);
-        // Combine yaps weight with topic weight
         return {
           account,
-          weight: yapsWeight * (0.7 + topicWeight * 0.3), // Scale yaps weight by topic relevance
+          weight: yapsWeight,
         };
       },
     );
 
     const influenceWeighted: WeightedAccount[] = accountsWithTopics.map(
       (account) => {
-        const topicWeight = topicBasedAccounts.get(account.username) || 0;
         const influenceWeight = 1 + account.influenceScore / 100;
-        // Combine influence weight with topic weight
         return {
           account,
-          weight: influenceWeight * (0.7 + topicWeight * 0.3), // Scale influence weight by topic relevance
+          weight: influenceWeight,
         };
       },
     );
@@ -207,7 +222,7 @@ export async function selectTargetAccounts(
     elizaLogger.info(
       `[TwitterAccounts] Selected ${accountsToProcess.length} accounts ` +
         `(${yapsSelected.length} by yaps, ${influenceSelected.length} by influence) ` +
-        `from ${accountsWithTopics.length} topic-relevant accounts out of ${targetAccounts.length} total accounts. ` +
+        `from ${accountsWithTopics.length} accounts. ` +
         `Config limit: ${config.search.tweetLimits.accountsToProcess}. ` +
         `Selected: ${accountsToProcess.map((a) => a.username).join(', ')}`,
     );

@@ -1,10 +1,12 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TopicWeightRow } from '@/types/topic';
+import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
 import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import type { IAgentRuntime } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
+import { getEnv } from '../../../config/env';
 
 interface QueuedTweet {
   tweet: Tweet;
@@ -75,24 +77,18 @@ export class TweetQueueService {
 
   private async processTweetsLoop(): Promise<void> {
     try {
-      // Get topic weights for processing
-      const topicWeights = await tweetQueries.getTopicWeights();
-      if (topicWeights.length === 0) {
-        elizaLogger.error(
-          '[TweetQueueService] No topic weights found - skipping processing',
-        );
-        return;
-      }
+      const env = getEnv();
 
-      elizaLogger.debug(
-        `[TweetQueueService] Found ${topicWeights.length} topic weights for processing`,
+      // Get topic weights once at the start
+      const topicWeightRows = await getAggregatedTopicWeights(
+        env.SEARCH_TIMEFRAME_HOURS,
       );
 
       // Get next batch of tweets
       const tweets = await this.getNextBatch();
       if (tweets.length > 0) {
         this.setProcessing(true);
-        await this.processBatch(tweets, topicWeights);
+        await this.processBatch(tweets, topicWeightRows);
         this.setProcessing(false);
       }
     } catch (error) {

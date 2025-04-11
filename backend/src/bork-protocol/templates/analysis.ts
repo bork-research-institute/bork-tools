@@ -16,6 +16,12 @@ interface TweetAnalysisTemplateInput {
   threadSize?: number;
   originalText?: string;
   modelClass?: ModelClass;
+  structuredContent?: {
+    mainTweet: string;
+    replies: Array<{ text: string; username: string }>;
+    quotes: Array<{ text: string; username: string }>;
+    retweets: Array<{ text: string; username: string }>;
+  };
 }
 
 export function tweetAnalysisTemplate(input: TweetAnalysisTemplateInput) {
@@ -26,26 +32,47 @@ export function tweetAnalysisTemplate(input: TweetAnalysisTemplateInput) {
     isThreadMerged,
     threadSize,
     originalText,
+    structuredContent,
   } = input;
 
-  return {
-    context: `# Task: Analyze Tweet Content
-You are a PhD-level expert in social media marketing and AI prompt engineering with a deep understanding of Twitter engagement patterns and content effectiveness.
+  // Format the content in a more structured way for the template
+  let formattedContent = text;
+  if (structuredContent) {
+    formattedContent = [
+      structuredContent.mainTweet,
+      ...structuredContent.replies.map(
+        (r) => `${r.text}\n(Reply by @${r.username})`,
+      ),
+      ...structuredContent.quotes.map(
+        (q) => `${q.text}\n(Quote by @${q.username})`,
+      ),
+      ...structuredContent.retweets.map(
+        (rt) => `${rt.text}\n(Retweet by @${rt.username})`,
+      ),
+    ].join('\n\n');
+  }
 
-# Content to Analyze
-Tweet${isThreadMerged ? ' Thread' : ''}:
-${text}
+  const context = `You are analyzing the following ${isThreadMerged ? 'thread' : 'tweet'}${threadSize && threadSize > 1 ? ` with ${threadSize} parts` : ''}:
 
-${isThreadMerged ? `\nThread Context: This is a merged thread of ${threadSize} tweets. Original first tweet was: "${originalText}"` : ''}
+Content:
+${formattedContent}
 
-# Metrics
-Public Engagement:
+${originalText !== text ? `Original Tweet:\n${originalText}\n\n` : ''}
+Engagement Metrics:
 - Likes: ${public_metrics.like_count}
 - Retweets: ${public_metrics.retweet_count}
 - Replies: ${public_metrics.reply_count}
 
-Topics of Interest (with weights):
-${topicWeights.map((tw) => `- ${tw.topic} (${tw.weight})`).join('\n')}
+Topic Weights:
+${topicWeights.map((tw) => `- ${tw.topic}: ${tw.weight}`).join('\n')}
+
+Please analyze this ${isThreadMerged ? 'thread' : 'tweet'} and provide a detailed analysis following the schema.`;
+
+  return {
+    context: `${context}
+
+# Task: Analyze Tweet Content
+You are a PhD-level expert in social media marketing and AI prompt engineering with a deep understanding of Twitter engagement patterns and content effectiveness.
 
 # Scoring Guidelines
 All numeric scores should be between 0 and 1, interpreted as follows:

@@ -1,6 +1,6 @@
 import { tweetQueries } from '@/extensions/src/db/queries';
 import type { TargetAccount } from '@/types/account';
-import type { DatabaseTweet } from '@/types/twitter';
+import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 
 /**
@@ -111,28 +111,37 @@ async function updateAccountEngagementMetrics(
 }
 
 /**
- * Updates metrics for all tweet authors
+ * Updates metrics for all tweet authors in a tweet chain
  */
 export async function updateMetricsForAuthors(
-  tweets: DatabaseTweet[],
+  processedTweet: TweetWithUpstream,
   context = '[TwitterAccounts]',
 ): Promise<void> {
   try {
-    elizaLogger.info(
-      `${context} Starting metrics update for ${tweets.length} tweets`,
-    );
+    // Collect all related tweets
+    const allRelatedTweets = [
+      processedTweet.originalTweet,
+      ...processedTweet.upstreamTweets.inReplyChain,
+      ...processedTweet.upstreamTweets.quotedTweets,
+      ...processedTweet.upstreamTweets.retweetedTweets,
+    ];
 
-    // Group tweets by author
+    elizaLogger.info(`${context} Updating influence scores for tweet authors`);
+
+    // Group tweets by author, filtering out any invalid tweets
     const tweetsByAuthor = new Map<string, DatabaseTweet[]>();
-    for (const tweet of tweets) {
+    for (const tweet of allRelatedTweets) {
+      if (!tweet.username) {
+        elizaLogger.warn(`${context} Found tweet without username, skipping`, {
+          tweetId: tweet.tweet_id,
+        });
+        continue;
+      }
       const authorTweets = tweetsByAuthor.get(tweet.username) || [];
       authorTweets.push(tweet);
       tweetsByAuthor.set(tweet.username, authorTweets);
     }
 
-    elizaLogger.info(
-      `${context} Grouped tweets by ${tweetsByAuthor.size} unique authors`,
-    );
     elizaLogger.debug({
       authorCounts: Array.from(tweetsByAuthor.entries()).map(
         ([username, tweets]) => ({
@@ -143,10 +152,8 @@ export async function updateMetricsForAuthors(
     });
 
     // Get all target accounts once
+    // TODO: is it necessary to get all target accounts? fix
     const accounts = await tweetQueries.getTargetAccounts();
-    elizaLogger.info(
-      `${context} Retrieved ${accounts.length} target accounts from database`,
-    );
 
     // Process each author's tweets
     let processedAuthors = 0;
@@ -183,7 +190,6 @@ export async function updateMetricsForAuthors(
       }
     }
 
-    elizaLogger.info(`${context} Completed metrics update processing`);
     elizaLogger.debug({
       totalAuthors: tweetsByAuthor.size,
       processedAuthors,

@@ -15,19 +15,10 @@ export const topicRelationshipSchema = z.object({
         'weak',
         'none',
       ]),
-      explanation: z.string().min(1),
-      examples: z.array(z.string()).min(1),
-      synergiesAndConflicts: z.object({
-        synergies: z.array(z.string()),
-        conflicts: z.array(z.string()),
-      }),
     }),
   ),
   analysisMetadata: z.object({
     confidence: z.number().min(0).max(1),
-    analysisTimestamp: z.string(),
-    analysisFactors: z.array(z.string()),
-    limitations: z.array(z.string()).optional(),
   }),
 });
 
