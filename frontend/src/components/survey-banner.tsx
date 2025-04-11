@@ -20,7 +20,7 @@ export function SurveyBanner() {
             We're running a survey to improve Eggsight!
           </span>
           <Link
-            href="/survey"
+            href="https://tally.so/r/mRr0aP"
             className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
           >
             Share your feedback →
