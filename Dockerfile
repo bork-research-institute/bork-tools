@@ -16,20 +16,16 @@ RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify versions
-RUN echo "Node version: $(node --version)" && echo "Bun version: $(bun --version)"
-
 # Copy all package files to satisfy workspace requirements
 COPY package.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 # Install only backend dependencies
-RUN bun install --filter "backend" --filter "!frontend"
+RUN bun install --filter "!frontend"
 
 # Copy only the backend code
 COPY backend ./backend/
-COPY .env.keys /app/.env.keys
 
 # Set working directory to backend for build and run
 WORKDIR /app
