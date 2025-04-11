@@ -6,6 +6,8 @@
     "frontend:dev": "bun run --cwd frontend dev",
     "frontend:build": "bun run --cwd frontend build",
     "backend:dev": "bun run --cwd backend dev",
+    "backend:build": "bun run --cwd backend build",
+    "backend:start": "bun run --cwd backend start",
     "backend:test": "bun run --cwd backend test:watch",
     "install:all": "bun install",
     "install:frontend": "bun install --cwd frontend",
@@ -17,6 +19,6 @@
     "@dotenvx/dotenvx": "^1.39.0",
     "@mermaid-js/mermaid-cli": "^11.4.2",
     "@types/bun": "latest",
-    "typescript": "^5"
+    "typescript": "^5",
   }
 }

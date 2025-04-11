@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const METADATA: Metadata = {
-  title: 'Trench Medic',
+  title: 'eggsight',
   description:
     'social media and on-chain analysis tools - powered by the bork research institute',
 };
