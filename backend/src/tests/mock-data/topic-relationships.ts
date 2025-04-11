@@ -50,10 +50,5 @@ export const mockTopicRelationships: TopicRelationshipAnalysis = {
   ],
   analysisMetadata: {
     confidence: 0.85,
-    analysisFactors: [
-      'Industry trends',
-      'Recent market developments',
-      'Historical data on crypto-related topics',
-    ],
   },
 };
