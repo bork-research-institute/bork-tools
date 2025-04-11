@@ -53,6 +53,8 @@ interface TreemapData {
 
 interface InfoAreaProps {
   data: TreemapData | null;
+  timeFrame: string;
+  onClose: () => void;
 }
 
 const timeFrameOptions = [
@@ -106,7 +108,7 @@ const engagementMetrics = {
   impressions: { icon: Eye, label: 'Impressions' },
 } as const;
 
-function InfoArea({ data, onClose }: InfoAreaProps & { onClose: () => void }) {
+function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   if (!data) {
     return (
       <div className="h-[48px] rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-sm">
@@ -158,21 +160,36 @@ function InfoArea({ data, onClose }: InfoAreaProps & { onClose: () => void }) {
               tooltip="Mindshare: Percentage of total engagement across all topics"
               className={getBrainColor(data.percentage)}
             />
-            <div className="flex items-center gap-1">
-              {getChangeIcon(data.percentage_change)}
-              <span
-                className={cn(
-                  'text-xs',
-                  Math.abs(data.percentage_change) < 0.1
-                    ? 'text-white/60'
-                    : data.percentage_change > 0
-                      ? 'text-green-400'
-                      : 'text-red-400',
-                )}
-              >
-                {`${data.percentage_change >= 0 ? '+' : ''}${data.percentage_change.toFixed(1)}%`}
-              </span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild={true}>
+                  <div className="flex items-center gap-1 cursor-help">
+                    {getChangeIcon(data.percentage_change)}
+                    <span
+                      className={cn(
+                        'text-xs',
+                        Math.abs(data.percentage_change) < 0.1
+                          ? 'text-white/60'
+                          : data.percentage_change > 0
+                            ? 'text-green-400'
+                            : 'text-red-400',
+                      )}
+                    >
+                      {`${data.percentage_change >= 0 ? '+' : ''}${data.percentage_change.toFixed(1)}%`}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="bg-black/90 backdrop-blur-sm border-white/10 text-white"
+                  sideOffset={4}
+                >
+                  <p className="text-xs text-white">
+                    {`Change in mindshare over the ${timeFrameOptions.find((opt) => opt.value === timeFrame)?.label.toLowerCase() || timeFrame}`}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         <button
@@ -335,6 +352,10 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   };
 
   const renderMetrics = (data: TreemapData, showEngagement = true) => {
+    const timeframeLabel =
+      timeFrameOptions
+        .find((opt) => opt.value === timeFrame)
+        ?.label.toLowerCase() || timeFrame;
     return (
       <>
         <MetricWithTooltip
@@ -369,11 +390,11 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         <MetricWithTooltip
           icon={Brain}
           value={`${data.percentage_change >= 0 ? '+' : ''}${data.percentage_change.toFixed(1)}%`}
-          tooltip="Change in topic weight compared to previous period"
+          tooltip={`Change in mindshare over the ${timeframeLabel}`}
           className={cn(
             'text-xs',
             Math.abs(data.percentage_change) < 0.1
-              ? 'text-white/60' // Grey for no change
+              ? 'text-white/60'
               : data.percentage_change > 0
                 ? 'text-green-400'
                 : 'text-red-400',
@@ -427,7 +448,11 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           </Select>
         </div>
 
-        <InfoArea data={selectedData} onClose={() => setSelectedData(null)} />
+        <InfoArea
+          data={selectedData}
+          timeFrame={timeFrame}
+          onClose={() => setSelectedData(null)}
+        />
 
         <div
           className="relative w-full h-full"
