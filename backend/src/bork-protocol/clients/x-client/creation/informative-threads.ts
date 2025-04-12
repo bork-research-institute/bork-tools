@@ -1,6 +1,7 @@
+import { CONTENT_CREATION } from '@/config/creation';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { HypothesisResponse } from '@/types/response/hypothesis';
+import type { HypothesisResponse } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 
@@ -11,7 +12,7 @@ export class InformativeThreadsClient {
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentHypothesis: HypothesisResponse | null = null;
   private lastHypothesisGeneration = 0;
-  private readonly HYPOTHESIS_REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private lastContentGeneration = 0;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
     this.twitterService = twitterService;
@@ -42,7 +43,26 @@ export class InformativeThreadsClient {
 
   private async contentGenerationLoop() {
     try {
-      await this.generateAndProcessContent();
+      const now = Date.now();
+      const timeSinceLastGeneration = now - this.lastContentGeneration;
+
+      // Only generate content if it's been 24 hours since the last generation
+      if (
+        timeSinceLastGeneration >= CONTENT_CREATION.CONTENT_GENERATION_INTERVAL
+      ) {
+        await this.generateAndProcessContent();
+        this.lastContentGeneration = now;
+      } else {
+        elizaLogger.debug(
+          '[InformativeThreads] Skipping content generation, not enough time has passed',
+          {
+            timeSinceLastGeneration,
+            nextGenerationIn:
+              CONTENT_CREATION.CONTENT_GENERATION_INTERVAL -
+              timeSinceLastGeneration,
+          },
+        );
+      }
     } catch (error) {
       elizaLogger.error(
         '[InformativeThreads] Error in content generation loop:',
@@ -50,11 +70,11 @@ export class InformativeThreadsClient {
       );
     }
 
-    // Schedule next run
+    // Schedule next check
     this.monitoringTimeout = setTimeout(
       () => this.contentGenerationLoop(),
-      Number(this.runtime.getSetting('CONTENT_GENERATION_INTERVAL') || 3600) *
-        1000, // Default 1 hour
+      // Check every hour if it's time to generate content
+      CONTENT_CREATION.CONTENT_GENERATION_INTERVAL / 24,
     );
   }
 
@@ -66,39 +86,32 @@ export class InformativeThreadsClient {
       const now = Date.now();
       if (
         !this.currentHypothesis ||
-        now - this.lastHypothesisGeneration > this.HYPOTHESIS_REFRESH_INTERVAL
+        now - this.lastHypothesisGeneration >
+          CONTENT_CREATION.HYPOTHESIS_REFRESH_INTERVAL
       ) {
         elizaLogger.info('[InformativeThreads] Generating new hypothesis...');
         this.currentHypothesis = await generateHypothesis(this.runtime);
         this.lastHypothesisGeneration = now;
 
         elizaLogger.info('[InformativeThreads] New hypothesis generated', {
-          numProjects: this.currentHypothesis.hypotheses.length,
-          recommendedFrequency:
-            this.currentHypothesis.overallStrategy.recommendedFrequency,
+          numTopics: this.currentHypothesis.selectedTopics.length,
+          topics: this.currentHypothesis.selectedTopics.map(
+            (t) => t.primaryTopic,
+          ),
         });
       }
 
-      // Process each hypothesis project
-      for (const project of this.currentHypothesis.hypotheses) {
-        elizaLogger.info('[InformativeThreads] Processing project', {
-          projectName: project.projectName,
-          primaryTopic: project.primaryTopic,
-          format: project.contentStrategy.format,
-        });
-
-        // TODO: Implement content generation for each project
-        // This will involve:
-        // 1. Generating thread content based on project specifications
-        // 2. Creating images/media if needed
-        // 3. Scheduling posts according to recommendedFrequency
-        // 4. Tracking performance metrics against successMetrics
-      }
+      // TODO: Implement content generation for each topic
+      // This will involve:
+      // 1. Using the topic.relevantKnowledge to generate thread content
+      // 2. Creating images/media if needed (CONTENT_CREATION.SHOULD_GENERATE_MEDIA)
+      // 3. Scheduling posts according to CONTENT_CREATION.OPTIMAL_POSTING_TIMES
+      // 4. Tracking performance metrics against CONTENT_CREATION.ENGAGEMENT_THRESHOLDS
 
       // TODO: Implement project success tracking
       // This will involve:
-      // 1. Tracking engagement metrics for published content
-      // 2. Comparing against successMetrics
+      // 1. Tracking engagement metrics at CONTENT_CREATION.PERFORMANCE_CHECK_INTERVALS
+      // 2. Comparing against CONTENT_CREATION.ENGAGEMENT_THRESHOLDS
       // 3. Adjusting strategy based on performance
       // 4. Updating hypothesis if needed
 

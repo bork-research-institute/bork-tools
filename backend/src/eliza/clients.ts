@@ -1,5 +1,5 @@
-import { startInjectiveClient } from '@/research-clients/injective-client';
-import { startTwitterClient } from '@/research-clients/x-client';
+import { startInjectiveClient } from '@/clients/injective-client';
+import { startTwitterClient } from '@/clients/x-client';
 import type { Character, ClientInstance, IAgentRuntime } from '@elizaos/core';
 
 export async function initializeClients(

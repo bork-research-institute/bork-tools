@@ -1,7 +1,5 @@
 import { tweetQueries } from '@/db/queries';
 import { hypothesisTemplate } from '@/templates/hypothesis';
-import type { HypothesisResponse } from '@/types/response/hypothesis';
-import { hypothesisResponseSchema } from '@/types/response/hypothesis';
 import { fetchTopicKnowledge } from '@/utils/knowledge/fetch-topic-knowledge';
 import {
   type IAgentRuntime,
@@ -10,18 +8,48 @@ import {
   elizaLogger,
   generateObject,
 } from '@elizaos/core';
+import { z } from 'zod';
+
+interface LessonLearned {
+  topic: string;
+  whatWorked: string[];
+  whatDidntWork: string[];
+}
+
+// Define the schema for the hypothesis response
+const relevantKnowledgeSchema = z.object({
+  content: z.string(),
+  type: z.string(),
+  useCase: z.string(),
+});
+
+const selectedTopicSchema = z.object({
+  primaryTopic: z.string(),
+  relatedTopics: z.array(z.string()),
+  relevantKnowledge: z.array(relevantKnowledgeSchema),
+  threadIdea: z.string(),
+  uniqueAngle: z.string(),
+  estimatedLength: z.number().min(1),
+});
+
+const hypothesisResponseSchema = z.object({
+  selectedTopics: z.array(selectedTopicSchema),
+});
+
+type HypothesisResponse = z.infer<typeof hypothesisResponseSchema>;
 
 /**
- * Generates hypotheses for growing the X account based on topic performance and knowledge
+ * Generates topic and knowledge suggestions for thread creation
  */
 export async function generateHypothesis(
   runtime: IAgentRuntime,
   timeframeHours = 24,
+  lessonsLearned: LessonLearned[] = [],
   logPrefix = '[Hypothesis Generation]',
 ): Promise<HypothesisResponse> {
   try {
     elizaLogger.info(
-      `${logPrefix} Starting hypothesis generation for the last ${timeframeHours} hours`,
+      `${logPrefix} Starting topic selection for the last ${timeframeHours} hours`,
     );
 
     // Get recent topic weights
@@ -50,24 +78,24 @@ export async function generateHypothesis(
       `${logPrefix} Found ${allKnowledge.length} total knowledge items`,
     );
 
-    // Get current account metrics (these would come from your Twitter service)
-    // For now using placeholder values - you'll need to implement this
-    const currentMetrics = {
-      followers: 1000, // Replace with actual follower count
-      averageImpressions: 5000, // Replace with actual average impressions
-      engagementRate: 0.02, // Replace with actual engagement rate
-    };
+    // Log lessons learned if available
+    if (lessonsLearned.length > 0) {
+      elizaLogger.info(
+        `${logPrefix} Incorporating ${lessonsLearned.length} lessons learned`,
+        {
+          topics: lessonsLearned.map((l) => l.topic),
+        },
+      );
+    }
 
     // Create the template
     const template = hypothesisTemplate({
       topicWeights,
       topicKnowledge: allKnowledge,
-      currentFollowers: currentMetrics.followers,
-      averageImpressions: currentMetrics.averageImpressions,
-      engagementRate: currentMetrics.engagementRate,
+      lessonsLearned,
     });
 
-    // Generate hypothesis using the AI
+    // Generate topic suggestions using the AI
     const { object } = await generateObject({
       runtime,
       context: template.context,
@@ -77,16 +105,22 @@ export async function generateHypothesis(
 
     const hypothesis = object as HypothesisResponse;
 
-    elizaLogger.info(`${logPrefix} Successfully generated hypothesis`, {
-      numHypotheses: hypothesis.hypotheses.length,
-      topicDistribution: hypothesis.overallStrategy.topicDistribution.length,
+    elizaLogger.info(`${logPrefix} Successfully selected topics for threads`, {
+      numTopics: hypothesis.selectedTopics.length,
+      topics: hypothesis.selectedTopics.map((t) => t.primaryTopic),
+      totalKnowledgeItems: hypothesis.selectedTopics.reduce(
+        (sum, t) => sum + t.relevantKnowledge.length,
+        0,
+      ),
     });
 
     return hypothesis;
   } catch (error) {
-    elizaLogger.error(`${logPrefix} Error generating hypothesis:`, {
+    elizaLogger.error(`${logPrefix} Error generating topic suggestions:`, {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
+
+export type { HypothesisResponse, LessonLearned };
