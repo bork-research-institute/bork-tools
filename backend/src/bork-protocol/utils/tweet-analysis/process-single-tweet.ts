@@ -152,7 +152,7 @@ export async function processSingleTweet(
       await updateUserSpamData(
         processedTweet.originalTweet.userId?.toString() || '',
         analysis.spamAnalysis.spamScore,
-        analysis.spamAnalysis.reasons,
+        [], // No more reasons array
         logPrefix,
       );
 
@@ -171,7 +171,6 @@ export async function processSingleTweet(
           {
             tweetId: processedTweet.originalTweet.tweet_id,
             spamScore: analysis.spamAnalysis.spamScore,
-            reasons: analysis.spamAnalysis.reasons,
             isThreadMerged: processedTweet.originalTweet.isThreadMerged,
             threadSize: processedTweet.originalTweet.threadSize,
           },
@@ -204,122 +203,25 @@ export async function processSingleTweet(
               analysisId,
               processedTweet.originalTweet.tweet_id,
               analysis.contentAnalysis.type,
+              analysis.contentAnalysis.format,
               analysis.contentAnalysis.sentiment,
               analysis.contentAnalysis.confidence,
-              {
-                likes: processedTweet.originalTweet.likes || 0,
-                retweets: processedTweet.originalTweet.retweets || 0,
-                replies: processedTweet.originalTweet.replies || 0,
-                spamScore: analysis.spamAnalysis.spamScore,
-                spamViolations: analysis.spamAnalysis.reasons,
-                isThreadMerged: processedTweet.originalTweet.isThreadMerged,
-                threadSize: processedTweet.originalTweet.threadSize,
-                originalTextLength:
-                  processedTweet.originalTweet.originalText.length,
-                mergedTextLength: processedTweet.originalTweet.text.length,
-                hashtagsUsed: analysis.contentAnalysis.hashtagsUsed || [],
-                engagementMetrics: analysis.contentAnalysis.engagementAnalysis,
-              },
-              // Flatten entities into a single array
-              [
-                ...(analysis.contentAnalysis.entities.people || []),
-                ...(analysis.contentAnalysis.entities.organizations || []),
-                ...(analysis.contentAnalysis.entities.products || []),
-                ...(analysis.contentAnalysis.entities.locations || []),
-                ...(analysis.contentAnalysis.entities.events || []),
-              ],
-              // Combine primary and secondary topics
-              [
-                ...(analysis.contentAnalysis.primaryTopics || []),
-                ...(analysis.contentAnalysis.secondaryTopics || []),
-              ],
-              analysis.contentAnalysis.engagementAnalysis.overallScore,
+              analysis.contentAnalysis.summary,
+              analysis.contentAnalysis.topics,
+              analysis.contentAnalysis.entities,
+              analysis.contentAnalysis.qualityMetrics.relevance,
+              analysis.contentAnalysis.qualityMetrics.originality,
+              analysis.contentAnalysis.qualityMetrics.clarity,
+              analysis.contentAnalysis.qualityMetrics.authenticity,
+              analysis.contentAnalysis.qualityMetrics.valueAdd,
+              processedTweet.originalTweet.likes || 0,
+              processedTweet.originalTweet.replies || 0,
+              processedTweet.originalTweet.retweets || 0,
               new Date(processedTweet.originalTweet.timestamp * 1000),
-              processedTweet.originalTweet.userId?.toString() || '',
-              processedTweet.originalTweet.text || '', // Use merged text
-              {
-                likes: processedTweet.originalTweet.likes || 0,
-                retweets: processedTweet.originalTweet.retweets || 0,
-                replies: processedTweet.originalTweet.replies || 0,
-              },
-              {
-                hashtags: Array.isArray(processedTweet.originalTweet.hashtags)
-                  ? processedTweet.originalTweet.hashtags
-                  : [],
-                mentions: Array.isArray(processedTweet.originalTweet.mentions)
-                  ? processedTweet.originalTweet.mentions.map((mention) => ({
-                      username: mention.username || '',
-                      id: mention.id || '',
-                    }))
-                  : [],
-                urls: Array.isArray(processedTweet.originalTweet.urls)
-                  ? processedTweet.originalTweet.urls
-                  : [],
-                topicWeights: topicWeights.map((tw) => ({
-                  topic: tw.topic,
-                  weight: tw.weight,
-                })),
-                entities: analysis.contentAnalysis.entities, // Store full entity structure
-              },
-              analysis.spamAnalysis,
-              {
-                relevance: analysis.contentAnalysis.qualityMetrics.relevance,
-                quality: analysis.contentAnalysis.qualityMetrics.clarity,
-                engagement:
-                  analysis.contentAnalysis.engagementAnalysis.overallScore,
-                authenticity:
-                  analysis.contentAnalysis.qualityMetrics.authenticity,
-                valueAdd: analysis.contentAnalysis.qualityMetrics.valueAdd,
-                callToActionEffectiveness:
-                  analysis.marketingInsights?.copywriting?.callToAction
-                    ?.effectiveness || 0,
-                trendAlignmentScore:
-                  analysis.marketingInsights?.trendAlignment?.relevanceScore ||
-                  0,
-              },
-              analysis.contentAnalysis.format,
-              // Store full marketing insights structure
-              {
-                targetAudience:
-                  analysis.marketingInsights?.targetAudience || [],
-                keyTakeaways: analysis.marketingInsights?.keyTakeaways || [],
-                contentStrategies: {
-                  whatWorked:
-                    analysis.marketingInsights?.contentStrategies?.whatWorked ||
-                    [],
-                  improvement:
-                    analysis.marketingInsights?.contentStrategies
-                      ?.improvement || [],
-                },
-                trendAlignment: {
-                  currentTrends:
-                    analysis.marketingInsights?.trendAlignment?.currentTrends ||
-                    [],
-                  emergingOpportunities:
-                    analysis.marketingInsights?.trendAlignment
-                      ?.emergingOpportunities || [],
-                  relevanceScore:
-                    analysis.marketingInsights?.trendAlignment
-                      ?.relevanceScore || 0,
-                },
-                copywriting: {
-                  effectiveElements:
-                    analysis.marketingInsights?.copywriting
-                      ?.effectiveElements || [],
-                  hooks: analysis.marketingInsights?.copywriting?.hooks || [],
-                  callToAction: {
-                    present:
-                      analysis.marketingInsights?.copywriting?.callToAction
-                        ?.present || false,
-                    type:
-                      analysis.marketingInsights?.copywriting?.callToAction
-                        ?.type || 'none',
-                    effectiveness:
-                      analysis.marketingInsights?.copywriting?.callToAction
-                        ?.effectiveness || 0,
-                  },
-                },
-              },
+              processedTweet.originalTweet.username || '',
+              analysis.marketingAnalysis.summary,
+              analysis.spamAnalysis.isSpam,
+              analysis.spamAnalysis.spamScore,
               client,
             );
 
@@ -336,13 +238,8 @@ export async function processSingleTweet(
             );
 
             // Update topic weights with the new analysis
-            const allTopics = [
-              ...(analysis.contentAnalysis.primaryTopics || []),
-              ...(analysis.contentAnalysis.secondaryTopics || []),
-            ];
-
             await updateTopicWeights(
-              allTopics,
+              analysis.contentAnalysis.topics,
               analysis,
               processedTweet.originalTweet,
               logPrefix,
@@ -352,7 +249,7 @@ export async function processSingleTweet(
             await storeAccountInfo(
               processedTweet.originalTweet,
               twitterService,
-              allTopics,
+              analysis.contentAnalysis.topics,
             );
 
             // Extract and store knowledge from tweet analysis

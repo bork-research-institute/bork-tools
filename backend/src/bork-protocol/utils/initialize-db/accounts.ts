@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/db/queries';
+import { accountTopicQueries, tweetQueries } from '@/db/queries';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TwitterConfig } from '@/types/config';
 import { elizaLogger } from '@elizaos/core';
@@ -17,6 +17,45 @@ export async function initializeTargetAccounts(
     const existingAccounts = await tweetQueries.getTargetAccounts();
     if (existingAccounts.length > 0) {
       elizaLogger.info('[TwitterAccounts] Target accounts already initialized');
+
+      // Add some initial topic associations for testing if none exist
+      const testAccount = existingAccounts[0];
+      const topics = await accountTopicQueries.getAccountTopics(
+        testAccount.username,
+      );
+
+      if (topics.length === 0) {
+        elizaLogger.info('[TwitterAccounts] Adding test topic associations');
+
+        // Initial topics - keep original casing for display but ensure case-insensitive matching
+        const initialTopics = [
+          'Solana',
+          'Blockchain',
+          'Crypto',
+          'NFTs',
+          'DeFi',
+          'Web3',
+          'Smart Contracts',
+          'Cryptocurrency',
+          'Digital Assets',
+          'Decentralized Finance',
+        ];
+
+        for (const topic of initialTopics) {
+          elizaLogger.debug(
+            `[TwitterAccounts] Adding topic association for ${testAccount.username}: ${topic}`,
+          );
+          await accountTopicQueries.upsertAccountTopic(
+            testAccount.username,
+            topic, // Store original casing
+          );
+        }
+
+        elizaLogger.info(
+          `[TwitterAccounts] Added ${initialTopics.length} topic associations for ${testAccount.username}`,
+        );
+      }
+
       return;
     }
 

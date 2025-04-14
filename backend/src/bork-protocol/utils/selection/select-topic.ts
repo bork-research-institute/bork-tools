@@ -33,12 +33,15 @@ export async function selectTopic(
       confidence: 0.5,
       engagement_metrics: {
         likes: 0,
-        replies: 0,
         retweets: 0,
-        virality: 0.5,
-        communityBuilding: 0.5,
-        thoughtLeadership: 0.5,
-        conversionPotential: 0.5,
+        replies: 0,
+        quality_metrics: {
+          relevance: 0.5,
+          originality: 0.5,
+          clarity: 0.5,
+          authenticity: 0.5,
+          valueAdd: 0.5,
+        },
       },
     };
   }

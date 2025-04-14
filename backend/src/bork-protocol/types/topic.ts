@@ -18,10 +18,13 @@ export interface TopicWeightRow {
     likes: number;
     retweets: number;
     replies: number;
-    virality: number;
-    conversionPotential: number;
-    communityBuilding: number;
-    thoughtLeadership: number;
+    quality_metrics: {
+      relevance: number;
+      originality: number;
+      clarity: number;
+      authenticity: number;
+      valueAdd: number;
+    };
   };
   sentiment: string;
   confidence: number;
@@ -32,8 +35,11 @@ export interface EngagementMetrics {
   likes: number;
   retweets: number;
   replies: number;
-  virality: number;
-  conversionPotential: number;
-  communityBuilding: number;
-  thoughtLeadership: number;
+  quality_metrics: {
+    relevance: number;
+    originality: number;
+    clarity: number;
+    authenticity: number;
+    valueAdd: number;
+  };
 }

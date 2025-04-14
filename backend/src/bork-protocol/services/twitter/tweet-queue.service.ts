@@ -1,4 +1,3 @@
-import { tweetQueries } from '@/db/queries';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TopicWeightRow } from '@/types/topic';
 import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
@@ -121,12 +120,6 @@ export class TweetQueueService {
 
       elizaLogger.info(
         `[TweetQueueService] Successfully processed ${tweets.length} tweets`,
-      );
-
-      // Verify topic weights were updated
-      const updatedWeights = await tweetQueries.getTopicWeights();
-      elizaLogger.info(
-        `[TweetQueueService] Topic weights after processing: ${updatedWeights.length}`,
       );
     } catch (error) {
       elizaLogger.error(

@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import { mapApiTweet } from '@/mappers/tweet-mapper';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { TargetAccount } from '@/types/account';

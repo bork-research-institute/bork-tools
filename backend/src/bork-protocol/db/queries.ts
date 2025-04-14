@@ -491,155 +491,84 @@ export const tweetQueries = {
     id: UUID,
     tweet_id: string,
     type: string,
+    format: string,
     sentiment: string,
     confidence: number,
-    metrics: Record<string, unknown>,
-    entities: string[],
+    content_summary: string,
     topics: string[],
-    impact_score: number,
+    entities: string[],
+    relevance: number,
+    originality: number,
+    clarity: number,
+    authenticity: number,
+    value_add: number,
+    likes: number,
+    replies: number,
+    retweets: number,
     created_at: Date,
-    author_id: string,
-    tweet_text: string,
-    public_metrics: Record<string, unknown>,
-    raw_entities: Record<string, unknown>,
-    spam_analysis: {
-      spamScore: number;
-      reasons: string[];
-      isSpam: boolean;
-      confidenceMetrics: {
-        linguisticRisk: number;
-        topicMismatch: number;
-        engagementAnomaly: number;
-        promotionalIntent: number;
-        accountTrustSignals: number;
-      };
-    },
-    content_metrics: {
-      relevance: number;
-      quality: number;
-      engagement: number;
-      authenticity: number;
-      valueAdd: number;
-      callToActionEffectiveness?: number;
-      trendAlignmentScore?: number;
-    },
-    format: string,
-    marketing_insights?: Record<string, unknown>,
+    author_username: string,
+    marketing_summary: string,
+    is_spam: boolean,
+    spam_score: number,
     client?: PoolClient,
   ) => {
     try {
-      const query = `
-        INSERT INTO tweet_analysis (
-          id,
-          tweet_id,
-          type,
-          format,
-          sentiment,
-          confidence,
-          metrics,
-          entities,
-          topics,
-          impact_score,
-          created_at,
-          author_id,
-          tweet_text,
-          public_metrics,
-          raw_entities,
-          spam_score,
-          spam_reasons,
-          is_spam,
-          linguistic_risk,
-          topic_mismatch,
-          engagement_anomaly,
-          promotional_intent,
-          account_trust_signals,
-          content_relevance,
-          content_quality,
-          content_engagement,
-          content_authenticity,
-          content_value_add,
-          call_to_action_effectiveness,
-          trend_alignment_score,
-          marketing_insights
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
-        )
-        ON CONFLICT (tweet_id) DO UPDATE SET
-          type = EXCLUDED.type,
-          format = EXCLUDED.format,
-          sentiment = EXCLUDED.sentiment,
-          confidence = EXCLUDED.confidence,
-          metrics = EXCLUDED.metrics,
-          entities = EXCLUDED.entities,
-          topics = EXCLUDED.topics,
-          impact_score = EXCLUDED.impact_score,
-          created_at = EXCLUDED.created_at,
-          author_id = EXCLUDED.author_id,
-          tweet_text = EXCLUDED.tweet_text,
-          public_metrics = EXCLUDED.public_metrics,
-          raw_entities = EXCLUDED.raw_entities,
-          spam_score = EXCLUDED.spam_score,
-          spam_reasons = EXCLUDED.spam_reasons,
-          is_spam = EXCLUDED.is_spam,
-          linguistic_risk = EXCLUDED.linguistic_risk,
-          topic_mismatch = EXCLUDED.topic_mismatch,
-          engagement_anomaly = EXCLUDED.engagement_anomaly,
-          promotional_intent = EXCLUDED.promotional_intent,
-          account_trust_signals = EXCLUDED.account_trust_signals,
-          content_relevance = EXCLUDED.content_relevance,
-          content_quality = EXCLUDED.content_quality,
-          content_engagement = EXCLUDED.content_engagement,
-          content_authenticity = EXCLUDED.content_authenticity,
-          content_value_add = EXCLUDED.content_value_add,
-          call_to_action_effectiveness = EXCLUDED.call_to_action_effectiveness,
-          trend_alignment_score = EXCLUDED.trend_alignment_score,
-          marketing_insights = EXCLUDED.marketing_insights`;
-
-      const values = [
-        id,
-        tweet_id,
-        type,
-        format,
-        sentiment,
-        confidence,
-        JSON.stringify(metrics),
-        JSON.stringify(entities),
-        JSON.stringify(topics),
-        impact_score,
-        created_at,
-        author_id,
-        tweet_text,
-        JSON.stringify(public_metrics),
-        JSON.stringify(raw_entities),
-        spam_analysis.spamScore,
-        JSON.stringify(spam_analysis.reasons),
-        spam_analysis.isSpam,
-        spam_analysis.confidenceMetrics.linguisticRisk,
-        spam_analysis.confidenceMetrics.topicMismatch,
-        spam_analysis.confidenceMetrics.engagementAnomaly,
-        spam_analysis.confidenceMetrics.promotionalIntent,
-        spam_analysis.confidenceMetrics.accountTrustSignals,
-        content_metrics.relevance,
-        content_metrics.quality,
-        content_metrics.engagement,
-        content_metrics.authenticity,
-        content_metrics.valueAdd,
-        content_metrics.callToActionEffectiveness || 0,
-        content_metrics.trendAlignmentScore || 0,
-        marketing_insights ? JSON.stringify(marketing_insights) : null,
-      ];
-
       return withClient(client || null, async (c) => {
-        await c.query(query, values);
+        const { rows } = await c.query(
+          `INSERT INTO tweet_analysis (
+            id,
+            tweet_id,
+            type,
+            format,
+            sentiment,
+            confidence,
+            content_summary,
+            topics,
+            entities,
+            relevance,
+            originality,
+            clarity,
+            authenticity,
+            value_add,
+            likes,
+            replies,
+            retweets,
+            created_at,
+            author_username,
+            marketing_summary,
+            is_spam,
+            spam_score
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+          RETURNING *`,
+          [
+            id,
+            tweet_id,
+            type,
+            format,
+            sentiment,
+            confidence,
+            content_summary,
+            topics,
+            entities,
+            relevance,
+            originality,
+            clarity,
+            authenticity,
+            value_add,
+            likes,
+            replies,
+            retweets,
+            created_at,
+            author_username,
+            marketing_summary,
+            is_spam,
+            spam_score,
+          ],
+        );
+        return rows[0];
       });
     } catch (error) {
-      elizaLogger.error('[DB Queries] Error inserting tweet analysis:', {
-        error: error instanceof Error ? error.message : String(error),
-        id: id.toString(),
-        tweet_id,
-        author_id,
-      });
+      elizaLogger.error('Error inserting tweet analysis:', error);
       throw error;
     }
   },
@@ -1725,21 +1654,45 @@ export const accountTopicQueries = {
     const query = `
       SELECT 
         username,
+        topic,
         mention_count as "mentionCount",
         first_seen_at as "firstSeenAt",
         last_seen_at as "lastSeenAt"
       FROM account_topics
-      WHERE topic = $1
+      WHERE LOWER(topic) = LOWER($1)
       ORDER BY mention_count DESC
     `;
 
     try {
+      elizaLogger.debug(
+        '[AccountTopicQueries] Executing topic accounts query:',
+        {
+          topic,
+          normalizedTopic: topic.toLowerCase(),
+          query: query.replace(/\s+/g, ' ').trim(),
+          params: [topic],
+        },
+      );
+
       const result = await db.query<AccountTopic>(query, [topic]);
+
+      elizaLogger.debug('[AccountTopicQueries] Query result:', {
+        topic,
+        normalizedTopic: topic.toLowerCase(),
+        rowCount: result.rowCount,
+        accounts: result.rows.map((r) => ({
+          username: r.username,
+          topic: r.topic,
+          mentionCount: r.mentionCount,
+        })),
+      });
+
       return result.rows;
     } catch (error) {
       elizaLogger.error('Error getting topic accounts:', {
         error: error instanceof Error ? error.message : String(error),
         topic,
+        query: query.replace(/\s+/g, ' ').trim(),
       });
       return [];
     }

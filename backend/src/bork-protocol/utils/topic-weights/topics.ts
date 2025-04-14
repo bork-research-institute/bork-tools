@@ -1,6 +1,6 @@
 import { tweetQueries } from '@/db/queries.js';
 import type { TweetAnalysis } from '@/types/analysis.js';
-import type { EngagementMetrics, TopicWeightRow } from '@/types/topic.js';
+import type { TopicWeightRow } from '@/types/topic.js';
 import type { DatabaseTweet } from '@/types/twitter.js';
 import { elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,10 +9,18 @@ import { v4 as uuidv4 } from 'uuid';
  * Calculates a sophisticated weight for a topic based on multiple factors
  */
 function calculateTopicWeight(
-  impactScore: number,
-  engagementMetrics: EngagementMetrics,
+  likes: number,
+  retweets: number,
+  replies: number,
   sentiment: string,
   confidence: number,
+  qualityMetrics: {
+    relevance: number;
+    originality: number;
+    clarity: number;
+    authenticity: number;
+    valueAdd: number;
+  },
 ): number {
   // Sigmoid function for smooth normalization without hard caps
   // k controls the steepness of the curve (smaller = more gradual)
@@ -23,28 +31,25 @@ function calculateTopicWeight(
   // Calculate normalized engagement metrics using sigmoid
   const normalizedEngagement = {
     // Use logarithmic sigmoid to better handle order-of-magnitude differences
-    likes: sigmoid(engagementMetrics.likes, 1.5, 1000), // x0 = 1000 likes
-    retweets: sigmoid(engagementMetrics.retweets, 1.5, 500), // x0 = 500 retweets
-    replies: sigmoid(engagementMetrics.replies, 1.5, 200), // x0 = 200 replies
-    virality: engagementMetrics.virality,
-    conversionPotential: engagementMetrics.conversionPotential,
-    communityBuilding: engagementMetrics.communityBuilding,
-    thoughtLeadership: engagementMetrics.thoughtLeadership,
+    likes: sigmoid(likes, 1.5, 1000), // x0 = 1000 likes
+    retweets: sigmoid(retweets, 1.5, 500), // x0 = 500 retweets
+    replies: sigmoid(replies, 1.5, 200), // x0 = 200 replies
   };
 
   // Calculate engagement score (30% of total weight)
   const engagementScore =
-    (normalizedEngagement.likes * 0.3 +
-      normalizedEngagement.retweets * 0.25 +
-      normalizedEngagement.replies * 0.2 +
-      normalizedEngagement.virality * 0.25) *
+    (normalizedEngagement.likes * 0.4 +
+      normalizedEngagement.retweets * 0.35 +
+      normalizedEngagement.replies * 0.25) *
     0.3;
 
-  // Calculate influence score (30% of total weight)
-  const influenceScore =
-    (normalizedEngagement.conversionPotential * 0.4 +
-      normalizedEngagement.communityBuilding * 0.3 +
-      normalizedEngagement.thoughtLeadership * 0.3) *
+  // Calculate quality score (30% of total weight)
+  const qualityScore =
+    (qualityMetrics.relevance * 0.25 +
+      qualityMetrics.originality * 0.2 +
+      qualityMetrics.clarity * 0.15 +
+      qualityMetrics.authenticity * 0.2 +
+      qualityMetrics.valueAdd * 0.2) *
     0.3;
 
   // Calculate sentiment score (20% of total weight)
@@ -52,15 +57,15 @@ function calculateTopicWeight(
     sentiment === 'positive' ? 1 : sentiment === 'neutral' ? 0.7 : 0.4;
   const sentimentScore = sentimentMultiplier * 0.2;
 
-  // Impact score and confidence (20% of total weight)
-  const impactConfidenceScore = (impactScore * 0.6 + confidence * 0.4) * 0.2;
+  // Confidence score (20% of total weight)
+  const confidenceScore = confidence * 0.2;
 
   // Combine all scores and ensure it's between 0 and 1
   return Math.max(
     0,
     Math.min(
       1,
-      engagementScore + influenceScore + sentimentScore + impactConfidenceScore,
+      engagementScore + qualityScore + sentimentScore + confidenceScore,
     ),
   );
 }
@@ -91,26 +96,14 @@ export async function updateTopicWeights(
         continue;
       }
 
-      // Calculate engagement metrics from content analysis
-      const engagementMetrics = {
-        likes: tweet.likes || 0,
-        retweets: tweet.retweets || 0,
-        replies: tweet.replies || 0,
-        virality: tweetAnalysis.contentAnalysis.engagementAnalysis.virality,
-        conversionPotential:
-          tweetAnalysis.contentAnalysis.engagementAnalysis.conversionPotential,
-        communityBuilding:
-          tweetAnalysis.contentAnalysis.engagementAnalysis.communityBuilding,
-        thoughtLeadership:
-          tweetAnalysis.contentAnalysis.engagementAnalysis.thoughtLeadership,
-      };
-
       // Calculate new weight using our sophisticated formula
       const weight = calculateTopicWeight(
-        tweetAnalysis.contentAnalysis.engagementAnalysis.overallScore,
-        engagementMetrics,
+        tweet.likes || 0,
+        tweet.retweets || 0,
+        tweet.replies || 0,
         tweetAnalysis.contentAnalysis.sentiment,
         tweetAnalysis.contentAnalysis.confidence,
+        tweetAnalysis.contentAnalysis.qualityMetrics,
       );
 
       try {
@@ -118,10 +111,14 @@ export async function updateTopicWeights(
         const topicWeight: TopicWeightRow = {
           topic,
           weight,
-          impact_score:
-            tweetAnalysis.contentAnalysis.engagementAnalysis.overallScore,
+          impact_score: weight, // Use the calculated weight as impact score
           created_at: new Date(),
-          engagement_metrics: engagementMetrics,
+          engagement_metrics: {
+            likes: tweet.likes || 0,
+            retweets: tweet.retweets || 0,
+            replies: tweet.replies || 0,
+            quality_metrics: tweetAnalysis.contentAnalysis.qualityMetrics,
+          },
           sentiment: tweetAnalysis.contentAnalysis.sentiment,
           confidence: tweetAnalysis.contentAnalysis.confidence,
           tweet_id: tweet.tweet_id,
@@ -134,8 +131,7 @@ export async function updateTopicWeights(
           `${context} Created new topic weight entry for ${topic}`,
           {
             weight,
-            impactScore:
-              tweetAnalysis.contentAnalysis.engagementAnalysis.overallScore,
+            impactScore: weight,
             tweetId: tweet.tweet_id,
           },
         );

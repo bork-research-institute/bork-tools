@@ -1,6 +1,6 @@
 import { elizaLogger } from '@elizaos/core';
 import { Pool } from 'pg';
-import { getEnv } from '../../../../config/env';
+import { getEnv } from '../../config/env';
 import * as queries from './queries';
 import * as schema from './schema';
 

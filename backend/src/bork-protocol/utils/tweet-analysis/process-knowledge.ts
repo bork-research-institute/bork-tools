@@ -8,11 +8,12 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
+import { storeKnowledge } from '../knowledge/store-knowledge';
 
 /**
  * Extracts knowledge from a tweet analysis and stores it in the database
- * This function identifies facts, opinions, and other useful information from the analysis
- * and formats them for RAG retrieval
+ * This function stores separate entries for content and marketing summaries,
+ * with proper chunking for long text (max 1000 tokens per chunk)
  */
 export async function extractAndStoreKnowledge(
   runtime: IAgentRuntime,
@@ -43,107 +44,32 @@ export async function extractAndStoreKnowledge(
       return;
     }
 
-    const topics = [
-      ...(analysis.contentAnalysis.primaryTopics || []),
-      ...(analysis.contentAnalysis.secondaryTopics || []),
-    ];
-    const tweetType = analysis.contentAnalysis.type;
-    const sentiment = analysis.contentAnalysis.sentiment;
-    const impactScore =
-      analysis.contentAnalysis.engagementAnalysis?.overallScore || 0.5;
-
-    // Create the base knowledge item for the tweet itself
-    const tweetKnowledgeId = stringToUuid(`tweet-knowledge-${tweet.tweet_id}`);
-
-    // Format analysis content for storage
-    const analysisContent = {
-      mainContent: analysis.contentAnalysis.summary || tweet.text,
-      keyPoints: analysis.contentAnalysis.keyPoints || [],
-      entities: analysis.contentAnalysis.entities || [],
-      sentiment: analysis.contentAnalysis.sentiment,
-      type: analysis.contentAnalysis.type,
-      topics: topics,
-      originalText: tweet.text,
-    };
-
-    // Create a knowledge entry for the analysis content with metadata
-    const tweetKnowledge: RAGKnowledgeItem = {
-      id: tweetKnowledgeId,
-      agentId: runtime.agentId,
-      content: {
-        text: JSON.stringify(analysisContent),
-        metadata: {
-          source: 'twitter',
-          sourceId: tweet.tweet_id,
-          sourceUrl: tweet.permanentUrl,
-          authorUsername: tweet.username,
-          authorUserId: tweet.userId?.toString(),
-          tweetType,
-          sentiment,
-          impactScore,
-          topics,
-          isOpinion: tweetType === 'opinion',
-          isFactual: tweetType === 'factual' || tweetType === 'informative',
-          hasQuestion: tweetType === 'question',
-          publicMetrics: {
-            likes: tweet.likes || 0,
-            retweets: tweet.retweets || 0,
-            replies: tweet.replies || 0,
-          },
-          timestamp: tweet.timestamp,
-          isMain: true,
-          isThreadMerged: tweet.isThreadMerged,
-          threadSize: tweet.threadSize || 1,
-          analysisVersion: '1.0', // Add version tracking for analysis format
-        },
-      },
-      embedding: undefined,
-      createdAt: Date.now(),
-    };
-
-    // Generate embedding for the analysis knowledge
-    const tweetMemory: Memory = {
-      id: tweetKnowledgeId,
-      content: {
-        text: JSON.stringify(analysisContent),
-      },
-      agentId: runtime.agentId,
-      userId: stringToUuid(`twitter-user-${tweet.userId}`),
-      // TODO Should we create a random room all the time?
-      roomId: stringToUuid(uuidv4()),
-    };
-
-    await runtime.messageManager.addEmbeddingToMemory(tweetMemory);
-
-    if (tweetMemory.embedding) {
-      elizaLogger.debug(
-        `${logPrefix} Successfully generated embedding for tweet ${tweet.tweet_id}`,
-        {
-          embeddingSize:
-            tweetMemory.embedding instanceof Float32Array
-              ? tweetMemory.embedding.length
-              : tweetMemory.embedding.length,
-          embeddingType:
-            tweetMemory.embedding instanceof Float32Array
-              ? 'Float32Array'
-              : 'Array',
-        },
-      );
-
-      tweetKnowledge.embedding =
-        tweetMemory.embedding instanceof Float32Array
-          ? tweetMemory.embedding
-          : new Float32Array(tweetMemory.embedding);
-    } else {
-      elizaLogger.warn(
-        `${logPrefix} Failed to generate embedding for tweet ${tweet.tweet_id}`,
+    // Process content summary if available
+    if (analysis.contentAnalysis.summary) {
+      await storeKnowledge(
+        runtime,
+        tweet,
+        analysis,
+        analysis.contentAnalysis.summary,
+        'content',
+        logPrefix,
       );
     }
 
-    // Store the main tweet knowledge
-    await runtime.databaseAdapter.createKnowledge(tweetKnowledge);
-    elizaLogger.debug(
-      `${logPrefix} Stored main tweet analysis knowledge for ${tweet.tweet_id}`,
+    // Process marketing summary if available
+    if (analysis.marketingAnalysis?.summary) {
+      await storeKnowledge(
+        runtime,
+        tweet,
+        analysis,
+        analysis.marketingAnalysis.summary,
+        'marketing',
+        logPrefix,
+      );
+    }
+
+    elizaLogger.info(
+      `${logPrefix} Completed knowledge extraction for tweet ${tweet.tweet_id}`,
     );
   } catch (error) {
     elizaLogger.error(`${logPrefix} Error extracting knowledge:`, {
@@ -272,7 +198,7 @@ export async function fetchAndFormatKnowledge(
 
         interface AnalysisContent {
           mainContent: string;
-          keyPoints?: string[];
+          keyTakeaways?: string[];
         }
 
         let analysisContent: AnalysisContent;
@@ -284,7 +210,7 @@ export async function fetchAndFormatKnowledge(
         }
 
         return `- ${analysisContent.mainContent}
-${analysisContent.keyPoints?.length ? `Key Points:\n${analysisContent.keyPoints.map((point) => `  - ${point}`).join('\n')}\n` : ''}
+${analysisContent.keyTakeaways?.length ? `Key Takeaways:\n${analysisContent.keyTakeaways.map((point) => `  - ${point}`).join('\n')}\n` : ''}
 Type: ${metadata.tweetType || 'unknown'}
 Confidence: ${metadata.confidence || 'unknown'}
 Similarity: ${(k.similarity || 0).toFixed(2)}
