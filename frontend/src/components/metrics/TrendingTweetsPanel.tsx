@@ -1,9 +1,9 @@
 'use client';
 
+import { useTrendingTweets } from '@/lib/hooks/useTweets';
 import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import Masonry from 'react-masonry-css';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -15,19 +15,17 @@ import {
 import { Panel } from './Panel';
 
 interface TrendingTweetsPanelProps {
-  tweets: TrendingTweet[];
-  loading: boolean;
-  isExpanded?: boolean;
+  maxHeight?: string;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
   { label: 'Overall', value: 'aggregate' },
   { label: 'Impact', value: 'impact_score' },
-  { label: 'Relevance', value: 'content_relevance' },
-  { label: 'Quality', value: 'content_quality' },
-  { label: 'Engagement', value: 'content_engagement' },
-  { label: 'Authenticity', value: 'content_authenticity' },
-  { label: 'Value', value: 'content_value_add' },
+  { label: 'Engagement', value: 'engagement_score' },
+  { label: 'Relevance', value: 'relevance' },
+  { label: 'Clarity', value: 'clarity' },
+  { label: 'Authenticity', value: 'authenticity' },
+  { label: 'Value', value: 'value_add' },
 ];
 
 const getScoreColor = (score: number): string => {
@@ -46,25 +44,25 @@ const getScoreColor = (score: number): string => {
   return 'text-green-800';
 };
 
-export function TrendingTweetsPanel({
-  tweets,
-  loading,
-  isExpanded = false,
-}: TrendingTweetsPanelProps) {
+export function TrendingTweetsPanel({ maxHeight }: TrendingTweetsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
   const [filteredTweets, setFilteredTweets] = useState<TrendingTweet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { data: tweets, isLoading } = useTrendingTweets();
+
   // Handle mounting to prevent hydration issues
   useEffect(() => {
     setMounted(true);
-    setFilteredTweets(tweets);
+    if (tweets) {
+      setFilteredTweets(tweets);
+    }
   }, [tweets]);
 
   useEffect(() => {
-    if (!mounted) {
+    if (!mounted || !tweets) {
       return;
     }
 
@@ -77,51 +75,26 @@ export function TrendingTweetsPanel({
         if (selectedFilter === 'aggregate') {
           return b.aggregate_score - a.aggregate_score;
         }
+        if (selectedFilter === 'engagement_score') {
+          return b.engagement_score - a.engagement_score;
+        }
+        // For quality metrics, multiply by 100 to convert from 0-1 to 0-100
+        if (
+          ['relevance', 'clarity', 'authenticity', 'value_add'].includes(
+            selectedFilter,
+          )
+        ) {
+          return b[selectedFilter] * 100 - a[selectedFilter] * 100;
+        }
         return b[selectedFilter] - a[selectedFilter];
       }),
     );
   }, [tweets, selectedFilter, mounted, searchQuery]);
 
-  // Show loading state during initial render
-  if (!mounted) {
-    return (
-      <Panel>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="h-9 w-[200px] rounded-md bg-white/5 animate-pulse" />
-            <div className="h-9 w-[140px] rounded-md bg-white/5 animate-pulse" />
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-gray-800/50 rounded-lg p-4 space-y-3 animate-pulse"
-              >
-                <div className="h-6 bg-white/5 rounded w-1/3" />
-                <div className="h-4 bg-white/5 rounded w-full" />
-                <div className="h-4 bg-white/5 rounded w-2/3" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </Panel>
-    );
-  }
-
-  const breakpointColumns: { [key: string]: number } = isExpanded
-    ? {
-        default: 3,
-        '1600': 3,
-        '1200': 2,
-        '800': 2,
-        '600': 1,
-      }
-    : { default: 1 };
-
   return (
-    <Panel>
+    <Panel maxHeight={maxHeight}>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between sticky top-0 z-10 bg-[#020617]/95 py-2">
+        <div className="flex items-center justify-between">
           <Input
             placeholder="Search by username..."
             value={searchQuery}
@@ -145,7 +118,7 @@ export function TrendingTweetsPanel({
           </Select>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="text-white/60">Loading trending tweets...</div>
         ) : filteredTweets.length === 0 ? (
           <div className="text-white/60">
@@ -154,15 +127,11 @@ export function TrendingTweetsPanel({
               : 'No trending tweets found'}
           </div>
         ) : (
-          <Masonry
-            breakpointCols={breakpointColumns}
-            className="flex -ml-4 w-auto"
-            columnClassName="pl-4 bg-clip-padding"
-          >
+          <div className="space-y-4">
             {filteredTweets.map((tweet) => (
               <div
                 key={tweet.tweet_id}
-                className="bg-gray-800 rounded-lg p-4 space-y-3 mb-4 hover:bg-gray-800/80 transition-colors"
+                className="bg-gray-800 rounded-lg p-4 space-y-3"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col">
@@ -182,26 +151,28 @@ export function TrendingTweetsPanel({
                     className={cn(
                       'text-2xl font-bold',
                       getScoreColor(
-                        tweet[
-                          selectedFilter === 'aggregate'
-                            ? 'aggregate_score'
-                            : selectedFilter
-                        ],
+                        selectedFilter === 'aggregate'
+                          ? tweet.aggregate_score
+                          : selectedFilter === 'engagement_score'
+                            ? tweet.engagement_score
+                            : tweet[selectedFilter],
                       ),
                     )}
                   >
-                    {
-                      tweet[
-                        selectedFilter === 'aggregate'
-                          ? 'aggregate_score'
-                          : selectedFilter
-                      ]
-                    }
+                    {Math.round(
+                      selectedFilter === 'aggregate'
+                        ? tweet.aggregate_score
+                        : selectedFilter === 'engagement_score'
+                          ? tweet.engagement_score
+                          : tweet[selectedFilter],
+                    )}
                   </div>
                 </div>
 
-                <p className="text-white/90">{tweet.content}</p>
+                {/* Original Tweet Content */}
+                <p className="text-white/90 text-base">{tweet.content}</p>
 
+                {/* Media Display */}
                 {tweet.photos && tweet.photos.length > 0 && (
                   <div className="relative aspect-[16/9] rounded-lg overflow-hidden">
                     <img
@@ -212,6 +183,7 @@ export function TrendingTweetsPanel({
                   </div>
                 )}
 
+                {/* Engagement Metrics */}
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4 text-white/60">
                     <div className="flex items-center gap-1">
@@ -236,9 +208,31 @@ export function TrendingTweetsPanel({
                     View Tweet →
                   </a>
                 </div>
+
+                {/* Content Analysis (Secondary) */}
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <details className="text-sm">
+                    <summary className="text-white/60 cursor-pointer hover:text-white/80">
+                      View Analysis
+                    </summary>
+                    <div className="mt-2 text-white/80 space-y-2">
+                      <p>{tweet.content_summary}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {tweet.topics.map((topic) => (
+                          <span
+                            key={topic}
+                            className="px-2 py-1 bg-white/5 rounded-full text-xs"
+                          >
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </div>
               </div>
             ))}
-          </Masonry>
+          </div>
         )}
       </div>
     </Panel>
