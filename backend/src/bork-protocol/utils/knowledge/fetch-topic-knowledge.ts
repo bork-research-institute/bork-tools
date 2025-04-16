@@ -1,3 +1,4 @@
+import { KNOWLEDGE_ROOM_ID, SYSTEM_USER_ID } from '@/config/knowledge';
 import {
   type IAgentRuntime,
   type Memory,
@@ -5,7 +6,6 @@ import {
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Fetches and formats knowledge items related to a specific topic
@@ -16,23 +16,16 @@ export async function fetchTopicKnowledge(
   logPrefix = '[Knowledge Fetch]',
 ): Promise<RAGKnowledgeItem[]> {
   try {
-    // Add some context words to help with semantic search
-    const searchText = `${topic} related content discussion analysis insights`;
+    elizaLogger.debug(`${logPrefix} Generating embedding for topic "${topic}"`);
 
-    // Create a memory object for embedding generation
+    // Create minimal memory object for embedding generation using standardized IDs
     const memory: Memory = {
-      id: stringToUuid(uuidv4()),
-      content: {
-        text: searchText,
-      },
+      id: stringToUuid(`topic-${topic}`),
+      content: { text: topic },
       agentId: runtime.agentId,
-      userId: stringToUuid('system'),
-      roomId: stringToUuid('topic-analysis'),
+      userId: stringToUuid(SYSTEM_USER_ID),
+      roomId: stringToUuid(KNOWLEDGE_ROOM_ID),
     };
-
-    elizaLogger.debug(
-      `${logPrefix} Generating embedding for topic "${topic}" with context`,
-    );
 
     // Generate embedding for the topic
     await runtime.messageManager.addEmbeddingToMemory(memory);
@@ -43,18 +36,6 @@ export async function fetchTopicKnowledge(
       );
       return [];
     }
-
-    elizaLogger.debug(
-      `${logPrefix} Successfully generated search embedding for topic "${topic}"`,
-      {
-        embeddingSize:
-          memory.embedding instanceof Float32Array
-            ? memory.embedding.length
-            : memory.embedding.length,
-        embeddingType:
-          memory.embedding instanceof Float32Array ? 'Float32Array' : 'Array',
-      },
-    );
 
     // Convert embedding to Float32Array if needed
     const embedding =
@@ -68,9 +49,9 @@ export async function fetchTopicKnowledge(
       knowledge = await runtime.databaseAdapter.searchKnowledge({
         agentId: runtime.agentId,
         embedding,
-        match_threshold: 0.15,
-        match_count: 10,
-        searchText,
+        match_threshold: 0.35,
+        match_count: 15,
+        searchText: topic,
       });
     } catch (searchError) {
       elizaLogger.error(`${logPrefix} Error during knowledge search:`, {
@@ -95,7 +76,7 @@ export async function fetchTopicKnowledge(
     );
 
     // Process and format each knowledge item
-    const processedKnowledge = knowledge.map((k) => {
+    return knowledge.map((k) => {
       const metadata = k.content.metadata || {};
       const topics = Array.isArray(metadata.topics) ? metadata.topics : [];
       const metrics =
@@ -151,15 +132,6 @@ export async function fetchTopicKnowledge(
         },
       };
     });
-
-    elizaLogger.debug(`${logPrefix} Successfully processed knowledge items`, {
-      count: knowledge.length,
-      averageSimilarity:
-        knowledge.reduce((acc, k) => acc + (k.similarity || 0), 0) /
-        knowledge.length,
-    });
-
-    return processedKnowledge;
   } catch (error) {
     elizaLogger.error(
       `${logPrefix} Error fetching knowledge for topic ${topic}:`,

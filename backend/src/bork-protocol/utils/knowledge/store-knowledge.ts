@@ -1,3 +1,4 @@
+import { KNOWLEDGE_ROOM_ID, SYSTEM_USER_ID } from '@/config/knowledge';
 import type { TweetAnalysis } from '@/types/analysis';
 import type { DatabaseTweet } from '@/types/twitter';
 import {
@@ -8,7 +9,6 @@ import {
   elizaLogger,
   stringToUuid,
 } from '@elizaos/core';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Splits text into chunks of approximately the specified token length
@@ -111,13 +111,13 @@ export async function storeKnowledge(
     createdAt: Date.now(),
   };
 
-  // Generate embedding for the main item
+  // Generate embedding for the main item using standardized IDs
   const mainMemory: Memory = {
     id: mainId,
     content: { text },
     agentId: runtime.agentId,
-    userId: stringToUuid(`twitter-user-${tweet.userId}`),
-    roomId: stringToUuid(uuidv4()),
+    userId: stringToUuid(SYSTEM_USER_ID),
+    roomId: stringToUuid(KNOWLEDGE_ROOM_ID),
   };
 
   await runtime.messageManager.addEmbeddingToMemory(mainMemory);
@@ -152,13 +152,13 @@ export async function storeKnowledge(
           `tweet-${knowledgeType}-${tweet.tweet_id}-chunk-${i}`,
         );
 
-        // Create chunk memory for embedding
+        // Create chunk memory for embedding using standardized IDs
         const chunkMemory: Memory = {
           id: chunkId,
           content: { text: chunkText },
           agentId: runtime.agentId,
-          userId: stringToUuid(`twitter-user-${tweet.userId}`),
-          roomId: stringToUuid(uuidv4()),
+          userId: stringToUuid(SYSTEM_USER_ID),
+          roomId: stringToUuid(KNOWLEDGE_ROOM_ID),
         };
 
         await runtime.messageManager.addEmbeddingToMemory(chunkMemory);
