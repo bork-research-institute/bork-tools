@@ -1,9 +1,35 @@
 import { tweetQueries } from '@/db/queries.js';
-import type { TweetAnalysis } from '@/types/analysis.js';
+import type {
+  QualityMetrics,
+  TweetAnalysis,
+} from '@/types/response/tweet-analysis';
 import type { TopicWeightRow } from '@/types/topic.js';
 import type { DatabaseTweet } from '@/types/twitter.js';
 import { elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Calculates engagement metrics from tweet data and analysis
+ */
+function calculateEngagementMetrics(
+  tweet: DatabaseTweet,
+  analysis: TweetAnalysis,
+): TopicWeightRow['engagement_metrics'] {
+  const qualityMetrics = {
+    relevance: analysis.contentAnalysis.qualityMetrics.relevance ?? 0,
+    originality: analysis.contentAnalysis.qualityMetrics.originality ?? 0,
+    clarity: analysis.contentAnalysis.qualityMetrics.clarity ?? 0,
+    authenticity: analysis.contentAnalysis.qualityMetrics.authenticity ?? 0,
+    valueAdd: analysis.contentAnalysis.qualityMetrics.valueAdd ?? 0,
+  };
+
+  return {
+    likes: tweet.likes || 0,
+    retweets: tweet.retweets || 0,
+    replies: tweet.replies || 0,
+    quality_metrics: qualityMetrics,
+  };
+}
 
 /**
  * Calculates a sophisticated weight for a topic based on multiple factors
@@ -14,13 +40,7 @@ function calculateTopicWeight(
   replies: number,
   sentiment: string,
   confidence: number,
-  qualityMetrics: {
-    relevance: number;
-    originality: number;
-    clarity: number;
-    authenticity: number;
-    valueAdd: number;
-  },
+  qualityMetrics: QualityMetrics,
 ): number {
   // Sigmoid function for smooth normalization without hard caps
   // k controls the steepness of the curve (smaller = more gradual)
@@ -107,22 +127,19 @@ export async function updateTopicWeights(
       );
 
       try {
-        // Create a new topic weight entry
+        const now = new Date();
+
+        // Create a new topic weight entry matching the database schema
         const topicWeight: TopicWeightRow = {
+          id: uuidv4(),
           topic,
           weight,
-          impact_score: weight, // Use the calculated weight as impact score
-          created_at: new Date(),
-          engagement_metrics: {
-            likes: tweet.likes || 0,
-            retweets: tweet.retweets || 0,
-            replies: tweet.replies || 0,
-            quality_metrics: tweetAnalysis.contentAnalysis.qualityMetrics,
-          },
+          impact_score: weight,
+          created_at: now,
+          engagement_metrics: calculateEngagementMetrics(tweet, tweetAnalysis),
           sentiment: tweetAnalysis.contentAnalysis.sentiment,
           confidence: tweetAnalysis.contentAnalysis.confidence,
           tweet_id: tweet.tweet_id,
-          id: uuidv4(),
         };
 
         await tweetQueries.createTopicWeight(topicWeight);

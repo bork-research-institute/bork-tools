@@ -103,11 +103,17 @@ export async function testGetRelatedTopics(runtime: IAgentRuntime) {
 
     // 3. Select a topic using the full selection logic
     elizaLogger.info('[Test] Starting topic selection');
-    const selectedTopic = await selectTopic(
+    const selectedTopics = await selectTopic(
       runtime,
       TEST_TIMEFRAME_HOURS,
       PREFERRED_TOPIC,
     );
+
+    if (selectedTopics.length === 0) {
+      throw new Error('No topics were selected');
+    }
+
+    const selectedTopic = selectedTopics[0]; // Get the first selected topic
     elizaLogger.info('[Test] Selected topic:', {
       topic: selectedTopic.topic,
       weight: selectedTopic.weight,

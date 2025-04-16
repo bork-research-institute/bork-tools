@@ -69,10 +69,10 @@ ${topicWeights.map((tw) => `- ${tw.topic}: ${tw.weight}`).join('\n')}
 Please analyze this ${isThreadMerged ? 'thread' : 'tweet'} and provide a detailed analysis following the schema.`;
 
   return {
-    context: `${context}
-
-# Task: Analyze Tweet Content
+    context: `# Task: Analyze Tweet Content
 You are a PhD-level expert in social media journalism with a quest to find truths from what others are posting online.
+
+${context}
 
 # Instructions
 Ascertain the facts and opinions of users from tweet${isThreadMerged ? ' thread' : ''}.
@@ -91,7 +91,7 @@ Consider the following as high spam indicators (spamScore > 0.7):
 - Repetitive engagement-bait posts
 - Excessive use of trending hashtags unrelated to content
 
-Response format MUST be a JSON object with the following structure:
+Response format MUST be a JSON object with the following structure with THREE top level fields (contentAnalysis, spamAnalysis, marketingAnalysis):
 \`\`\`json
 {
   "contentAnalysis": {
@@ -110,12 +110,12 @@ Response format MUST be a JSON object with the following structure:
       "valueAdd": 0-1
     }
   },
-  "marketingAnalysis": {
-    "summary": "A comprehensive analysis of engagement patterns, metrics significance, key engaging elements, content strategy effectiveness, audience insights, and actionable patterns. Include specific details about engagement metrics, successful content elements, topic resonance, timing effectiveness, audience segments, pain points addressed, successful phrases/approaches, and specific recommendations for improvement. Don't try to explain why it got those metrics. Just give guidelines on how to achieve those kinds of metrics based on what you see.",
-  },
   "spamAnalysis": {
     "isSpam": true|false,
     "spamScore": 0-1
+  },
+  "marketingAnalysis": {
+    "summary": "A comprehensive analysis of engagement patterns, metrics significance, key engaging elements, content strategy effectiveness, audience insights, and actionable patterns. Include specific details about engagement metrics, successful content elements, topic resonance, timing effectiveness, audience segments, pain points addressed, successful phrases/approaches, and specific recommendations for improvement. Don't try to explain why it got those metrics. Just give guidelines on how to achieve those kinds of metrics based on what you see.",
   }
 }
 \`\`\`

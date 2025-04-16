@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import type { tweetQueries } from '@/extensions/src/db/queries';
+import type { tweetQueries } from '@/db/queries';
 import type { TargetAccount } from '@/types/account';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';

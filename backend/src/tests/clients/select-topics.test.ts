@@ -23,7 +23,8 @@ export async function testSelectTopics(runtime: IAgentRuntime) {
       .mockResolvedValue(mockTopicRelationships);
 
     // Test 1: Basic topic selection without preferred topic
-    const basicResult = await selectTopic(runtime);
+    const basicResults = await selectTopic(runtime);
+    const basicResult = basicResults[0];
     elizaLogger.info('[Test] Basic topic selection result:', {
       selectedTopic: basicResult.topic,
       weight: basicResult.weight,
@@ -37,11 +38,12 @@ export async function testSelectTopics(runtime: IAgentRuntime) {
 
     // Test 2: Topic selection with preferred topic
     const preferredTopic = 'cryptocurrency';
-    const preferredResult = await selectTopic(
+    const preferredResults = await selectTopic(
       runtime,
       TEST_TIMEFRAME_HOURS,
       preferredTopic,
     );
+    const preferredResult = preferredResults[0];
     elizaLogger.info('[Test] Preferred topic selection result:', {
       preferredTopic,
       selectedTopic: preferredResult.topic,
