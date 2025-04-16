@@ -1,6 +1,7 @@
 import './globals.css';
 import { QueryClientProvider } from '@/components/providers/query-client-provider';
 import { SolanaProvider } from '@/components/providers/solana-provider';
+import { SurveyBanner } from '@/components/survey-banner';
 import { getClientEnv } from '@/lib/config/client-env';
 import { METADATA } from '@/lib/constants/metadata';
 import { PanelProvider } from '@/lib/contexts/PanelContext';
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
           <QueryClientProvider>
             <SolanaProvider>
               <PanelProvider>
+                <SurveyBanner />
                 {children}
                 <Toaster />
               </PanelProvider>
