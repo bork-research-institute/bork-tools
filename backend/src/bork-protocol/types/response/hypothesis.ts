@@ -1,64 +1,46 @@
 import { z } from 'zod';
 
-export const contentStrategySchema = z.object({
-  format: z.enum(['thread', 'carousel', 'poll', 'video', 'mixed']),
-  numberOfPosts: z.number().min(1),
-  keyElements: z.array(z.string()),
-  uniqueAngles: z.array(z.string()),
+const relevantKnowledgeSchema = z.object({
+  content: z.string(),
+  type: z.string(),
+  useCase: z.string(),
+  source: z.object({
+    tweetId: z.string(),
+    authorUsername: z.string(),
+    url: z.string(),
+    metrics: z.object({
+      likes: z.number(),
+      retweets: z.number(),
+      replies: z.number(),
+    }),
+  }),
 });
 
-export const growthPotentialSchema = z.object({
-  estimatedImpressions: z.number().min(0),
-  targetEngagementRate: z.number().min(0).max(1),
-  followerGrowthEstimate: z.number().min(0),
-});
-
-export const successMetricsSchema = z.object({
-  minimumEngagement: z.number().min(0),
-  targetImpressions: z.number().min(0),
-  expectedFollowerGain: z.number().min(0),
-});
-
-export const hypothesisSchema = z.object({
-  projectName: z.string(),
+export const selectedTopicSchema = z.object({
   primaryTopic: z.string(),
   relatedTopics: z.array(z.string()),
-  contentStrategy: contentStrategySchema,
-  growthPotential: growthPotentialSchema,
-  rationale: z.string(),
-  confidenceScore: z.number().min(0).max(1),
-  risks: z.array(z.string()),
-  successMetrics: successMetricsSchema,
-});
-
-export const topicDistributionSchema = z.object({
-  topic: z.string(),
-  percentage: z.number().min(0).max(1),
-});
-
-export const contentMixSchema = z.object({
-  format: z.string(),
-  percentage: z.number().min(0).max(1),
-});
-
-export const overallStrategySchema = z.object({
-  recommendedFrequency: z.string(),
-  topicDistribution: z.array(topicDistributionSchema),
-  contentMix: z.array(contentMixSchema),
-});
-
-export const marketingInsightsSchema = z.object({
-  targetAudience: z.array(z.string()),
-  uniqueValueProposition: z.string(),
-  competitiveAdvantage: z.array(z.string()),
-  growthLevers: z.array(z.string()),
+  relevantKnowledge: z.array(relevantKnowledgeSchema),
+  threadIdea: z.string(),
+  uniqueAngle: z.string(),
+  estimatedLength: z.number().min(1),
+  confidenceScore: z.number().min(0.75),
 });
 
 export const hypothesisResponseSchema = z.object({
-  hypotheses: z.array(hypothesisSchema),
-  overallStrategy: overallStrategySchema,
-  marketingInsights: marketingInsightsSchema,
+  selectedTopic: selectedTopicSchema.nullable(),
 });
 
-// Export the inferred type from the schema
 export type HypothesisResponse = z.infer<typeof hypothesisResponseSchema>;
+export type SelectedTopic = z.infer<typeof selectedTopicSchema>;
+
+export type LessonLearned = {
+  topic: string;
+  whatWorked: string[];
+  whatDidntWork: string[];
+};
+
+export const topicSuggestionsSchema = z.object({
+  selectedTopics: z.array(selectedTopicSchema),
+});
+
+export type TopicSuggestionsResponse = z.infer<typeof topicSuggestionsSchema>;

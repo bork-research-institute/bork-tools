@@ -1,20 +1,22 @@
 import type { TopicWeightRow } from '@/types/topic';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { analyzeTopicRelationships } from '../generate-ai-object/generate-related-topics';
 import { getAggregatedTopicWeights } from '../topic-weights/topics';
-import { analyzeTopicRelationships } from './analyze-topic-relationships';
 
 /**
- * Selects a topic based on weighted probabilities, optionally considering a preferred topic
+ * Selects topics based on weighted probabilities, optionally considering a preferred topic
  * @param runtime - Agent runtime for AI operations
  * @param timeframeHours - Number of hours to look back for topic weights
  * @param preferredTopic - Optional topic to bias selection towards related topics
- * @returns Selected topic and weight
+ * @param numTopics - Number of topics to return (default: 1)
+ * @returns Array of selected topics and weights
  */
 export async function selectTopic(
   runtime: IAgentRuntime,
   timeframeHours = 24,
   preferredTopic?: string,
-): Promise<TopicWeightRow> {
+  numTopics = 1,
+): Promise<TopicWeightRow[]> {
   // Get aggregated topic weights from recent data
   const topicWeights = await getAggregatedTopicWeights(timeframeHours);
 
@@ -22,33 +24,35 @@ export async function selectTopic(
     elizaLogger.warn(
       '[TopicSelection] No topics available, using default crypto topic',
     );
-    return {
-      topic: 'cryptocurrency',
-      weight: 1,
-      impact_score: 0.5,
-      created_at: new Date(),
-      id: '',
-      tweet_id: '',
-      sentiment: 'neutral',
-      confidence: 0.5,
-      engagement_metrics: {
-        likes: 0,
-        retweets: 0,
-        replies: 0,
-        quality_metrics: {
-          relevance: 0.5,
-          originality: 0.5,
-          clarity: 0.5,
-          authenticity: 0.5,
-          valueAdd: 0.5,
+    return [
+      {
+        topic: 'cryptocurrency',
+        weight: 1,
+        impact_score: 0.5,
+        created_at: new Date(),
+        id: '',
+        tweet_id: '',
+        sentiment: 'neutral',
+        confidence: 0.5,
+        engagement_metrics: {
+          likes: 0,
+          retweets: 0,
+          replies: 0,
+          quality_metrics: {
+            relevance: 0.5,
+            originality: 0.5,
+            clarity: 0.5,
+            authenticity: 0.5,
+            valueAdd: 0.5,
+          },
         },
       },
-    };
+    ];
   }
 
   // If no preferred topic, just do regular weighted selection
   if (!preferredTopic) {
-    return performWeightedSelection(topicWeights);
+    return performWeightedSelection(topicWeights, numTopics);
   }
 
   try {
@@ -100,11 +104,13 @@ export async function selectTopic(
         { preferredTopic },
       );
       // If no related topics meet the threshold, use the preferred topic
-      return {
-        ...topicWeights[0],
-        topic: preferredTopic,
-        weight: 1,
-      };
+      return [
+        {
+          ...topicWeights[0],
+          topic: preferredTopic,
+          weight: 1,
+        },
+      ];
     }
 
     elizaLogger.debug('[TopicSelection] Adjusted weights:', {
@@ -117,7 +123,7 @@ export async function selectTopic(
       })),
     });
 
-    return performWeightedSelection(validWeights);
+    return performWeightedSelection(validWeights, numTopics);
   } catch (error) {
     elizaLogger.warn(
       '[TopicSelection] Error in relationship analysis, falling back to basic selection:',
@@ -125,7 +131,7 @@ export async function selectTopic(
         error: error instanceof Error ? error.message : String(error),
       },
     );
-    return performWeightedSelection(topicWeights);
+    return performWeightedSelection(topicWeights, numTopics);
   }
 }
 
@@ -134,25 +140,37 @@ export async function selectTopic(
  */
 function performWeightedSelection(
   topicWeights: TopicWeightRow[],
-): TopicWeightRow {
-  const totalWeight = topicWeights.reduce((sum, tw) => sum + tw.weight, 0);
-  const randomValue = Math.random() * totalWeight;
-  let accumWeight = 0;
+  numTopics = 1,
+): TopicWeightRow[] {
+  const selectedTopics: TopicWeightRow[] = [];
+  const remainingTopics = [...topicWeights];
 
-  const selectedTopic =
-    topicWeights.find((tw) => {
+  for (let i = 0; i < numTopics && remainingTopics.length > 0; i++) {
+    const totalWeight = remainingTopics.reduce((sum, tw) => sum + tw.weight, 0);
+    const randomValue = Math.random() * totalWeight;
+    let accumWeight = 0;
+
+    const selectedIndex = remainingTopics.findIndex((tw) => {
       accumWeight += tw.weight;
       return randomValue <= accumWeight;
-    }) || topicWeights[0];
+    });
 
-  elizaLogger.debug('[TopicSelection] Selected topic based on weights', {
-    selectedTopic: selectedTopic.topic,
-    weight: selectedTopic.weight,
-    allWeights: topicWeights.map((tw) => ({
+    if (selectedIndex !== -1) {
+      const selectedTopic = remainingTopics[selectedIndex];
+      selectedTopics.push(selectedTopic);
+      // Remove selected topic to avoid duplicates
+      remainingTopics.splice(selectedIndex, 1);
+    }
+  }
+
+  elizaLogger.debug('[TopicSelection] Selected topics based on weights', {
+    selectedTopics: selectedTopics.map((tw) => ({
       topic: tw.topic,
       weight: tw.weight,
     })),
+    requestedCount: numTopics,
+    actualCount: selectedTopics.length,
   });
 
-  return selectedTopic;
+  return selectedTopics;
 }

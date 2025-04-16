@@ -1,19 +1,14 @@
-import { tweetQueries } from '@/db/queries';
-import { hypothesisTemplate } from '@/templates/hypothesis';
-import type { HypothesisResponse } from '@/types/response/hypothesis';
-import { hypothesisResponseSchema } from '@/types/response/hypothesis';
 import {
   type IAgentRuntime,
   type Memory,
-  ModelClass,
   type RAGKnowledgeItem,
   elizaLogger,
-  generateObject,
   stringToUuid,
 } from '@elizaos/core';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Fetches knowledge items related to a specific topic
+ * Fetches and formats knowledge items related to a specific topic
  */
 export async function fetchTopicKnowledge(
   runtime: IAgentRuntime,
@@ -21,16 +16,23 @@ export async function fetchTopicKnowledge(
   logPrefix = '[Knowledge Fetch]',
 ): Promise<RAGKnowledgeItem[]> {
   try {
+    // Add some context words to help with semantic search
+    const searchText = `${topic} related content discussion analysis insights`;
+
     // Create a memory object for embedding generation
     const memory: Memory = {
-      id: stringToUuid(`topic-memory-${topic}`),
+      id: stringToUuid(uuidv4()),
       content: {
-        text: topic,
+        text: searchText,
       },
       agentId: runtime.agentId,
       userId: stringToUuid('system'),
       roomId: stringToUuid('topic-analysis'),
     };
+
+    elizaLogger.debug(
+      `${logPrefix} Generating embedding for topic "${topic}" with context`,
+    );
 
     // Generate embedding for the topic
     await runtime.messageManager.addEmbeddingToMemory(memory);
@@ -42,6 +44,18 @@ export async function fetchTopicKnowledge(
       return [];
     }
 
+    elizaLogger.debug(
+      `${logPrefix} Successfully generated search embedding for topic "${topic}"`,
+      {
+        embeddingSize:
+          memory.embedding instanceof Float32Array
+            ? memory.embedding.length
+            : memory.embedding.length,
+        embeddingType:
+          memory.embedding instanceof Float32Array ? 'Float32Array' : 'Array',
+      },
+    );
+
     // Convert embedding to Float32Array if needed
     const embedding =
       memory.embedding instanceof Float32Array
@@ -49,106 +63,111 @@ export async function fetchTopicKnowledge(
         : new Float32Array(memory.embedding);
 
     // Search for knowledge items related to the topic
-    const knowledge = await runtime.databaseAdapter.searchKnowledge({
-      agentId: runtime.agentId,
-      embedding,
-      match_threshold: 0.7,
-      match_count: 10,
-      searchText: topic,
-    });
+    let knowledge: RAGKnowledgeItem[] = [];
+    try {
+      knowledge = await runtime.databaseAdapter.searchKnowledge({
+        agentId: runtime.agentId,
+        embedding,
+        match_threshold: 0.15,
+        match_count: 10,
+        searchText,
+      });
+    } catch (searchError) {
+      elizaLogger.error(`${logPrefix} Error during knowledge search:`, {
+        error:
+          searchError instanceof Error
+            ? searchError.message
+            : String(searchError),
+        stack: searchError instanceof Error ? searchError.stack : undefined,
+      });
+      return [];
+    }
+
+    if (knowledge.length === 0) {
+      elizaLogger.info(
+        `${logPrefix} No relevant knowledge found for topic "${topic}".`,
+      );
+      return [];
+    }
 
     elizaLogger.info(
-      `${logPrefix} Found ${knowledge.length} knowledge items for topic ${topic}`,
+      `${logPrefix} Found ${knowledge.length} knowledge items for topic "${topic}"`,
     );
 
-    return knowledge;
+    // Process and format each knowledge item
+    const processedKnowledge = knowledge.map((k) => {
+      const metadata = k.content.metadata || {};
+      const topics = Array.isArray(metadata.topics) ? metadata.topics : [];
+      const metrics =
+        (metadata.publicMetrics as {
+          likes?: number;
+          retweets?: number;
+          replies?: number;
+        }) || {};
+
+      interface AnalysisContent {
+        mainContent: string;
+        keyTakeaways?: string[];
+      }
+
+      let analysisContent: AnalysisContent;
+      try {
+        analysisContent = JSON.parse(k.content.text) as AnalysisContent;
+      } catch {
+        // Handle legacy format or invalid JSON
+        analysisContent = { mainContent: k.content.text };
+      }
+
+      // Format the content text with key takeaways if available
+      const formattedText = `${analysisContent.mainContent}${
+        analysisContent.keyTakeaways?.length
+          ? `\nKey Takeaways:\n${analysisContent.keyTakeaways
+              .map((point) => `- ${point}`)
+              .join('\n')}`
+          : ''
+      }`;
+
+      // Return a properly typed knowledge item
+      return {
+        ...k,
+        content: {
+          text: formattedText,
+          metadata: {
+            ...k.content.metadata,
+            type: String(metadata.tweetType || 'unknown'),
+            confidence: Number(metadata.confidence || 0),
+            similarity: Number((k.similarity || 0).toFixed(2)),
+            topics: topics.join(', ') || 'none',
+            impactScore: Number(metadata.impactScore || 0),
+            engagement: {
+              likes: Number(metrics.likes || 0),
+              retweets: Number(metrics.retweets || 0),
+              replies: Number(metrics.replies || 0),
+            },
+            isOpinion: Boolean(metadata.isOpinion),
+            isFactual: Boolean(metadata.isFactual),
+            hasQuestion: Boolean(metadata.hasQuestion),
+          },
+        },
+      };
+    });
+
+    elizaLogger.debug(`${logPrefix} Successfully processed knowledge items`, {
+      count: knowledge.length,
+      averageSimilarity:
+        knowledge.reduce((acc, k) => acc + (k.similarity || 0), 0) /
+        knowledge.length,
+    });
+
+    return processedKnowledge;
   } catch (error) {
     elizaLogger.error(
       `${logPrefix} Error fetching knowledge for topic ${topic}:`,
       {
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       },
     );
     return [];
-  }
-}
-
-/**
- * Generates hypotheses for growing the X account based on topic performance and knowledge
- */
-export async function generateHypothesis(
-  runtime: IAgentRuntime,
-  timeframeHours = 24,
-  logPrefix = '[Hypothesis Generation]',
-): Promise<HypothesisResponse> {
-  try {
-    elizaLogger.info(
-      `${logPrefix} Starting hypothesis generation for the last ${timeframeHours} hours`,
-    );
-
-    // Get recent topic weights
-    const topicWeights =
-      await tweetQueries.getRecentTopicWeights(timeframeHours);
-    elizaLogger.info(
-      `${logPrefix} Found ${topicWeights.length} topic weights to analyze`,
-    );
-
-    if (topicWeights.length === 0) {
-      throw new Error('No recent topic weights found for analysis');
-    }
-
-    // Fetch knowledge for each topic
-    const allKnowledge: RAGKnowledgeItem[] = [];
-    for (const topicWeight of topicWeights) {
-      const topicKnowledge = await fetchTopicKnowledge(
-        runtime,
-        topicWeight.topic,
-        `${logPrefix} [Topic: ${topicWeight.topic}]`,
-      );
-      allKnowledge.push(...topicKnowledge);
-    }
-
-    elizaLogger.info(
-      `${logPrefix} Found ${allKnowledge.length} total knowledge items`,
-    );
-
-    // Get current account metrics (these would come from your Twitter service)
-    // For now using placeholder values - you'll need to implement this
-    const currentMetrics = {
-      followers: 1000, // Replace with actual follower count
-      averageImpressions: 5000, // Replace with actual average impressions
-      engagementRate: 0.02, // Replace with actual engagement rate
-    };
-
-    // Create the template
-    const template = hypothesisTemplate({
-      topicWeights,
-      topicKnowledge: allKnowledge,
-      currentFollowers: currentMetrics.followers,
-      averageImpressions: currentMetrics.averageImpressions,
-      engagementRate: currentMetrics.engagementRate,
-    });
-
-    // Generate hypothesis using the AI
-    const { object } = await generateObject({
-      runtime,
-      context: template.context,
-      modelClass: ModelClass.SMALL,
-      schema: hypothesisResponseSchema,
-    });
-
-    const hypothesis = object as HypothesisResponse;
-
-    elizaLogger.info(`${logPrefix} Successfully generated hypothesis`, {
-      numHypotheses: hypothesis.hypotheses.length,
-      topicDistribution: hypothesis.overallStrategy.topicDistribution.length,
-    });
-
-    return hypothesis;
-  } catch (error) {
-    elizaLogger.error(`${logPrefix} Error generating hypothesis:`, {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
   }
 }

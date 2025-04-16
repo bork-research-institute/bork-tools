@@ -1,5 +1,5 @@
 import { cleanupPool } from '@/db';
-import { TweetQueueService } from '@/services/twitter/tweet-queue.service';
+import { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import { TwitterService } from '@/services/twitter/twitter-service';
 import {
   type ClientInstance,
@@ -99,11 +99,11 @@ export class TwitterClient implements ClientInstance {
 
       // Start clients concurrently
       await Promise.all([
-        this.accountsClient.start(),
+        // this.accountsClient.start(),
         // this.searchClient.start(),
         // this.interactionClient.start(),
         // this.discoveryClient.start(),
-        // this.informativeThreadsClient.start(),
+        this.informativeThreadsClient.start(),
       ]);
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');

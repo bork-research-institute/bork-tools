@@ -1,4 +1,4 @@
-import type { TweetQueueService } from '@/services/twitter/tweet-queue.service';
+import type { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';

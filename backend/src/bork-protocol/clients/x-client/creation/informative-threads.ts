@@ -1,13 +1,15 @@
 import { CONTENT_CREATION } from '@/config/creation';
+import { TweetQueueService } from '@/services/twitter/tweet-queue-service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { HypothesisResponse } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
+import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 
 export class InformativeThreadsClient {
   private twitterConfigService: TwitterConfigService;
-  private twitterService: TwitterService;
+  private tweetQueueService: TweetQueueService;
   private readonly runtime: IAgentRuntime;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentHypothesis: HypothesisResponse | null = null;
@@ -15,8 +17,8 @@ export class InformativeThreadsClient {
   private lastContentGeneration = 0;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
-    this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
+    this.tweetQueueService = new TweetQueueService(twitterService, runtime);
     this.runtime = runtime;
   }
 
@@ -92,28 +94,42 @@ export class InformativeThreadsClient {
         elizaLogger.info('[InformativeThreads] Generating new hypothesis...');
         this.currentHypothesis = await generateHypothesis(this.runtime);
         this.lastHypothesisGeneration = now;
-
-        elizaLogger.info('[InformativeThreads] New hypothesis generated', {
-          numTopics: this.currentHypothesis.selectedTopics.length,
-          topics: this.currentHypothesis.selectedTopics.map(
-            (t) => t.primaryTopic,
-          ),
-        });
       }
 
-      // TODO: Implement content generation for each topic
-      // This will involve:
-      // 1. Using the topic.relevantKnowledge to generate thread content
-      // 2. Creating images/media if needed (CONTENT_CREATION.SHOULD_GENERATE_MEDIA)
-      // 3. Scheduling posts according to CONTENT_CREATION.OPTIMAL_POSTING_TIMES
-      // 4. Tracking performance metrics against CONTENT_CREATION.ENGAGEMENT_THRESHOLDS
+      // If no topic was selected (insufficient data), skip content generation
+      if (!this.currentHypothesis?.selectedTopic) {
+        elizaLogger.info(
+          '[InformativeThreads] No suitable topic found for content generation. Skipping.',
+        );
+        return;
+      }
 
-      // TODO: Implement project success tracking
-      // This will involve:
-      // 1. Tracking engagement metrics at CONTENT_CREATION.PERFORMANCE_CHECK_INTERVALS
-      // 2. Comparing against CONTENT_CREATION.ENGAGEMENT_THRESHOLDS
-      // 3. Adjusting strategy based on performance
-      // 4. Updating hypothesis if needed
+      try {
+        const topic = this.currentHypothesis.selectedTopic;
+        elizaLogger.info('[InformativeThreads] Processing topic:', {
+          primaryTopic: topic.primaryTopic,
+          threadIdea: topic.threadIdea,
+        });
+
+        // Generate thread content with integrated media
+        const thread = await generateThread(this.runtime, topic);
+
+        // TODO: Add media generation for first tweet of thread
+
+        // Schedule the thread for posting
+        await this.tweetQueueService.scheduleThread(thread);
+
+        elizaLogger.info('[InformativeThreads] Successfully processed topic', {
+          primaryTopic: topic.primaryTopic,
+          tweetCount: thread.tweets.length,
+          mediaCount: thread.tweets.filter((t) => t.media).length,
+        });
+      } catch (error) {
+        elizaLogger.error('[InformativeThreads] Error processing topic:', {
+          primaryTopic: this.currentHypothesis.selectedTopic.primaryTopic,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       elizaLogger.info(
         '[InformativeThreads] Content generation cycle completed',
