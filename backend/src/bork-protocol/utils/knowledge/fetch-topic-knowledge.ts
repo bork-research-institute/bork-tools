@@ -37,22 +37,63 @@ export async function fetchTopicKnowledge(
       return [];
     }
 
+    elizaLogger.debug(`${logPrefix} Generated embedding for topic search:`, {
+      topic,
+      embeddingSize: memory.embedding.length,
+      embeddingType:
+        memory.embedding instanceof Float32Array ? 'Float32Array' : 'Array',
+    });
+
     // Convert embedding to Float32Array if needed
     const embedding =
       memory.embedding instanceof Float32Array
         ? memory.embedding
         : new Float32Array(memory.embedding);
 
-    // Search for knowledge items related to the topic
+    // Search for knowledge items related to the topic with more lenient parameters
     let knowledge: RAGKnowledgeItem[] = [];
     try {
-      knowledge = await runtime.databaseAdapter.searchKnowledge({
+      // First try exact topic match
+      const exactMatches = await runtime.databaseAdapter.searchKnowledge({
         agentId: runtime.agentId,
         embedding,
-        match_threshold: 0.35,
-        match_count: 15,
-        searchText: topic,
+        match_threshold: 0.7, // Much more lenient threshold
+        match_count: 10, // Increased match count
+        searchText: `${topic} ${topic.toLowerCase()} ${topic.toUpperCase()} ${
+          topic.charAt(0).toUpperCase() + topic.slice(1).toLowerCase()
+        }`,
       });
+
+      elizaLogger.debug(`${logPrefix} Search results for topic "${topic}":`, {
+        exactMatchCount: exactMatches.length,
+        searchThreshold: 0.7,
+        agentId: runtime.agentId,
+      });
+
+      // If no exact matches, try broader search
+      if (exactMatches.length === 0) {
+        const broadMatches = await runtime.databaseAdapter.searchKnowledge({
+          agentId: runtime.agentId,
+          embedding,
+          match_threshold: 0.4, // Even more lenient for broader search
+          match_count: 25, // Higher count for broader search
+          searchText: `${topic} ${topic.toLowerCase()} ${topic.toUpperCase()} ${
+            topic.charAt(0).toUpperCase() + topic.slice(1).toLowerCase()
+          } ${topic}s cryptocurrency crypto market trading analysis news`,
+        });
+
+        elizaLogger.debug(
+          `${logPrefix} Broad search results for topic "${topic}":`,
+          {
+            broadMatchCount: broadMatches.length,
+            searchThreshold: 0.05,
+          },
+        );
+
+        knowledge = broadMatches;
+      } else {
+        knowledge = exactMatches;
+      }
     } catch (searchError) {
       elizaLogger.error(`${logPrefix} Error during knowledge search:`, {
         error:
@@ -73,6 +114,15 @@ export async function fetchTopicKnowledge(
 
     elizaLogger.info(
       `${logPrefix} Found ${knowledge.length} knowledge items for topic "${topic}"`,
+      {
+        similarityRange:
+          knowledge.length > 0
+            ? {
+                min: Math.min(...knowledge.map((k) => k.similarity || 0)),
+                max: Math.max(...knowledge.map((k) => k.similarity || 0)),
+              }
+            : null,
+      },
     );
 
     // Process and format each knowledge item

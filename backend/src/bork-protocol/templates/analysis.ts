@@ -99,7 +99,7 @@ Response format MUST be a JSON object with the following structure with THREE to
     "format": "statement|question|poll|call_to_action|thread|image_focus|video_focus|link_share|other",
     "sentiment": "positive|negative|neutral|controversial|inspirational",
     "confidence": 0-1,
-    "summary": "A detailed factual analysis that identifies key individuals/organizations, specific events/actions/claims, locations/platforms, timing/dates, motivations/reasons, and methods/processes. IMPORTANT: Every fact must be attributed to its source (e.g. 'According to @username...', 'The tweet states...', 'User @X claims...'). Include direct quotes where relevant and cite external references. Focus on extracting verifiable facts and knowledge rather than interpretations. Document any uncertainties or ambiguities.",
+    "summary": "CONCISE factual analysis. Structure: [Key Claims] + [Supporting Evidence] + [Context]. Include ONLY: verified facts, direct quotes, specific data points, clear attributions. NO interpretations or speculation. Format: Claim: Evidence (Source). Omit filler words and redundant context.",
     "topics": ["topic1", "topic2", "topic3"],
     "entities": ["person1", "org1", "product1", "location1", "event1"],
     "qualityMetrics": {
@@ -115,7 +115,7 @@ Response format MUST be a JSON object with the following structure with THREE to
     "spamScore": 0-1
   },
   "marketingAnalysis": {
-    "summary": "A comprehensive analysis of engagement patterns, metrics significance, key engaging elements, content strategy effectiveness, audience insights, and actionable patterns. Include specific details about engagement metrics, successful content elements, topic resonance, timing effectiveness, audience segments, pain points addressed, successful phrases/approaches, and specific recommendations for improvement. Don't try to explain why it got those metrics. Just give guidelines on how to achieve those kinds of metrics based on what you see.",
+    "summary": "CONCISE engagement analysis. Structure: [Metrics Impact] + [Key Elements] + [Action Items]. Focus: quantifiable patterns, successful triggers, replicable tactics. Format: Pattern -> Impact -> Action. NO general advice or explanations. ONLY specific, actionable insights tied to observable data."
   }
 }
 \`\`\`

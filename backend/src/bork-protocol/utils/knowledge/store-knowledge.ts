@@ -104,8 +104,11 @@ export async function storeKnowledge(
     id: mainId,
     agentId: runtime.agentId,
     content: {
-      text,
-      metadata: createKnowledgeMetadata(tweet, analysis, knowledgeType, false),
+      text: text.toLowerCase(),
+      metadata: {
+        ...createKnowledgeMetadata(tweet, analysis, knowledgeType, false),
+        originalText: text,
+      },
     },
     embedding: undefined,
     createdAt: Date.now(),
@@ -114,7 +117,7 @@ export async function storeKnowledge(
   // Generate embedding for the main item using standardized IDs
   const mainMemory: Memory = {
     id: mainId,
-    content: { text },
+    content: { text: text.toLowerCase() },
     agentId: runtime.agentId,
     userId: stringToUuid(SYSTEM_USER_ID),
     roomId: stringToUuid(KNOWLEDGE_ROOM_ID),
@@ -155,7 +158,7 @@ export async function storeKnowledge(
         // Create chunk memory for embedding using standardized IDs
         const chunkMemory: Memory = {
           id: chunkId,
-          content: { text: chunkText },
+          content: { text: chunkText.toLowerCase() },
           agentId: runtime.agentId,
           userId: stringToUuid(SYSTEM_USER_ID),
           roomId: stringToUuid(KNOWLEDGE_ROOM_ID),
@@ -168,15 +171,18 @@ export async function storeKnowledge(
             id: chunkId,
             agentId: runtime.agentId,
             content: {
-              text: chunkText,
-              metadata: createKnowledgeMetadata(
-                tweet,
-                analysis,
-                knowledgeType,
-                true,
-                i,
-                mainId,
-              ),
+              text: chunkText.toLowerCase(),
+              metadata: {
+                ...createKnowledgeMetadata(
+                  tweet,
+                  analysis,
+                  knowledgeType,
+                  true,
+                  i,
+                  mainId,
+                ),
+                originalText: chunkText,
+              },
             },
             embedding:
               chunkMemory.embedding instanceof Float32Array
