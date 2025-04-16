@@ -1,11 +1,11 @@
-# Use a multi-stage build for efficiency
-FROM oven/bun:debian AS builder
+# Use Node.js as base with the exact version needed
+FROM node:23.3.0-slim AS builder
 
-# Set the working directory
-WORKDIR /app
 
-# Install dependencies for native module compilation, based on official Eliza Dockerfile
-RUN apt-get update && \
+# Install pnpm globally and necessary build tools
+RUN npm install -g pnpm@9.15.4 && \
+    apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
     git \
     python3 \
@@ -25,92 +25,68 @@ RUN apt-get update && \
     libpango1.0-dev \
     libgif-dev \
     openssl \
-    libssl-dev \
-    libsecret-1-dev \
-    libnss3-dev \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    && apt-get clean && \
+    unzip \
+    libssl-dev libsecret-1-dev && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 23.x
-RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g node-gyp \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Set Python 3 as the default python
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun
+
+# Set the working directory
+WORKDIR /app
 
 # Copy package files
 COPY package.json ./
-COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
+COPY backend ./backend/
 
 # Install dependencies
 RUN bun install --filter "!frontend"
 
-# Copy backend code
-COPY backend ./backend/
-COPY backend/.env.backend.production ./backend/
-
-# Build the application
-RUN cd backend && bun run build
+# Build the backend
+RUN bun backend:build
 
 # Final runtime image
-FROM oven/bun:debian
+FROM node:23.3.0-slim
 
-# Install runtime dependencies only
-RUN apt-get update && \
+# Install runtime dependencies
+RUN npm install -g pnpm@9.15.4 && \
+    apt-get update && \
     apt-get install -y \
     git \
     python3 \
-    ffmpeg \
-    curl \
-    gnupg \
-    ca-certificates \
-    libopus-dev \
-    libnss3-dev \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 23.x
-RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean && \
+    ffmpeg && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
-# Copy built artifacts from builder stage
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/backend/package.json ./backend/
+# Copy Bun executable from builder stage
+COPY --from=builder /root/.bun/bin/bun /usr/local/bin/bun
+
+# Ensure bun is executable
+RUN chmod +x /usr/local/bin/bun
+
+# Copy the built application artifacts from the builder stage
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/backend/.env.backend.production ./backend/
+COPY --from=builder /app/bun.lock ./bun.lock
+COPY --from=builder /app/package.json ./package.json
+# COPY --from=builder /app/frontend/package.json ./frontend/package.json # Uncomment if frontend package.json needed at runtime
+COPY --from=builder /app/backend/package.json ./backend/package.json
+COPY --from=builder /app/backend/.env.backend.production ./backend/.env.backend.production
 
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Set environment variables at runtime
-ENV NODE_ENV=production
+# Set the entrypoint to the bun executable
+ENTRYPOINT ["/usr/local/bin/bun"]
 
-# Command to run the application
-CMD ["bun", "run", "backend:start"]
+# Default command arguments for the entrypoint
+CMD ["run", "backend:start"]
