@@ -5,16 +5,17 @@
   "module": "src/index.js",
   "scripts": {
     "dotenvx": "dotenvx run -f .env.backend.production --",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "dotenvx run -f .env.backend.local -f .env.backend.production -fk ../.env.keys -- bun run --watch src/index.ts",
     "build": "bun run dotenvx tsup src/index.ts --format esm --dts --sourcemap",
     "build:local": "dotenvx run -f .env.backend.local -f .env.backend.production -fk ../.env.keys -- tsup src/index.ts --format esm --dts --sourcemap",
     "start": "bun run dotenvx bun run dist/index.js",
     "start:local": "dotenvx run -f .env.backend.local -f .env.backend.production -fk ../.env.keys -- bun run dist/index.js",
+    "test": "bun test",
     "format": "biome format --write .",
     "lint": "biome lint --write .",
     "lint:unsafe": "biome lint --write --unsafe .",
-    "test:market": "bun run src/plugins/injective-client/test/test-market-analysis.ts"
+    "test:market": "bun run src/plugins/injective-client/test/test-market-analysis.ts",
+    "test:watch": "bun run dotenvx -- bun test src/tests/eliza/index.test.ts --timeout 1000000 --watch"
   },
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",

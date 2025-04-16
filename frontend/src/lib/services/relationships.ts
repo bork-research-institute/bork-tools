@@ -10,7 +10,7 @@ export interface UserRelationship {
 }
 
 export const relationshipsService = {
-  async getTopUserRelationships(limit = 50): Promise<UserRelationship[]> {
+  async getTopUserRelationships(limit = 100): Promise<UserRelationship[]> {
     try {
       // Get users with most mentions (either as source or target)
       const { data, error } = await supabaseClient

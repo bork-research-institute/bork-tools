@@ -81,6 +81,12 @@ export interface DatabaseTweet extends AgentTweet {
       urls: string[];
     };
   };
+  structuredContent?: {
+    mainTweet: string;
+    replies: Array<{ text: string; username: string }>;
+    quotes: Array<{ text: string; username: string }>;
+    retweets: Array<{ text: string; username: string }>;
+  };
 }
 
 // Re-export other types
@@ -286,4 +292,13 @@ export interface TwitterEngagementThresholds {
   minLikes: number;
   minRetweets: number;
   minReplies: number;
+}
+
+export interface TweetWithUpstream {
+  originalTweet: DatabaseTweet;
+  upstreamTweets: {
+    inReplyChain: DatabaseTweet[];
+    quotedTweets: DatabaseTweet[];
+    retweetedTweets: DatabaseTweet[];
+  };
 }

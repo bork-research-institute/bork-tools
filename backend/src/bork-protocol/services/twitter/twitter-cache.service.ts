@@ -1,6 +1,19 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
 
+/**
+ * Creates a clean copy of a tweet suitable for caching by removing properties that could create circular references
+ */
+function cleanTweetForCache(tweet: Tweet): Tweet {
+  return {
+    ...tweet,
+    inReplyToStatus: null,
+    quotedStatus: null,
+    retweetedStatus: null,
+    thread: [],
+  };
+}
+
 export class TwitterCacheService {
   private readonly runtime: IAgentRuntime;
 
@@ -15,7 +28,12 @@ export class TwitterCacheService {
       );
       return;
     }
-    await this.runtime.cacheManager.set(`twitter/tweets/${tweet.id}`, tweet);
+    // Clean the tweet before caching to prevent circular references
+    const cleanTweet = cleanTweetForCache(tweet);
+    await this.runtime.cacheManager.set(
+      `twitter/tweets/${tweet.id}`,
+      cleanTweet,
+    );
   }
 
   public async getCachedTweet(tweetId: string): Promise<Tweet | undefined> {
@@ -45,9 +63,11 @@ export class TwitterCacheService {
       );
       return;
     }
+    // Clean each tweet in the timeline before caching
+    const cleanTimeline = timeline.map(cleanTweetForCache);
     await this.runtime.cacheManager.set(
       `twitter/${username}/timeline`,
-      timeline,
+      cleanTimeline,
     );
   }
 
@@ -83,9 +103,11 @@ export class TwitterCacheService {
     if (!username) {
       return;
     }
+    // Clean each mention tweet before caching
+    const cleanMentions = mentions.map(cleanTweetForCache);
     await this.runtime.cacheManager.set(
       `twitter/${username}/mentions`,
-      mentions,
+      cleanMentions,
       { expires: Date.now() + 10 * 1000 }, // 10 seconds expiry
     );
   }
@@ -107,7 +129,9 @@ export class TwitterCacheService {
     tweet: Tweet,
     response: string,
   ): Promise<void> {
-    const responseInfo = `Context:\n\n${context}\n\nSelected Post: ${tweet.id} - ${tweet.username}: ${tweet.text}\nAgent's Output:\n${response}`;
+    // Clean the tweet before including in response info
+    const cleanTweet = cleanTweetForCache(tweet);
+    const responseInfo = `Context:\n\n${context}\n\nSelected Post: ${cleanTweet.id} - ${cleanTweet.username}: ${cleanTweet.text}\nAgent's Output:\n${response}`;
     await this.runtime.cacheManager.set(
       `twitter/tweet_generation_${tweetId}.txt`,
       responseInfo,

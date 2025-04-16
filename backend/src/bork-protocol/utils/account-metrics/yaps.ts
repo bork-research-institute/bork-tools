@@ -7,8 +7,6 @@ const kaitoService = new KaitoService();
 export async function updateYapsData(
   accounts: Array<{ userId: string; username: string }>,
 ): Promise<void> {
-  elizaLogger.info('[Yaps Processing] Updating Yaps data for target accounts');
-
   try {
     const yapsData = await kaitoService.getYapsForAccounts(accounts);
 

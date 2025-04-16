@@ -19,7 +19,28 @@ export async function selectTopic(
   const topicWeights = await getAggregatedTopicWeights(timeframeHours);
 
   if (topicWeights.length === 0) {
-    throw new Error('No topics available for selection');
+    elizaLogger.warn(
+      '[TopicSelection] No topics available, using default crypto topic',
+    );
+    return {
+      topic: 'cryptocurrency',
+      weight: 1,
+      impact_score: 0.5,
+      created_at: new Date(),
+      id: '',
+      tweet_id: '',
+      sentiment: 'neutral',
+      confidence: 0.5,
+      engagement_metrics: {
+        likes: 0,
+        replies: 0,
+        retweets: 0,
+        virality: 0.5,
+        communityBuilding: 0.5,
+        thoughtLeadership: 0.5,
+        conversionPotential: 0.5,
+      },
+    };
   }
 
   // If no preferred topic, just do regular weighted selection

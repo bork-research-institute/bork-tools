@@ -10,6 +10,7 @@
     "backend:build:local": "bun run --cwd backend build:local",
     "backend:start": "bun run --cwd backend start",
     "backend:start:local": "bun run --cwd backend start:local",
+    "backend:test": "bun run --cwd backend test:watch",
     "install:all": "bun install",
     "install:frontend": "bun install --cwd frontend",
     "install:backend": "bun install --cwd backend",

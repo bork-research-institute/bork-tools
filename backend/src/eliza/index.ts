@@ -8,8 +8,8 @@ import {
   settings,
   stringToUuid,
 } from '@elizaos/core';
-import { initializeClients } from 'src/bork-protocol/clients';
 import { PostgresDatabaseAdapter } from 'src/bork-protocol/plugins/adapter-postgres';
+import { initializeClients } from 'src/eliza/clients';
 import { ApiClient } from '../api/api';
 import { initializeDbCache } from '../cache/initialize-db-cache';
 import { configureApiRoutes } from '../config/api-routes';
