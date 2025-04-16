@@ -1,9 +1,0 @@
-[phases.setup]
-nixpkgsArchive = 'master'
-nixPkgs = ['nodejs', 'python3', 'gnumake', 'gcc', 'libudev-dev', 'libusb-1.0-0-dev', 'node-gyp']
-
-[phases.build]
-cmds = ["npm install -g node-gyp", "bun backend:build"]
-
-[start]
-cmd = "bun backend:start"
