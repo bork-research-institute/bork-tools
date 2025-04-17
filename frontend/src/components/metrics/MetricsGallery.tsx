@@ -65,21 +65,11 @@ export function MetricsGallery() {
       setLoading(true);
       try {
         // Fetch regular tweets
-        const trendingData = await tweetService.getTrendingTweets(
-          '24h',
-          'aggregate',
-          20,
-          false,
-        );
+        const trendingData = await tweetService.getTrendingTweets(20);
         setTrendingTweets(trendingData);
 
         // Fetch news tweets
-        const newsData = await tweetService.getTrendingTweets(
-          '24h',
-          'aggregate',
-          20,
-          true,
-        );
+        const newsData = await tweetService.getNewsTweets(20);
         setNewsTweets(newsData);
       } catch (error) {
         console.error('Error fetching tweets:', error);
@@ -291,7 +281,6 @@ export function MetricsGallery() {
                 <TrendingTweetsPanel
                   tweets={trendingTweets}
                   loading={loading}
-                  isExpanded={true}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">
@@ -535,7 +524,6 @@ export function MetricsGallery() {
                 <TrendingTweetsPanel
                   tweets={trendingTweets}
                   loading={loading}
-                  isExpanded={false}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">

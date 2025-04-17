@@ -1,6 +1,5 @@
 'use client';
 
-import { useNewsTweets } from '@/lib/hooks/useTweets';
 import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
@@ -16,6 +15,8 @@ import { Panel } from './Panel';
 
 interface NewsPanelProps {
   maxHeight?: string;
+  tweets: TrendingTweet[];
+  loading: boolean;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
@@ -44,14 +45,12 @@ const getScoreColor = (score: number): string => {
   return 'text-green-800';
 };
 
-export function NewsPanel({ maxHeight }: NewsPanelProps) {
+export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
   const [filteredTweets, setFilteredTweets] = useState<TrendingTweet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const { data: tweets, isLoading } = useNewsTweets();
 
   // Handle mounting to prevent hydration issues
   useEffect(() => {
@@ -144,7 +143,7 @@ export function NewsPanel({ maxHeight }: NewsPanelProps) {
           </Select>
         </div>
 
-        {isLoading ? (
+        {loading ? (
           <div className="text-white/60">Loading news tweets...</div>
         ) : filteredTweets.length === 0 ? (
           <div className="text-white/60">
