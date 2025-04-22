@@ -1,5 +1,10 @@
 import { tweetQueries } from '@/db/queries';
+import type { TwitterService } from '@/services/twitter/twitter-service';
+import { tweetAnalysisTemplate } from '@/templates/analysis';
 import type { TweetAnalysis } from '@/types/response/tweet-analysis';
+import { tweetAnalysisSchema } from '@/types/response/tweet-analysis';
+import type { DatabaseTweet } from '@/types/twitter';
+import { fetchAndFormatKnowledge } from '@/utils/knowledge/fetch-tweet-knowledge';
 import {
   type IAgentRuntime,
   type Memory,
@@ -10,11 +15,6 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
-import type { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
-import { tweetAnalysisTemplate } from '../../bork-protocol/templates/analysis';
-import { tweetAnalysisSchema } from '../../bork-protocol/types/response/tweet-analysis';
-import type { DatabaseTweet } from '../../bork-protocol/types/twitter';
-import { fetchAndFormatKnowledge } from '../../bork-protocol/utils/tweet-analysis/process-knowledge';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
 import { mockMergedTweets } from '../mock-data/mock-tweets';
 
