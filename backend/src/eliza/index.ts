@@ -11,7 +11,6 @@ import {
 import { PostgresDatabaseAdapter } from 'src/bork-protocol/plugins/adapter-postgres';
 import { initializeClients } from 'src/eliza/clients';
 import { ApiClient } from '../api/api';
-import { initializeDbCache } from '../cache/initialize-db-cache';
 import { configureApiRoutes } from '../config/api-routes';
 import { getEnv } from '../config/env';
 import {
@@ -20,6 +19,7 @@ import {
   parseArguments,
 } from '../config/index';
 import { character } from './character';
+import { initializeDbCache } from './db-cache';
 
 export function createAgent(
   character: Character,

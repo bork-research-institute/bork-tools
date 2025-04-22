@@ -1,12 +1,12 @@
 import type { TwitterService } from '@/services/twitter//twitter-service';
-import type { TweetQueueService } from '@/services/twitter/tweet-queue.service';
+import type { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import { initializeTargetAccounts } from '@/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@/utils/initialize-db/topics';
 import { selectTargetAccounts } from '@/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/utils/selection/select-tweets-from-account';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { getEnv } from '../../../config/env';
+import { getEnv } from '../../../../config/env';
 
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;

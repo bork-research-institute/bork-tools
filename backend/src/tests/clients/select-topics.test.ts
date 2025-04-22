@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { vi } from 'vitest';
-import * as topicRelationshipsModule from '../../bork-protocol/utils/selection/analyze-topic-relationships';
+import * as topicRelationshipsModule from '../../bork-protocol/utils/generate-ai-object/generate-related-topics';
 import { selectTopic } from '../../bork-protocol/utils/selection/select-topic';
 import * as topicWeightsModule from '../../bork-protocol/utils/topic-weights/topics';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';
@@ -23,7 +23,8 @@ export async function testSelectTopics(runtime: IAgentRuntime) {
       .mockResolvedValue(mockTopicRelationships);
 
     // Test 1: Basic topic selection without preferred topic
-    const basicResult = await selectTopic(runtime);
+    const basicResults = await selectTopic(runtime);
+    const basicResult = basicResults[0];
     elizaLogger.info('[Test] Basic topic selection result:', {
       selectedTopic: basicResult.topic,
       weight: basicResult.weight,
@@ -37,11 +38,12 @@ export async function testSelectTopics(runtime: IAgentRuntime) {
 
     // Test 2: Topic selection with preferred topic
     const preferredTopic = 'cryptocurrency';
-    const preferredResult = await selectTopic(
+    const preferredResults = await selectTopic(
       runtime,
       TEST_TIMEFRAME_HOURS,
       preferredTopic,
     );
+    const preferredResult = preferredResults[0];
     elizaLogger.info('[Test] Preferred topic selection result:', {
       preferredTopic,
       selectedTopic: preferredResult.topic,

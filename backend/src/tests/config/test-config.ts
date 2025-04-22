@@ -10,7 +10,8 @@ export const TEST_FLAGS = {
   TWEET_SELECTION: false,
   TWEET_PROCESSING: false,
   INFLUENCE_SCORE: false,
-  TWEET_CONTEXT: true,
+  TWEET_CONTEXT: false,
+  HYPOTHESIS_THREAD: true,
   // Add more flags here as needed
 } as const;
 
@@ -157,6 +158,18 @@ export const testConfig: TestConfig[] = [
     },
     description:
       'Tests tweet context preparation including template generation, memory state, and knowledge fetching',
+  },
+  {
+    name: 'hypothesis-thread',
+    enabled: TEST_FLAGS.HYPOTHESIS_THREAD,
+    testFn: async (runtime) => {
+      const { testHypothesisAndThreadGeneration } = await import(
+        '../clients/generate-hypothesis-thread.test'
+      );
+      return testHypothesisAndThreadGeneration(runtime);
+    },
+    description:
+      'Tests hypothesis generation from real DB topics and thread generation based on selected topics',
   },
   // Add more tests here as needed
 ];

@@ -1,14 +1,8 @@
+import type { TweetAnalysis as ResponseTweetAnalysis } from './response/tweet-analysis';
+
 export interface SpamAnalysis {
-  spamScore: number;
-  reasons: string[];
   isSpam: boolean;
-  confidenceMetrics: {
-    linguisticRisk: number;
-    topicMismatch: number;
-    engagementAnomaly: number;
-    promotionalIntent: number;
-    accountTrustSignals: number;
-  };
+  spamScore: number;
 }
 
 export interface QualityMetrics {
@@ -40,15 +34,10 @@ export interface ContentAnalysis {
   format: string;
   sentiment: string;
   confidence: number;
-  primaryTopics: string[];
-  secondaryTopics: string[];
-  entities: Entities;
-  hashtagsUsed: string[];
+  summary: string;
+  topics: string[];
+  entities: string[];
   qualityMetrics: QualityMetrics;
-  engagementAnalysis: EngagementAnalysis;
-  summary?: string;
-  keyPoints?: string[];
-  threadSummary?: string;
 }
 
 export interface CallToAction {
@@ -102,9 +91,9 @@ export interface ActionableRecommendations {
   networkBuilding: NetworkBuilding[];
 }
 
-export interface TweetAnalysis {
-  spamAnalysis: SpamAnalysis;
-  contentAnalysis: ContentAnalysis;
-  marketingInsights: MarketingInsights;
-  actionableRecommendations: ActionableRecommendations;
+export interface MarketingAnalysis {
+  summary: string;
 }
+
+// Re-export the TweetAnalysis type from response
+export type TweetAnalysis = ResponseTweetAnalysis;

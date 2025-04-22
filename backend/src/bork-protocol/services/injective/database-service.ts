@@ -1,4 +1,4 @@
-import { db } from '@/extensions/src/db';
+import { db } from '@/db';
 import type { MarketAnalysis } from '@/types/injective/technical-analysis';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 

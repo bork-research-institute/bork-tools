@@ -1,5 +1,5 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
-import type { TweetAnalysis } from '@/types/analysis';
+import { tweetQueries } from '@/db/queries';
+import type { TweetAnalysis } from '@/types/response/tweet-analysis';
 import {
   type IAgentRuntime,
   type Memory,
@@ -154,115 +154,25 @@ export async function testTweetContextPreparation(runtime: IAgentRuntime) {
           analysisId,
           testTweet.originalTweet.tweet_id,
           analysis.contentAnalysis.type,
+          analysis.contentAnalysis.format,
           analysis.contentAnalysis.sentiment,
           analysis.contentAnalysis.confidence,
-          {
-            likes: testTweet.originalTweet.likes || 0,
-            retweets: testTweet.originalTweet.retweets || 0,
-            replies: testTweet.originalTweet.replies || 0,
-            spamScore: analysis.spamAnalysis.spamScore,
-            spamViolations: analysis.spamAnalysis.reasons,
-            isThreadMerged: testTweet.originalTweet.isThreadMerged,
-            threadSize: testTweet.originalTweet.threadSize,
-            originalTextLength: testTweet.originalTweet.originalText.length,
-            mergedTextLength: testTweet.originalTweet.text.length,
-            hashtagsUsed: analysis.contentAnalysis.hashtagsUsed || [],
-            engagementMetrics: analysis.contentAnalysis.engagementAnalysis,
-          },
-          // Flatten entities into a single array
-          [
-            ...(analysis.contentAnalysis.entities.people || []),
-            ...(analysis.contentAnalysis.entities.organizations || []),
-            ...(analysis.contentAnalysis.entities.products || []),
-            ...(analysis.contentAnalysis.entities.locations || []),
-            ...(analysis.contentAnalysis.entities.events || []),
-          ],
-          // Combine primary and secondary topics
-          [
-            ...(analysis.contentAnalysis.primaryTopics || []),
-            ...(analysis.contentAnalysis.secondaryTopics || []),
-          ],
-          analysis.contentAnalysis.engagementAnalysis.overallScore,
+          analysis.contentAnalysis.summary,
+          analysis.contentAnalysis.topics,
+          analysis.contentAnalysis.entities,
+          analysis.contentAnalysis.qualityMetrics.relevance,
+          analysis.contentAnalysis.qualityMetrics.originality,
+          analysis.contentAnalysis.qualityMetrics.clarity,
+          analysis.contentAnalysis.qualityMetrics.authenticity,
+          analysis.contentAnalysis.qualityMetrics.valueAdd,
+          testTweet.originalTweet.likes || 0,
+          testTweet.originalTweet.replies || 0,
+          testTweet.originalTweet.retweets || 0,
           new Date(testTweet.originalTweet.timestamp * 1000),
-          testTweet.originalTweet.userId?.toString() || '',
-          testTweet.originalTweet.text || '', // Use merged text
-          {
-            likes: testTweet.originalTweet.likes || 0,
-            retweets: testTweet.originalTweet.retweets || 0,
-            replies: testTweet.originalTweet.replies || 0,
-          },
-          {
-            hashtags: Array.isArray(testTweet.originalTweet.hashtags)
-              ? testTweet.originalTweet.hashtags
-              : [],
-            mentions: Array.isArray(testTweet.originalTweet.mentions)
-              ? testTweet.originalTweet.mentions.map((mention) => ({
-                  username: mention.username || '',
-                  id: mention.id || '',
-                }))
-              : [],
-            urls: Array.isArray(testTweet.originalTweet.urls)
-              ? testTweet.originalTweet.urls
-              : [],
-            topicWeights: mockTopicWeights.map((tw) => ({
-              topic: tw.topic,
-              weight: tw.weight,
-            })),
-            entities: analysis.contentAnalysis.entities, // Store full entity structure
-          },
-          analysis.spamAnalysis,
-          {
-            relevance: analysis.contentAnalysis.qualityMetrics.relevance,
-            quality: analysis.contentAnalysis.qualityMetrics.clarity,
-            engagement:
-              analysis.contentAnalysis.engagementAnalysis.overallScore,
-            authenticity: analysis.contentAnalysis.qualityMetrics.authenticity,
-            valueAdd: analysis.contentAnalysis.qualityMetrics.valueAdd,
-            callToActionEffectiveness:
-              analysis.marketingInsights?.copywriting?.callToAction
-                ?.effectiveness || 0,
-            trendAlignmentScore:
-              analysis.marketingInsights?.trendAlignment?.relevanceScore || 0,
-          },
-          analysis.contentAnalysis.format,
-          // Store full marketing insights structure
-          {
-            targetAudience: analysis.marketingInsights?.targetAudience || [],
-            keyTakeaways: analysis.marketingInsights?.keyTakeaways || [],
-            contentStrategies: {
-              whatWorked:
-                analysis.marketingInsights?.contentStrategies?.whatWorked || [],
-              improvement:
-                analysis.marketingInsights?.contentStrategies?.improvement ||
-                [],
-            },
-            trendAlignment: {
-              currentTrends:
-                analysis.marketingInsights?.trendAlignment?.currentTrends || [],
-              emergingOpportunities:
-                analysis.marketingInsights?.trendAlignment
-                  ?.emergingOpportunities || [],
-              relevanceScore:
-                analysis.marketingInsights?.trendAlignment?.relevanceScore || 0,
-            },
-            copywriting: {
-              effectiveElements:
-                analysis.marketingInsights?.copywriting?.effectiveElements ||
-                [],
-              hooks: analysis.marketingInsights?.copywriting?.hooks || [],
-              callToAction: {
-                present:
-                  analysis.marketingInsights?.copywriting?.callToAction
-                    ?.present || false,
-                type:
-                  analysis.marketingInsights?.copywriting?.callToAction?.type ||
-                  'none',
-                effectiveness:
-                  analysis.marketingInsights?.copywriting?.callToAction
-                    ?.effectiveness || 0,
-              },
-            },
-          },
+          testTweet.originalTweet.username || '',
+          analysis.marketingAnalysis.summary,
+          analysis.spamAnalysis.isSpam,
+          analysis.spamAnalysis.spamScore,
           client,
         );
       });

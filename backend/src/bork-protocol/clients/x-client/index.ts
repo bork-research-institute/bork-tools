@@ -1,5 +1,5 @@
-import { cleanupPool } from '@/extensions/src/db';
-import { TweetQueueService } from '@/services/twitter/tweet-queue.service';
+import { cleanupPool } from '@/db';
+import { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import { TwitterService } from '@/services/twitter/twitter-service';
 import {
   type ClientInstance,
@@ -7,10 +7,11 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper } from 'agent-twitter-client';
-import { TwitterAccountDiscoveryClient } from './account-discovery';
-import { TwitterAccountsClient } from './accounts';
-import { TwitterInteractionClient } from './interactions';
-import { TwitterSearchClient } from './search';
+import { InformativeThreadsClient } from './creation/informative-threads';
+import { TwitterInteractionClient } from './creation/interactions';
+import { TwitterAccountDiscoveryClient } from './research/account-discovery';
+import { TwitterAccountsClient } from './research/accounts';
+import { TwitterSearchClient } from './research/search';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
@@ -20,6 +21,7 @@ export class TwitterClient implements ClientInstance {
   private interactionClient: TwitterInteractionClient | null = null;
   private discoveryClient: TwitterAccountDiscoveryClient | null = null;
   private tweetQueueService: TweetQueueService | null = null;
+  private informativeThreadsClient: InformativeThreadsClient | null = null;
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -90,13 +92,18 @@ export class TwitterClient implements ClientInstance {
         this.runtime,
         this.twitterService,
       );
+      this.informativeThreadsClient = new InformativeThreadsClient(
+        this.twitterService,
+        this.runtime,
+      );
 
       // Start clients concurrently
       await Promise.all([
         this.accountsClient.start(),
-        // this.searchClient.start(),
+        this.searchClient.start(),
         // this.interactionClient.start(),
         // this.discoveryClient.start(),
+        // this.informativeThreadsClient.start(),
       ]);
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
@@ -113,6 +120,9 @@ export class TwitterClient implements ClientInstance {
     elizaLogger.info('[TwitterClient] Stopping Twitter client');
     try {
       // Stop all clients in reverse order
+      if (this.informativeThreadsClient) {
+        await this.informativeThreadsClient.stop();
+      }
       if (this.discoveryClient) {
         await this.discoveryClient.stop();
       }

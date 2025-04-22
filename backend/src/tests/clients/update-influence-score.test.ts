@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import type { TargetAccount } from '@/types/account';
 import { updateMetricsForAuthors } from '@/utils/account-metrics/update-influence-score';
 import { elizaLogger } from '@elizaos/core';

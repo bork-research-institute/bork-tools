@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { Tweet } from '@/types/twitter';
 import type { TweetWithUpstream } from '@/types/twitter';

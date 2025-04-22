@@ -16,7 +16,7 @@ import { Network } from '@injectivelabs/networks';
 import {
   DEFAULT_MARKET_ANALYSIS_CONFIG,
   MARKET_ANALYSIS_INTERVALS,
-} from '../../../config/injective';
+} from '../../config/injective';
 
 const RETRY_DELAY_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
 

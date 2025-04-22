@@ -2,7 +2,7 @@ import {
   accountTopicQueries,
   tweetQueries,
   userMentionQueries,
-} from '@/extensions/src/db/queries';
+} from '@/db/queries';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import type { DatabaseTweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';

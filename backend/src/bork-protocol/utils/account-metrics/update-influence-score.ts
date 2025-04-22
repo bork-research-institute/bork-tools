@@ -1,4 +1,4 @@
-import { tweetQueries } from '@/extensions/src/db/queries';
+import { tweetQueries } from '@/db/queries';
 import type { TargetAccount } from '@/types/account';
 import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
