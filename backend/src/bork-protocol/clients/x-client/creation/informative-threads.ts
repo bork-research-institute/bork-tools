@@ -22,62 +22,32 @@ export class InformativeThreadsClient {
     this.runtime = runtime;
   }
 
-  async start(): Promise<void> {
-    elizaLogger.info(
-      '[InformativeThreads] Starting informative threads client',
+  /**
+   * Starts monitoring for content creation opportunities
+   */
+  async startMonitoring(): Promise<void> {
+    elizaLogger.info('[InformativeThreads] Starting content monitoring');
+
+    // Initial content generation
+    await this.generateAndProcessContent();
+
+    // Set up periodic content generation
+    this.monitoringTimeout = setInterval(
+      () => this.generateAndProcessContent(),
+      CONTENT_CREATION.CONTENT_GENERATION_INTERVAL,
     );
-    await this.onReady();
   }
 
-  async stop(): Promise<void> {
-    elizaLogger.info(
-      '[InformativeThreads] Stopping informative threads client',
-    );
+  /**
+   * Stops monitoring for content creation opportunities
+   */
+  stopMonitoring(): void {
+    elizaLogger.info('[InformativeThreads] Stopping content monitoring');
+
     if (this.monitoringTimeout) {
-      clearTimeout(this.monitoringTimeout);
+      clearInterval(this.monitoringTimeout);
       this.monitoringTimeout = null;
     }
-  }
-
-  private async onReady() {
-    await this.contentGenerationLoop();
-  }
-
-  private async contentGenerationLoop() {
-    try {
-      const now = Date.now();
-      const timeSinceLastGeneration = now - this.lastContentGeneration;
-
-      // Only generate content if it's been 24 hours since the last generation
-      if (
-        timeSinceLastGeneration >= CONTENT_CREATION.CONTENT_GENERATION_INTERVAL
-      ) {
-        await this.generateAndProcessContent();
-        this.lastContentGeneration = now;
-      } else {
-        elizaLogger.debug(
-          '[InformativeThreads] Skipping content generation, not enough time has passed',
-          {
-            timeSinceLastGeneration,
-            nextGenerationIn:
-              CONTENT_CREATION.CONTENT_GENERATION_INTERVAL -
-              timeSinceLastGeneration,
-          },
-        );
-      }
-    } catch (error) {
-      elizaLogger.error(
-        '[InformativeThreads] Error in content generation loop:',
-        error,
-      );
-    }
-
-    // Schedule next check
-    this.monitoringTimeout = setTimeout(
-      () => this.contentGenerationLoop(),
-      // Check every hour if it's time to generate content
-      CONTENT_CREATION.CONTENT_GENERATION_INTERVAL / 24,
-    );
   }
 
   private async generateAndProcessContent() {
@@ -114,15 +84,13 @@ export class InformativeThreadsClient {
         // Generate thread content with integrated media
         const thread = await generateThread(this.runtime, topic);
 
-        // TODO: Add media generation for first tweet of thread
-
         // Schedule the thread for posting
         await this.tweetQueueService.scheduleThread(thread);
 
         elizaLogger.info('[InformativeThreads] Successfully processed topic', {
           primaryTopic: topic.primaryTopic,
           tweetCount: thread.tweets.length,
-          mediaCount: thread.tweets.filter((t) => t.media).length,
+          mediaCount: thread.tweets.filter((t) => t.hasMedia).length,
         });
       } catch (error) {
         elizaLogger.error('[InformativeThreads] Error processing topic:', {
@@ -130,10 +98,6 @@ export class InformativeThreadsClient {
           error: error instanceof Error ? error.message : String(error),
         });
       }
-
-      elizaLogger.info(
-        '[InformativeThreads] Content generation cycle completed',
-      );
     } catch (error) {
       elizaLogger.error('[InformativeThreads] Error in content generation:', {
         error: error instanceof Error ? error.message : String(error),

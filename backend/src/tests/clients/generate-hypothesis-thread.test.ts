@@ -68,15 +68,13 @@ export async function testHypothesisAndThreadGeneration(
       tweets: {
         count: thread.tweets?.length ?? 0,
         content: thread.tweets?.map((t) => ({
-          text: t.content,
-          hasMedia: !!(t.media || t.mediaPrompt),
-          isHighlight: t.isHighlight,
+          text: t.text,
+          hasMedia: t.hasMedia,
         })),
       },
       threadSummary: thread.threadSummary,
       targetAudience: thread.targetAudience,
       estimatedEngagement: thread.estimatedEngagement,
-      hashtags: thread.hashtags,
       optimalPostingTime: thread.optimalPostingTime,
     });
 
