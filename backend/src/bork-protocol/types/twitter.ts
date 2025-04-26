@@ -1,5 +1,6 @@
 import type { Profile as TwitterClientProfile } from 'agent-twitter-client';
 import type { Tweet as AgentTweet } from 'agent-twitter-client';
+import type { Response } from 'undici-types';
 import type { TopicWeight } from './topic';
 
 // Re-export the base Tweet type with our extensions
@@ -300,5 +301,41 @@ export interface TweetWithUpstream {
     inReplyChain: DatabaseTweet[];
     quotedTweets: DatabaseTweet[];
     retweetedTweets: DatabaseTweet[];
+  };
+}
+
+/**
+ * Types for Twitter API responses
+ */
+export type TwitterResponse = Response | string | number | unknown;
+
+/**
+ * Twitter API response types for tweet creation
+ */
+export interface TwitterApiResponse {
+  data?: {
+    create_tweet?: {
+      tweet_results?: {
+        result?: {
+          rest_id?: string;
+          legacy?: {
+            id_str?: string;
+            conversation_id_str?: string;
+          };
+        };
+      };
+    };
+  };
+  id?: string | number;
+}
+
+export interface TweetResponse {
+  id?: string | number;
+  tweet_id?: string | number;
+  data?: { id?: string | number };
+  rest_id?: string;
+  legacy?: {
+    id_str?: string;
+    conversation_id_str?: string;
   };
 }

@@ -1,3 +1,4 @@
+import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetSchema } from '@/types/response/hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
@@ -12,6 +13,14 @@ export async function testHypothesisAndThreadGeneration(
   );
 
   try {
+    // Get TwitterService from runtime
+    const twitterService = (
+      runtime as unknown as { twitterService: TwitterService }
+    ).twitterService;
+    if (!twitterService) {
+      throw new Error('TwitterService not available on runtime');
+    }
+
     // Get recent topic weights from the database
     const timeframeHours = 168; // Last 7 days
     // Generate hypothesis using real data
@@ -40,19 +49,6 @@ export async function testHypothesisAndThreadGeneration(
           }
         : null,
     });
-
-    // Log knowledge items separately for better readability
-    if (hypothesis.selectedTopic?.relevantKnowledge?.length) {
-      elizaLogger.info(`${logPrefix} Relevant knowledge items:`, {
-        count: hypothesis.selectedTopic.relevantKnowledge.length,
-        items: hypothesis.selectedTopic.relevantKnowledge.map((k, i) => ({
-          index: i + 1,
-          type: k.type,
-          content: k.content,
-          useCase: k.useCase,
-        })),
-      });
-    }
 
     if (!hypothesis.selectedTopic) {
       throw new Error('No topic selected in hypothesis');
@@ -115,10 +111,47 @@ export async function testHypothesisAndThreadGeneration(
       optimalPostingTime: thread.optimalPostingTime,
     });
 
+    // Post the thread to Twitter using the real Twitter service
+    let previousTweetId: string | undefined = undefined;
+    const postedTweets: {
+      id: string;
+      text: string;
+      permanentUrl: string;
+    }[] = [];
+
+    for (const tweet of thread.tweets) {
+      const postedTweet = await twitterService.sendTweet(
+        tweet.text,
+        previousTweetId,
+      );
+      postedTweets.push({
+        id: postedTweet.id,
+        text: postedTweet.text,
+        permanentUrl: postedTweet.permanentUrl,
+      });
+
+      elizaLogger.info(`${logPrefix} Posted tweet`, {
+        tweet_id: postedTweet.id,
+        text: postedTweet.text,
+        inReplyToId: previousTweetId,
+        permanentUrl: postedTweet.permanentUrl,
+      });
+
+      previousTweetId = postedTweet.id;
+    }
+
+    // Log the link to each posted tweet
+    postedTweets.forEach((t, idx) => {
+      elizaLogger.info(
+        `${logPrefix} Tweet link [${idx + 1}]: ${t.permanentUrl}`,
+      );
+    });
+
     return {
       hypothesis,
       thread,
       validation: validationResults,
+      postedTweets,
     };
   } catch (error) {
     elizaLogger.error(

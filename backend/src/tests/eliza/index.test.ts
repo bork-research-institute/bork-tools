@@ -150,6 +150,12 @@ describe('Eliza Agent', () => {
     const twitterClient = await startTestTwitterClient(runtime);
     runtime.clients = [twitterClient];
 
+    // Attach twitterService to runtime for test access
+    if ('twitterService' in twitterClient && twitterClient.twitterService) {
+      // @ts-expect-error: augmenting runtime for test purposes
+      runtime.twitterService = twitterClient.twitterService;
+    }
+
     directClient.registerAgent(runtime);
 
     return { runtime, directClient };

@@ -16,11 +16,30 @@ export const createThreadTemplate = (
   } = topic || {};
 
   // Format knowledge with source URLs
-  const formattedKnowledge = relevantKnowledge.map((k) => ({
-    content: k.content,
-    source: k.source.url,
-    author: k.source.authorUsername,
-  }));
+  const formattedKnowledge = relevantKnowledge
+    .filter((k) => k.source?.url) // Only include knowledge with valid source URLs
+    .map((k) => ({
+      content: k.content,
+      source: k.source.url,
+      author: k.source.authorUsername,
+    }));
+
+  const hasValidSources = formattedKnowledge.length > 0;
+  const citationInstructions = hasValidSources
+    ? `IMPORTANT CITATION RULES:
+1. The FIRST tweet of the thread MUST NOT include a source URL, even if it contains factual claims. It should serve as a hook or thesis statement.
+2. For subsequent tweets: You may ONLY use these verified sources:
+${formattedKnowledge.map((k) => `   - ${k.source}`).join('\n')}
+3. Include ONLY ONE source URL per tweet, chosen from the list above
+4. Add the source URL at the end of the tweet
+5. Remember: URLs will take ${URL_LENGTH} characters, so your main content must be under ${EFFECTIVE_LENGTH} characters
+6. The final degen-style tweet doesn't need a URL
+7. Format: "[tweet content] [source URL]"
+
+Example tweet with citation (${EFFECTIVE_LENGTH} chars for content + ${URL_LENGTH} for URL):
+"L2 adoption grew 300% in Q1 2024, with Optimism leading at 42% market share. Average transaction costs down 90% vs L1. ${formattedKnowledge[0]?.source || '[source URL]'}"`
+    : `IMPORTANT: Since no verified sources are available, create the thread WITHOUT including any URLs or external citations. 
+Focus on analysis and insights while maintaining academic rigor. Each tweet should be under ${TWITTER_MAX_LENGTH} characters.`;
 
   return {
     context: `You are an expert analyst specializing in creating high-signal, academic-style threads with web3 degen energy.
@@ -40,35 +59,26 @@ ${formattedKnowledge.map((k) => `Content: ${k.content}\nSource: ${k.source} by @
 
 Create a thread that:
 1. Opens with a strong thesis statement
-2. Presents empirical evidence and analysis with citations
+2. Presents empirical evidence and analysis${hasValidSources ? ' with citations from the provided sources' : ' based on the available knowledge'}
 3. Maintains academic rigor while incorporating web3 vernacular
 4. Concludes with a degen-style call-to-action
 5. Uses NO emojis
 
 Each tweet must:
 - Be under ${TWITTER_MAX_LENGTH} characters TOTAL
-- For tweets with URLs: content must be under ${EFFECTIVE_LENGTH} characters (as URLs take ${URL_LENGTH} chars)
+${hasValidSources ? `- For tweets with URLs: content must be under ${EFFECTIVE_LENGTH} characters (as URLs take ${URL_LENGTH} chars)` : ''}
 - Build a coherent analytical narrative
 - Support claims with provided data
 - Balance academic terminology with web3 slang
 - Use "fr fr", "ngmi", "wagmi", "gm", etc. appropriately but sparingly
 
-IMPORTANT CITATION RULES:
-1. Include ONLY ONE source URL per tweet
-2. Choose the most relevant/authoritative source for the tweet's main point
-3. Add the source URL at the end of the tweet
-4. Remember: URLs will take ${URL_LENGTH} characters, so your main content must be under ${EFFECTIVE_LENGTH} characters
-5. The final degen-style tweet doesn't need a URL
-6. Format: "[tweet content] [source URL]"
-
-Example tweet with citation (${EFFECTIVE_LENGTH} chars for content + ${URL_LENGTH} for URL):
-"L2 adoption grew 300% in Q1 2024, with Optimism leading at 42% market share. Average transaction costs down 90% vs L1. https://l2beat.com/scaling/summary"
+${citationInstructions}
 
 Format your response as a JSON object with the following structure:
 {
   "tweets": [
     {
-      "text": string, // The tweet text including ONE source URL at the end (max ${TWITTER_MAX_LENGTH} chars total)
+      "text": string, // The tweet text (${hasValidSources ? 'first tweet: NO URL, others: ONE source URL from provided list' : 'no URLs'}, max ${TWITTER_MAX_LENGTH} chars total)
       "hasMedia": boolean // Whether this tweet should include a chart/graph
     }
   ],
