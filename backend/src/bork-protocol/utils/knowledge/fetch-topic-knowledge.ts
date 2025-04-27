@@ -48,11 +48,11 @@ export async function fetchTopicKnowledge(
       agentId: runtime.agentId,
       embedding,
       match_threshold: 0.7,
-      match_count: 10,
+      match_count: 20,
       searchText: topic,
     });
 
-    elizaLogger.info(
+    elizaLogger.debug(
       `${logPrefix} Found ${knowledge.length} knowledge items for topic: ${topic}`,
       {
         topic,

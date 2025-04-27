@@ -26,16 +26,17 @@ export async function testHypothesisAndThreadGeneration(
       throw new Error('TwitterService not available on runtime');
     }
 
+    // Update all thread and topic performance metrics before generating hypothesis
+    elizaLogger.info(
+      `${logPrefix} Updating performance metrics for all threads and topics`,
+    );
+    await threadTrackingQueries.updateAllThreadPerformanceMetrics();
+
     // Get recent topic weights from the database
     const timeframeHours = 168; // Last 7 days
 
     // Generate hypothesis using real data
-    const hypothesis = await generateHypothesis(
-      runtime,
-      timeframeHours,
-      [], // No lessons learned for testing
-      `${logPrefix} [Hypothesis]`,
-    );
+    const hypothesis = await generateHypothesis(runtime, timeframeHours);
 
     elizaLogger.info(`${logPrefix} Generated hypothesis`, {
       selectedTopic: hypothesis.selectedTopic
@@ -184,21 +185,6 @@ export async function testHypothesisAndThreadGeneration(
           ),
       );
     }
-
-    // Update topic performance (initial state, will be updated later with actual engagement)
-    await threadTrackingQueries.updateTopicPerformance(
-      postedThread.id,
-      hypothesis.selectedTopic.primaryTopic,
-      postedThread.engagement,
-      postedThread.performanceScore,
-    );
-
-    // Log the link to each posted tweet
-    postedTweets.forEach((t, idx) => {
-      elizaLogger.info(
-        `${logPrefix} Tweet link [${idx + 1}]: ${t.permanentUrl}`,
-      );
-    });
 
     return {
       hypothesis,

@@ -18,7 +18,7 @@ export const mediaSchema = z.object({
 
 export const tweetSchema = z.object({
   text: z.string(),
-  hasMedia: z.boolean(),
+  hasMedia: z.boolean().optional().default(false),
 });
 
 export const threadSchema = z.object({

@@ -59,7 +59,7 @@ Available Knowledge:
 ${formattedKnowledge.map((k) => `Content: ${k.content}\nSource: ${k.source} by @${k.author}\n`).join('\n\n')}
 
 Create a thread that:
-1. Opens with a strong thesis statement
+1. Opens with a strong thesis statement that MUST end with a clear call-to-action to read the next tweet (e.g. "THREAD:", "Read on to learn why:", "Here's the breakdown:", "Let me explain:", "Full analysis in thread:")
 2. Presents empirical evidence and analysis${hasValidSources ? ' with citations from the provided sources' : ' based on the available knowledge'}
 3. Maintains academic rigor while incorporating web3 vernacular
 4. Concludes with a degen-style call-to-action
@@ -75,12 +75,18 @@ ${hasValidSources ? `- For tweets with URLs: content must be under ${EFFECTIVE_L
 
 ${citationInstructions}
 
+CRITICAL FORMATTING REQUIREMENTS:
+- EVERY tweet in your response MUST include both "text" and "hasMedia" fields
+- The "hasMedia" boolean indicates if a chart/graph should accompany the tweet
+- This applies to ALL tweets including the final/concluding tweet
+- Example format for EVERY tweet: {"text": "Tweet content here", "hasMedia": false}
+
 Format your response as a JSON object with the following structure:
 {
   "tweets": [
     {
       "text": string, // The tweet text (${hasValidSources ? 'first tweet: NO URL, others: ONE source URL from provided list' : 'no URLs'}, max ${TWITTER_MAX_LENGTH} chars total)
-      "hasMedia": boolean // Whether this tweet should include a chart/graph
+      "hasMedia": boolean // REQUIRED true or false for EVERY tweet
     }
   ],
   "threadSummary": string, // Brief summary of the thread's key thesis and conclusions

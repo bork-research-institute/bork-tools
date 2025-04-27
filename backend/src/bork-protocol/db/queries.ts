@@ -1810,23 +1810,25 @@ export const threadTrackingQueries = {
       ) VALUES ($1, $2, 1, $3, NOW(), $4, $5, $5)
       ON CONFLICT (topic) DO UPDATE SET
         total_threads = topic_performance.total_threads + 1,
-        avg_engagement = jsonb_set(
-          topic_performance.avg_engagement,
-          '{likes}',
-          to_jsonb((
-            (topic_performance.avg_engagement->>'likes')::numeric * topic_performance.total_threads +
-            $3->>'likes'::numeric
-          ) / (topic_performance.total_threads + 1))
+        avg_engagement = jsonb_build_object(
+          'likes', (COALESCE((topic_performance.avg_engagement->>'likes')::numeric, 0) * topic_performance.total_threads + 
+                    COALESCE(($3->>'likes')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'retweets', (COALESCE((topic_performance.avg_engagement->>'retweets')::numeric, 0) * topic_performance.total_threads + 
+                       COALESCE(($3->>'retweets')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'replies', (COALESCE((topic_performance.avg_engagement->>'replies')::numeric, 0) * topic_performance.total_threads + 
+                     COALESCE(($3->>'replies')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'views', (COALESCE((topic_performance.avg_engagement->>'views')::numeric, 0) * topic_performance.total_threads + 
+                   COALESCE(($3->>'views')::numeric, 0)) / (topic_performance.total_threads + 1)
         ),
         last_posted = NOW(),
-        performance_score = (topic_performance.performance_score * topic_performance.total_threads + $4) 
+        performance_score = (COALESCE(topic_performance.performance_score, 0) * topic_performance.total_threads + COALESCE($4, 0)) 
           / (topic_performance.total_threads + 1),
         best_performing_thread_id = CASE
-          WHEN $4 > topic_performance.performance_score THEN $5
+          WHEN COALESCE($4, 0) > COALESCE(topic_performance.performance_score, 0) THEN $5
           ELSE topic_performance.best_performing_thread_id
         END,
         worst_performing_thread_id = CASE
-          WHEN $4 < topic_performance.performance_score THEN $5
+          WHEN COALESCE($4, 0) < COALESCE(topic_performance.performance_score, 0) THEN $5
           ELSE topic_performance.worst_performing_thread_id
         END
     `;
@@ -1914,6 +1916,108 @@ export const threadTrackingQueries = {
       });
     } catch (error) {
       elizaLogger.error('Error getting posted threads by topic:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Updates performance metrics for all threads to incorporate the latest engagement data
+   * This should be called before generating a new hypothesis to ensure we have the most up-to-date metrics
+   */
+  async updateAllThreadPerformanceMetrics(client?: PoolClient): Promise<void> {
+    const query = `
+      WITH thread_metrics AS (
+        -- Get the latest metrics for each thread
+        SELECT 
+          pt.id as thread_id,
+          pt.primary_topic,
+          COALESCE(
+            jsonb_build_object(
+              'likes', AVG(COALESCE((t.likes), 0)),
+              'retweets', AVG(COALESCE((t.retweets), 0)),
+              'replies', AVG(COALESCE((t.replies), 0)),
+              'views', AVG(COALESCE((t.views), 0))
+            ),
+            pt.engagement
+          ) as current_engagement,
+          -- Calculate performance score based on engagement
+          (
+            COALESCE(AVG(t.likes), 0) * 0.4 + 
+            COALESCE(AVG(t.retweets), 0) * 0.3 + 
+            COALESCE(AVG(t.replies), 0) * 0.3
+          ) as calculated_score
+        FROM 
+          posted_threads pt
+        LEFT JOIN 
+          tweets t ON t.tweet_id = ANY(pt.tweet_ids) AND t.status = 'sent'
+        GROUP BY 
+          pt.id, pt.primary_topic, pt.engagement
+      )
+      -- Update posted_threads with new metrics
+      UPDATE posted_threads pt
+      SET 
+        engagement = tm.current_engagement,
+        performance_score = CASE 
+          WHEN tm.calculated_score > 0 THEN tm.calculated_score 
+          ELSE pt.performance_score 
+        END,
+        updated_at = NOW()
+      FROM 
+        thread_metrics tm
+      WHERE 
+        pt.id = tm.thread_id;
+    `;
+
+    try {
+      await withClient(client || null, async (c) => {
+        // First update the thread performance metrics
+        await c.query(query);
+
+        // Now update topic performance based on the updated thread metrics
+        const topicsQuery = `
+          SELECT DISTINCT primary_topic FROM posted_threads
+          UNION
+          SELECT DISTINCT unnest(related_topics) FROM posted_threads
+        `;
+
+        const { rows } = await c.query(topicsQuery);
+        const topics = rows.map((row) => row.primary_topic).filter(Boolean);
+
+        // For each topic, get most recent thread and update topic metrics
+        for (const topic of topics) {
+          const threadsQuery = `
+            SELECT * FROM posted_threads
+            WHERE primary_topic = $1 OR $1 = ANY(related_topics)
+            ORDER BY created_at DESC
+            LIMIT 1
+          `;
+
+          const threadResult = await c.query(threadsQuery, [topic]);
+          if (threadResult.rows.length > 0) {
+            const thread = threadResult.rows[0];
+
+            // Re-update topic performance with the latest thread metrics
+            await this.updateTopicPerformance(
+              thread.id,
+              topic,
+              thread.engagement,
+              thread.performance_score,
+              c,
+            ).catch((err) =>
+              elizaLogger.error(
+                `Error updating performance for topic ${topic}:`,
+                err,
+              ),
+            );
+          }
+        }
+
+        elizaLogger.info(
+          `Updated performance metrics for ${topics.length} topics`,
+        );
+      });
+    } catch (error) {
+      elizaLogger.error('Error updating thread performance metrics:', error);
       throw error;
     }
   },
