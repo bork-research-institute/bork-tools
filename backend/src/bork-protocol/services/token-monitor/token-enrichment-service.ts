@@ -6,6 +6,7 @@ import {
 } from '@solana/spl-token';
 import { type Connection, PublicKey } from '@solana/web3.js';
 import { connectionService } from './connection-service';
+import { DexScreenerService } from './dexscreener-service';
 import { RaydiumService } from './raydium-service';
 
 export interface TokenAuthority {
@@ -17,10 +18,12 @@ export class TokenEnrichmentService {
   private static instance: TokenEnrichmentService;
   private connection: Connection;
   private raydiumService: RaydiumService;
+  private dexScreenerService: DexScreenerService;
 
   private constructor() {
     this.connection = connectionService.getConnection();
     this.raydiumService = RaydiumService.getInstance();
+    this.dexScreenerService = DexScreenerService.getInstance();
   }
 
   public static getInstance(): TokenEnrichmentService {
@@ -42,16 +45,18 @@ export class TokenEnrichmentService {
 
   async getTokenMetrics(tokenAddress: string): Promise<TokenMetrics> {
     try {
-      const [mintInfo, accounts, liquidityMetrics] = await Promise.all([
-        getMint(this.connection, new PublicKey(tokenAddress)),
-        this.connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
-          filters: [
-            { dataSize: 165 },
-            { memcmp: { offset: 0, bytes: tokenAddress } },
-          ],
-        }),
-        this.raydiumService.getLiquidityMetrics(tokenAddress),
-      ]);
+      const [mintInfo, accounts, liquidityMetrics, tokenInfo] =
+        await Promise.all([
+          getMint(this.connection, new PublicKey(tokenAddress)),
+          this.connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
+            filters: [
+              { dataSize: 165 },
+              { memcmp: { offset: 0, bytes: tokenAddress } },
+            ],
+          }),
+          this.raydiumService.getLiquidityMetrics(tokenAddress),
+          this.dexScreenerService.getTokenInfo(tokenAddress),
+        ]);
 
       const authority = this.checkTokenAuthority(mintInfo);
 
@@ -64,6 +69,8 @@ export class TokenEnrichmentService {
         supply: Number(mintInfo.supply) / 10 ** mintInfo.decimals,
         decimals: mintInfo.decimals,
         liquidityMetrics,
+        name: tokenInfo?.name,
+        ticker: tokenInfo?.symbol,
       };
     } catch (error) {
       if (error instanceof TokenInvalidAccountOwnerError) {
@@ -77,6 +84,8 @@ export class TokenEnrichmentService {
           decimals: 0,
           isInvalidToken: true,
           liquidityMetrics: undefined,
+          name: undefined,
+          ticker: undefined,
         };
       }
       console.error(`Error fetching token metrics for ${tokenAddress}:`, error);

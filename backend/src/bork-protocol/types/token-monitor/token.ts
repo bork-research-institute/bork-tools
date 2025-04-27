@@ -34,6 +34,8 @@ export interface TokenProfile {
   header?: string; // URI
   description?: string;
   links?: TokenLink[];
+  name?: string;
+  ticker?: string;
 }
 
 export interface ExtendedTokenProfile extends TokenProfile {
@@ -54,6 +56,8 @@ export interface TokenMetrics {
   volumeMetrics?: VolumeMetrics;
   marketCap?: number;
   priceInfo?: TokenPriceDetails;
+  name?: string;
+  ticker?: string;
 }
 
 export interface EnrichedToken extends TokenProfile {
@@ -125,4 +129,43 @@ export interface InterestingToken extends EnrichedToken {
   interestReason: string;
   score: number; // Interest score from 0-100
   detectedAt: Date;
+}
+
+export interface DexScreenerToken {
+  address: string;
+  name: string;
+  symbol: string;
+}
+
+export interface DexScreenerPair {
+  chainId: string;
+  dexId: string;
+  url: string;
+  pairAddress: string;
+  labels?: string[];
+  baseToken: DexScreenerToken;
+  quoteToken: DexScreenerToken;
+  priceNative: string;
+}
+
+export interface TokenSnapshot {
+  tokenAddress: string;
+  timestamp: Date;
+  name?: string;
+  ticker?: string;
+  holderCount: number;
+  mintAuthority: string | null;
+  freezeAuthority: string | null;
+  isMintable: boolean;
+  isFreezable: boolean;
+  supply: number;
+  decimals: number;
+  isInvalidToken?: boolean;
+  liquidityMetrics?: LiquidityMetrics;
+  volumeMetrics?: VolumeMetrics;
+  marketCap?: number;
+  priceInfo?: TokenPriceDetails;
+  description?: string;
+  icon?: string;
+  links?: TokenLink[];
 }
