@@ -1,25 +1,26 @@
 import { CONTENT_CREATION } from '@/config/creation';
-import { TweetQueueService } from '@/services/twitter/tweet-queue-service';
-import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
+import { tweetSchema } from '@/types/response/hypothesis';
 import type { HypothesisResponse } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { threadTrackingQueries } from '../../../db/queries';
+
+interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
+  agentId: string;
+}
 
 export class InformativeThreadsClient {
-  private twitterConfigService: TwitterConfigService;
-  private tweetQueueService: TweetQueueService;
   private readonly runtime: IAgentRuntime;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentHypothesis: HypothesisResponse | null = null;
   private lastHypothesisGeneration = 0;
-  private lastContentGeneration = 0;
+  private twitterService: TwitterService;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
-    this.twitterConfigService = new TwitterConfigService(runtime);
-    this.tweetQueueService = new TweetQueueService(twitterService, runtime);
     this.runtime = runtime;
+    this.twitterService = twitterService;
   }
 
   /**
@@ -54,6 +55,12 @@ export class InformativeThreadsClient {
     elizaLogger.info('[InformativeThreads] Starting content generation cycle');
 
     try {
+      // Update all thread and topic performance metrics before generating hypothesis
+      elizaLogger.info(
+        '[InformativeThreads] Updating performance metrics for all threads and topics',
+      );
+      await threadTrackingQueries.updateAllThreadPerformanceMetrics();
+
       // Check if we need to generate a new hypothesis
       const now = Date.now();
       if (
@@ -62,7 +69,10 @@ export class InformativeThreadsClient {
           CONTENT_CREATION.HYPOTHESIS_REFRESH_INTERVAL
       ) {
         elizaLogger.info('[InformativeThreads] Generating new hypothesis...');
-        this.currentHypothesis = await generateHypothesis(this.runtime);
+        this.currentHypothesis = await generateHypothesis(
+          this.runtime,
+          CONTENT_CREATION.TIMEFRAME_HOURS,
+        );
         this.lastHypothesisGeneration = now;
       }
 
@@ -84,13 +94,120 @@ export class InformativeThreadsClient {
         // Generate thread content with integrated media
         const thread = await generateThread(this.runtime, topic);
 
-        // Schedule the thread for posting
-        await this.tweetQueueService.scheduleThread(thread);
+        // Validate tweets using schema
+        const validationResults = await Promise.all(
+          thread.tweets.map(async (tweet, index) => {
+            try {
+              await tweetSchema.parseAsync(tweet);
+              return {
+                tweetNumber: index + 1,
+                text: tweet.text,
+                isValid: true,
+                hasMedia: tweet.hasMedia,
+              };
+            } catch (error) {
+              return {
+                tweetNumber: index + 1,
+                text: tweet.text,
+                isValid: false,
+                error: error instanceof Error ? error.message : String(error),
+                hasMedia: tweet.hasMedia,
+              };
+            }
+          }),
+        );
+
+        const invalidTweets = validationResults.filter(
+          (result) => !result.isValid,
+        );
+
+        if (invalidTweets.length > 0) {
+          elizaLogger.error(
+            `[InformativeThreads] Found ${invalidTweets.length} invalid tweets:`,
+            {
+              invalidTweets: invalidTweets.map((t) => ({
+                tweetNumber: t.tweetNumber,
+                text: t.text,
+                error: t.error,
+              })),
+            },
+          );
+          return;
+        }
+
+        // Post the thread to Twitter
+        let previousTweetId: string | undefined = undefined;
+        const postedTweets: {
+          id: string;
+          text: string;
+          permanentUrl: string;
+        }[] = [];
+
+        for (const tweet of thread.tweets) {
+          const postedTweet = await this.twitterService.sendTweet(
+            tweet.text,
+            previousTweetId,
+          );
+          postedTweets.push({
+            id: postedTweet.id,
+            text: postedTweet.text,
+            permanentUrl: postedTweet.permanentUrl,
+          });
+
+          elizaLogger.info('[InformativeThreads] Posted tweet', {
+            tweet_id: postedTweet.id,
+            text: postedTweet.text,
+            inReplyToId: previousTweetId,
+            permanentUrl: postedTweet.permanentUrl,
+          });
+
+          previousTweetId = postedTweet.id;
+        }
+
+        const runtimeWithAgent = this.runtime as RuntimeWithAgent;
+
+        // Save the posted thread and its performance metrics
+        const postedThread = await threadTrackingQueries.savePostedThread({
+          agentId: runtimeWithAgent.agentId || 'default',
+          primaryTopic: topic.primaryTopic,
+          relatedTopics: topic.relatedTopics || [],
+          threadIdea: topic.threadIdea,
+          uniqueAngle: topic.uniqueAngle,
+          engagement: {
+            likes: 0,
+            retweets: 0,
+            replies: 0,
+            views: 0,
+          },
+          performanceScore: 0,
+          tweetIds: postedTweets.map((t) => t.id),
+        });
+
+        // Save the used knowledge
+        if (topic.relevantKnowledge) {
+          await Promise.all(
+            topic.relevantKnowledge
+              .filter((k) => k.source?.url && k.source?.authorUsername)
+              .map((k) =>
+                threadTrackingQueries.saveUsedKnowledge({
+                  threadId: postedThread.id,
+                  content: k.content,
+                  source: {
+                    url: k.source?.url || '',
+                    authorUsername: k.source?.authorUsername || '',
+                  },
+                  performanceContribution: 0,
+                  useCount: 1,
+                }),
+              ),
+          );
+        }
 
         elizaLogger.info('[InformativeThreads] Successfully processed topic', {
           primaryTopic: topic.primaryTopic,
           tweetCount: thread.tweets.length,
           mediaCount: thread.tweets.filter((t) => t.hasMedia).length,
+          threadId: postedThread.id,
         });
       } catch (error) {
         elizaLogger.error('[InformativeThreads] Error processing topic:', {
