@@ -168,12 +168,6 @@ export async function processSingleTweet(
         );
         elizaLogger.info(
           `${logPrefix} Tweet ${processedTweet.originalTweet.tweet_id} identified as spam - skipping analysis`,
-          {
-            tweetId: processedTweet.originalTweet.tweet_id,
-            spamScore: analysis.spamAnalysis.spamScore,
-            isThreadMerged: processedTweet.originalTweet.isThreadMerged,
-            threadSize: processedTweet.originalTweet.threadSize,
-          },
         );
         return;
       }

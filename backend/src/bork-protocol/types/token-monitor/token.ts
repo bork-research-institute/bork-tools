@@ -120,3 +120,9 @@ export interface TokenPriceDetails {
   buyImpact: PriceImpactDepth;
   sellImpact: PriceImpactDepth;
 }
+
+export interface InterestingToken extends EnrichedToken {
+  interestReason: string;
+  score: number; // Interest score from 0-100
+  detectedAt: Date;
+}

@@ -13,7 +13,7 @@ export const TEST_FLAGS = {
   INFLUENCE_SCORE: false,
   TWEET_CONTEXT: false,
   HYPOTHESIS_THREAD: false,
-  TOKEN_MONITORING: true,
+  TOKEN_MONITORING: false,
   // Add more flags here as needed
 } as const;
 
