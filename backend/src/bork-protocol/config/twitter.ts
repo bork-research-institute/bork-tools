@@ -27,8 +27,8 @@ export const TWITTER_CONFIG = {
       minReplies: 0,
     },
     parameters: {
-      excludeReplies: true,
-      excludeRetweets: true,
+      excludeReplies: false,
+      excludeRetweets: false,
       filterLevel: 'low', // 'none' | 'low' | 'medium' | 'high'
     },
   },

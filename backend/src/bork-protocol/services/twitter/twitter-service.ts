@@ -160,7 +160,7 @@ export class TwitterService {
       });
 
       elizaLogger.info(
-        `${context} Filtered out ${filteredTweets.length} tweets based on engagement thresholds`,
+        `${context} Filtered out ${maxTweets - filteredTweets.length} tweets based on engagement thresholds`,
       );
     }
 

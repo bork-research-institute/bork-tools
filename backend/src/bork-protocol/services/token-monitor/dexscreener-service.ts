@@ -1,4 +1,5 @@
 import type {
+  DexScreenerPair,
   ExtendedTokenProfile,
   TokenProfile,
 } from '@/types/token-monitor/token';
@@ -58,8 +59,44 @@ export class DexScreenerService {
     return this.makeRequest<ExtendedTokenProfile[]>('/token-boosts/top/v1');
   }
 
-  // TODO Add method to get pools for a token to fetch more data
-  // /token-pairs/v1/{chainId}/{tokenAddress}
+  async getTokenInfo(
+    tokenAddress: string,
+  ): Promise<{ name: string; symbol: string } | null> {
+    try {
+      const pairs = await this.makeRequest<DexScreenerPair[]>(
+        `/tokens/v1/solana/${tokenAddress}`,
+      );
+
+      if (!pairs || pairs.length === 0) {
+        return null;
+      }
+
+      // Find the pair where our token is either the base or quote token
+      const pair = pairs.find(
+        (p) =>
+          p.baseToken.address.toLowerCase() === tokenAddress.toLowerCase() ||
+          p.quoteToken.address.toLowerCase() === tokenAddress.toLowerCase(),
+      );
+
+      if (!pair) {
+        return null;
+      }
+
+      // Return the token info for our token (either base or quote)
+      const token =
+        pair.baseToken.address.toLowerCase() === tokenAddress.toLowerCase()
+          ? pair.baseToken
+          : pair.quoteToken;
+
+      return {
+        name: token.name,
+        symbol: token.symbol,
+      };
+    } catch (error) {
+      console.error(`Error fetching token info for ${tokenAddress}:`, error);
+      return null;
+    }
+  }
 }
 
 // Export a singleton instance
