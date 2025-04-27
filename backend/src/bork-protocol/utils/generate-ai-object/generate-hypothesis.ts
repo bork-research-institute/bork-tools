@@ -20,6 +20,7 @@ import { threadTrackingQueries } from '../../../bork-protocol/db/queries';
 export async function generateHypothesis(
   runtime: IAgentRuntime,
   timeframeHours = 24,
+  preferredTopic = 'solana',
   logPrefix = '[Hypothesis Generation]',
 ): Promise<HypothesisResponse> {
   try {
@@ -31,7 +32,7 @@ export async function generateHypothesis(
     const selectedTopicRows = await selectTopic(
       runtime,
       timeframeHours,
-      undefined,
+      preferredTopic,
       20,
     );
     const topicKnowledgeMap = new Map<string, RAGKnowledgeItem[]>();
