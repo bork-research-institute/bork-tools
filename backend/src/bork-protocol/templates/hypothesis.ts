@@ -106,6 +106,7 @@ export function hypothesisTemplate(input: HypothesisTemplateInput) {
 Content: ${item.content}
 Source: Tweet ${item.source.id} by @${item.source.author}
 URL: ${item.source.url}
+CreatedAt: ${item.createdAt}
 Metrics: ${item.source.metrics.likes} likes, ${item.source.metrics.retweets} retweets, ${item.source.metrics.replies} replies`;
     })
     .join('\n\n');
@@ -138,6 +139,7 @@ Format your response as a JSON object with the following structure:
         "content": string, // Copied exactly from the provided knowledge items
         "type": string,
         "useCase": string, // How this knowledge will be used in the thread
+        "createdAt": number, // Include the timestamp when this knowledge was created
         "source": {
           "tweetId": string, // Match the source ID from the knowledge item
           "authorUsername": string,

@@ -133,6 +133,7 @@ export async function generateHypothesis(
               index: index + 1,
               similarity: k.similarity?.toFixed(3),
               preview: k.content.text,
+              createdAt: k.createdAt || Date.now(),
               source: {
                 tweetId: metadata?.sourceId,
                 author: metadata?.authorUsername,
