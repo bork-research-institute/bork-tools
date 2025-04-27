@@ -1,4 +1,6 @@
 import { CONTENT_CREATION } from '@/config/creation';
+import { TweetQueueService } from '@/services/twitter/tweet-queue-service';
+import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetSchema } from '@/types/response/hypothesis';
 import type { HypothesisResponse } from '@/utils/generate-ai-object/generate-hypothesis';
@@ -12,13 +14,18 @@ interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
 }
 
 export class InformativeThreadsClient {
+  private twitterConfigService: TwitterConfigService;
+  private tweetQueueService: TweetQueueService;
   private readonly runtime: IAgentRuntime;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentHypothesis: HypothesisResponse | null = null;
   private lastHypothesisGeneration = 0;
+  private lastContentGeneration = 0;
   private twitterService: TwitterService;
 
   constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
+    this.twitterConfigService = new TwitterConfigService(runtime);
+    this.tweetQueueService = new TweetQueueService(twitterService, runtime);
     this.runtime = runtime;
     this.twitterService = twitterService;
   }
@@ -26,7 +33,7 @@ export class InformativeThreadsClient {
   /**
    * Starts monitoring for content creation opportunities
    */
-  async startMonitoring(): Promise<void> {
+  async start(): Promise<void> {
     elizaLogger.info('[InformativeThreads] Starting content monitoring');
 
     // Initial content generation
@@ -42,7 +49,7 @@ export class InformativeThreadsClient {
   /**
    * Stops monitoring for content creation opportunities
    */
-  stopMonitoring(): void {
+  stop(): void {
     elizaLogger.info('[InformativeThreads] Stopping content monitoring');
 
     if (this.monitoringTimeout) {

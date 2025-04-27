@@ -14,6 +14,7 @@ import type {
   Log,
   PostedThread,
   StreamSetting,
+  ThreadPerformanceMetrics,
   TopicPerformance,
   UsedKnowledge,
   YapsData,
@@ -2020,5 +2021,36 @@ export const threadTrackingQueries = {
       elizaLogger.error('Error updating thread performance metrics:', error);
       throw error;
     }
+  },
+
+  async updateThreadPerformanceMetrics(
+    threadId: string,
+    metrics: ThreadPerformanceMetrics,
+    client?: PoolClient,
+  ): Promise<void> {
+    return withClient(client || null, async (c) => {
+      const query = `
+        UPDATE posted_threads
+        SET 
+          engagement = jsonb_build_object(
+            'likes', $2,
+            'retweets', $3,
+            'replies', $4,
+            'views', $5
+          ),
+          performance_score = $6,
+          updated_at = NOW()
+        WHERE id = $1
+      `;
+
+      await c.query(query, [
+        threadId,
+        metrics.likes,
+        metrics.retweets,
+        metrics.replies,
+        metrics.views,
+        metrics.performanceScore,
+      ]);
+    });
   },
 };

@@ -287,3 +287,11 @@ export interface TopicPerformance {
   bestPerformingThreadId: string;
   worstPerformingThreadId: string;
 }
+
+export interface ThreadPerformanceMetrics {
+  likes: number;
+  retweets: number;
+  replies: number;
+  views: number;
+  performanceScore: number;
+}
