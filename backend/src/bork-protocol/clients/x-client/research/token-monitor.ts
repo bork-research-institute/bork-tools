@@ -1,3 +1,5 @@
+// TO-DO: run the token monitoring service here alongside the other research clients and have it run a search instance on a periodic basis
+
 import type { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';

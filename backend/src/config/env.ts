@@ -15,6 +15,7 @@ const envSchema = z.object({
     .default('24'),
   SEARCH_PREFERRED_TOPIC: z.string().min(1).default('crypto'),
   INJECTIVE_ENABLED: z.string().transform((val) => val === 'true'),
+  HELIUS_API_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -33,6 +34,7 @@ export function getEnv(): Env {
     SEARCH_TIMEFRAME_HOURS: process.env.SEARCH_TIMEFRAME_HOURS,
     SEARCH_PREFERRED_TOPIC: process.env.SEARCH_PREFERRED_TOPIC,
     INJECTIVE_ENABLED: process.env.INJECTIVE_ENABLED,
+    HELIUS_API_KEY: process.env.HELIUS_API_KEY,
   });
 
   if (!envParse.success) {
