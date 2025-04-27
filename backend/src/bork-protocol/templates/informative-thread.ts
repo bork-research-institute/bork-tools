@@ -30,11 +30,12 @@ export const createThreadTemplate = (
 1. The FIRST tweet of the thread MUST NOT include a source URL, even if it contains factual claims. It should serve as a hook or thesis statement.
 2. For subsequent tweets: You may ONLY use these verified sources:
 ${formattedKnowledge.map((k) => `   - ${k.source}`).join('\n')}
-3. Include ONLY ONE source URL per tweet, chosen from the list above
-4. Add the source URL at the end of the tweet
-5. Remember: URLs will take ${URL_LENGTH} characters, so your main content must be under ${EFFECTIVE_LENGTH} characters
-6. The final degen-style tweet doesn't need a URL
-7. Format: "[tweet content] [source URL]"
+3. Include ONLY ONE source URL per tweet, chosen from the list above. 
+4. Ensure that each source is only used ONCE throughout the thread.
+5. Add the source URL at the end of the tweet
+6. Remember: URLs will take ${URL_LENGTH} characters, so your main content must be under ${EFFECTIVE_LENGTH} characters
+7. The final degen-style tweet doesn't need a URL
+8. Format: "[tweet content] [source URL]"
 
 Example tweet with citation (${EFFECTIVE_LENGTH} chars for content + ${URL_LENGTH} for URL):
 "L2 adoption grew 300% in Q1 2024, with Optimism leading at 42% market share. Average transaction costs down 90% vs L1. ${formattedKnowledge[0]?.source || '[source URL]'}"`

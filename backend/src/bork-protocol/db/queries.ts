@@ -12,7 +12,10 @@ import type {
   AgentSetting,
   ConsciousnessStream,
   Log,
+  PostedThread,
   StreamSetting,
+  TopicPerformance,
+  UsedKnowledge,
   YapsData,
 } from './schema';
 
@@ -1695,6 +1698,223 @@ export const accountTopicQueries = {
         query: query.replace(/\s+/g, ' ').trim(),
       });
       return [];
+    }
+  },
+};
+
+export const threadTrackingQueries = {
+  async savePostedThread(
+    thread: Omit<PostedThread, 'id' | 'createdAt'>,
+    client?: PoolClient,
+  ): Promise<PostedThread> {
+    const query = `
+      INSERT INTO posted_threads (
+        id,
+        agent_id,
+        primary_topic,
+        related_topics,
+        thread_idea,
+        unique_angle,
+        engagement,
+        performance_score,
+        tweet_ids,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      RETURNING *
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      thread.agentId,
+      thread.primaryTopic,
+      thread.relatedTopics,
+      thread.threadIdea,
+      thread.uniqueAngle,
+      JSON.stringify(thread.engagement),
+      thread.performanceScore,
+      thread.tweetIds,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, values);
+        return result.rows[0];
+      });
+    } catch (error) {
+      elizaLogger.error('Error saving posted thread:', error);
+      throw error;
+    }
+  },
+
+  async saveUsedKnowledge(
+    knowledge: Omit<UsedKnowledge, 'id' | 'firstUsed' | 'lastUsed'>,
+    client?: PoolClient,
+  ): Promise<UsedKnowledge> {
+    const query = `
+      INSERT INTO used_knowledge (
+        id,
+        thread_id,
+        content,
+        source,
+        use_count,
+        performance_contribution,
+        first_used,
+        last_used
+      ) VALUES ($1, $2, $3, $4, 1, $5, NOW(), NOW())
+      ON CONFLICT (content) DO UPDATE SET
+        use_count = used_knowledge.use_count + 1,
+        last_used = NOW(),
+        performance_contribution = 
+          (used_knowledge.performance_contribution * used_knowledge.use_count + $5) / (used_knowledge.use_count + 1)
+      RETURNING *
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      knowledge.threadId,
+      knowledge.content,
+      JSON.stringify(knowledge.source),
+      knowledge.performanceContribution,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, values);
+        return result.rows[0];
+      });
+    } catch (error) {
+      elizaLogger.error('Error saving used knowledge:', error);
+      throw error;
+    }
+  },
+
+  async updateTopicPerformance(
+    threadId: string,
+    topic: string,
+    engagement: PostedThread['engagement'],
+    performanceScore: number,
+    client?: PoolClient,
+  ): Promise<void> {
+    const query = `
+      INSERT INTO topic_performance (
+        id,
+        topic,
+        total_threads,
+        avg_engagement,
+        last_posted,
+        performance_score,
+        best_performing_thread_id,
+        worst_performing_thread_id
+      ) VALUES ($1, $2, 1, $3, NOW(), $4, $5, $5)
+      ON CONFLICT (topic) DO UPDATE SET
+        total_threads = topic_performance.total_threads + 1,
+        avg_engagement = jsonb_set(
+          topic_performance.avg_engagement,
+          '{likes}',
+          to_jsonb((
+            (topic_performance.avg_engagement->>'likes')::numeric * topic_performance.total_threads +
+            $3->>'likes'::numeric
+          ) / (topic_performance.total_threads + 1))
+        ),
+        last_posted = NOW(),
+        performance_score = (topic_performance.performance_score * topic_performance.total_threads + $4) 
+          / (topic_performance.total_threads + 1),
+        best_performing_thread_id = CASE
+          WHEN $4 > topic_performance.performance_score THEN $5
+          ELSE topic_performance.best_performing_thread_id
+        END,
+        worst_performing_thread_id = CASE
+          WHEN $4 < topic_performance.performance_score THEN $5
+          ELSE topic_performance.worst_performing_thread_id
+        END
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      topic,
+      JSON.stringify(engagement),
+      performanceScore,
+      threadId,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        await c.query(query, values);
+      });
+    } catch (error) {
+      elizaLogger.error('Error updating topic performance:', error);
+      throw error;
+    }
+  },
+
+  async getRecentlyUsedKnowledge(
+    timeframeHours = 168, // 1 week default
+    client?: PoolClient,
+  ): Promise<UsedKnowledge[]> {
+    const query = `
+      SELECT *
+      FROM used_knowledge
+      WHERE last_used >= NOW() - INTERVAL '${timeframeHours} hours'
+      ORDER BY use_count DESC, performance_contribution DESC
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting recently used knowledge:', error);
+      throw error;
+    }
+  },
+
+  async getTopicPerformance(
+    topics: string[],
+    client?: PoolClient,
+  ): Promise<TopicPerformance[]> {
+    const query = `
+      SELECT *
+      FROM topic_performance
+      WHERE topic = ANY($1)
+      ORDER BY performance_score DESC
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, [topics]);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting topic performance:', error);
+      throw error;
+    }
+  },
+
+  async getPostedThreadsByTopic(
+    topic: string,
+    limit = 10,
+    client?: PoolClient,
+  ): Promise<PostedThread[]> {
+    const query = `
+      SELECT *
+      FROM posted_threads
+      WHERE primary_topic = $1 OR $1 = ANY(related_topics)
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, [topic, limit]);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting posted threads by topic:', error);
+      throw error;
     }
   },
 };

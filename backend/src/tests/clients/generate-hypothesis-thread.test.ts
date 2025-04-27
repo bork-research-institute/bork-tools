@@ -3,6 +3,11 @@ import { tweetSchema } from '@/types/response/hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
 import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
+import { threadTrackingQueries } from '../../bork-protocol/db/queries';
+
+interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
+  agentId: string;
+}
 
 export async function testHypothesisAndThreadGeneration(
   runtime: IAgentRuntime,
@@ -23,6 +28,7 @@ export async function testHypothesisAndThreadGeneration(
 
     // Get recent topic weights from the database
     const timeframeHours = 168; // Last 7 days
+
     // Generate hypothesis using real data
     const hypothesis = await generateHypothesis(
       runtime,
@@ -140,6 +146,53 @@ export async function testHypothesisAndThreadGeneration(
       previousTweetId = postedTweet.id;
     }
 
+    const runtimeWithAgent = runtime as RuntimeWithAgent;
+
+    // Save the posted thread and its performance metrics
+    const postedThread = await threadTrackingQueries.savePostedThread({
+      agentId: runtimeWithAgent.agentId || 'default',
+      primaryTopic: hypothesis.selectedTopic.primaryTopic,
+      relatedTopics: hypothesis.selectedTopic.relatedTopics || [],
+      threadIdea: hypothesis.selectedTopic.threadIdea,
+      uniqueAngle: hypothesis.selectedTopic.uniqueAngle,
+      engagement: {
+        likes: 0,
+        retweets: 0,
+        replies: 0,
+        views: 0,
+      },
+      performanceScore: 0,
+      tweetIds: postedTweets.map((t) => t.id),
+    });
+
+    // Save the used knowledge
+    if (hypothesis.selectedTopic.relevantKnowledge) {
+      await Promise.all(
+        hypothesis.selectedTopic.relevantKnowledge
+          .filter((k) => k.source?.url && k.source?.authorUsername)
+          .map((k) =>
+            threadTrackingQueries.saveUsedKnowledge({
+              threadId: postedThread.id,
+              content: k.content,
+              source: {
+                url: k.source?.url || '',
+                authorUsername: k.source?.authorUsername || '',
+              },
+              performanceContribution: 0,
+              useCount: 1,
+            }),
+          ),
+      );
+    }
+
+    // Update topic performance (initial state, will be updated later with actual engagement)
+    await threadTrackingQueries.updateTopicPerformance(
+      postedThread.id,
+      hypothesis.selectedTopic.primaryTopic,
+      postedThread.engagement,
+      postedThread.performanceScore,
+    );
+
     // Log the link to each posted tweet
     postedTweets.forEach((t, idx) => {
       elizaLogger.info(
@@ -152,6 +205,7 @@ export async function testHypothesisAndThreadGeneration(
       thread,
       validation: validationResults,
       postedTweets,
+      postedThread,
     };
   } catch (error) {
     elizaLogger.error(
