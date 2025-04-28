@@ -6,7 +6,7 @@ import {
 } from '@elizaos/core';
 import { z } from 'zod';
 import { createThreadTemplate } from '../../templates/informative-thread';
-import type { HypothesisResponse } from './generate-hypothesis';
+import type { HypothesisResponse } from './hypothesis';
 
 export const mediaSchema = z.object({
   type: z.enum(['image', 'video']),

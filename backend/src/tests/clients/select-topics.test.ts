@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { vi } from 'vitest';
-import * as topicRelationshipsModule from '../../bork-protocol/utils/generate-ai-object/generate-related-topics';
+import * as topicRelationshipsModule from '../../bork-protocol/utils/generate-ai-object/related-topics';
 import { selectTopic } from '../../bork-protocol/utils/selection/select-topic';
 import * as topicWeightsModule from '../../bork-protocol/utils/topic-weights/topics';
 import { mockTopicWeights } from '../mock-data/mock-topic-weights';

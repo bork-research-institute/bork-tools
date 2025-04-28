@@ -1,4 +1,4 @@
-import type { HypothesisResponse } from '../utils/generate-ai-object/generate-hypothesis';
+import type { HypothesisResponse } from '../utils/generate-ai-object/hypothesis';
 
 const TWITTER_MAX_LENGTH = 280;
 const URL_LENGTH = 23; // Twitter's t.co shortens all URLs to 23 characters

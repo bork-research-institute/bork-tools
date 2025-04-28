@@ -1,9 +1,9 @@
 import { CONTENT_CREATION } from '@/config/creation';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetSchema } from '@/types/response/hypothesis';
-import type { HypothesisResponse } from '@/utils/generate-ai-object/generate-hypothesis';
-import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
-import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
+import type { HypothesisResponse } from '@/utils/generate-ai-object/hypothesis';
+import { generateHypothesis } from '@/utils/generate-ai-object/hypothesis';
+import { generateThread } from '@/utils/generate-ai-object/informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { threadTrackingQueries } from '../../../db/queries';
 

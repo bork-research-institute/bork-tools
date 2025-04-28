@@ -6,7 +6,7 @@ import type { Tweet } from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
 import { updateMetricsForAuthors } from '../account-metrics/update-influence-score';
-import { processSingleTweet } from './process-single-tweet';
+import { processSingleTweet } from '../generate-ai-object/analysis';
 
 /**
  * Main entry point for processing tweets.

@@ -163,7 +163,7 @@ export class TokenMonitorClient extends EventEmitter {
             // Update known tokens set
             this.lastKnownTokens = updatedKnownTokens;
 
-            elizaLogger.info(
+            elizaLogger.debug(
               `[TokenMonitor] Found ${newTokens.length} new tokens out of ${solanaTokens.length} total`,
             );
 

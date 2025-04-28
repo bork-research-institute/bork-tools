@@ -12,7 +12,7 @@ import {
   elizaLogger,
   generateObject,
 } from '@elizaos/core';
-import { threadTrackingQueries } from '../../../bork-protocol/db/queries';
+import { threadTrackingQueries } from '../../db/queries';
 
 /**
  * Generates topic and knowledge suggestions for thread creation

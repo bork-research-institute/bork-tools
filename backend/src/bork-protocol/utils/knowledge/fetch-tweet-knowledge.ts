@@ -21,7 +21,7 @@ export async function fetchAndFormatKnowledge(
   logPrefix = '[Knowledge Retrieval]',
 ): Promise<string> {
   try {
-    elizaLogger.info(
+    elizaLogger.debug(
       `${logPrefix} Fetching knowledge for tweet ${tweet.tweet_id}`,
     );
 

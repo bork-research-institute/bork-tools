@@ -19,7 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { fetchAndFormatKnowledge } from '../knowledge/fetch-tweet-knowledge';
 import { extractAndStoreKnowledge } from '../knowledge/store-tweet-knowledge';
 import { updateTopicWeights } from '../topic-weights/topics';
-import { storeAccountInfo } from './process-accounts';
+import { storeAccountInfo } from '../tweet-analysis/process-accounts';
 
 /**
  * Processes a single tweet by analyzing its content, detecting spam,
@@ -270,10 +270,6 @@ export async function processSingleTweet(
 
             elizaLogger.info(
               `${logPrefix} Successfully processed tweet ${processedTweet.originalTweet.tweet_id}`,
-              {
-                analysisId: analysisId.toString(),
-                tweetId: processedTweet.originalTweet.tweet_id,
-              },
             );
           } catch (innerError) {
             elizaLogger.error(`${logPrefix} Error in transaction:`, {

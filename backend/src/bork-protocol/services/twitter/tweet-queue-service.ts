@@ -1,4 +1,4 @@
-import type { ThreadResponse } from '@/utils/generate-ai-object/generate-informative-thread';
+import type { ThreadResponse } from '@/utils/generate-ai-object/informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import type { TwitterService } from './twitter-service';
 
