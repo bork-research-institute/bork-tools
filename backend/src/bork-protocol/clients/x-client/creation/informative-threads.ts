@@ -5,7 +5,7 @@ import type { HypothesisResponse } from '@/utils/generate-ai-object/hypothesis';
 import { generateHypothesis } from '@/utils/generate-ai-object/hypothesis';
 import { generateThread } from '@/utils/generate-ai-object/informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { threadTrackingQueries } from '../../../db/queries';
+import { threadQueries } from '../../../db/thread-queries';
 
 interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
   agentId: string;
@@ -55,11 +55,11 @@ export class InformativeThreadsClient {
     elizaLogger.info('[InformativeThreads] Starting content generation cycle');
 
     try {
-      // Update all thread and topic performance metrics before generating hypothesis
+      // Update all thread metrics before generating hypothesis
       elizaLogger.info(
-        '[InformativeThreads] Updating performance metrics for all threads and topics',
+        '[InformativeThreads] Updating performance metrics for all threads',
       );
-      await threadTrackingQueries.updateAllThreadPerformanceMetrics();
+      await threadQueries.updateAllThreadPerformanceMetrics();
 
       // Check if we need to generate a new hypothesis
       const now = Date.now();
@@ -167,8 +167,8 @@ export class InformativeThreadsClient {
 
         const runtimeWithAgent = this.runtime as RuntimeWithAgent;
 
-        // Save the posted thread and its performance metrics
-        const postedThread = await threadTrackingQueries.savePostedThread({
+        // Save the posted thread with all its data
+        const postedThread = await threadQueries.savePostedThread({
           agentId: runtimeWithAgent.agentId || 'default',
           primaryTopic: topic.primaryTopic,
           relatedTopics: topic.relatedTopics || [],
@@ -182,27 +182,28 @@ export class InformativeThreadsClient {
           },
           performanceScore: 0,
           tweetIds: postedTweets.map((t) => t.id),
-        });
-
-        // Save the used knowledge
-        if (topic.relevantKnowledge) {
-          await Promise.all(
+          usedKnowledge:
             topic.relevantKnowledge
-              .filter((k) => k.source?.url && k.source?.authorUsername)
-              .map((k) =>
-                threadTrackingQueries.saveUsedKnowledge({
-                  threadId: postedThread.id,
-                  content: k.content,
-                  source: {
-                    url: k.source?.url || '',
-                    authorUsername: k.source?.authorUsername || '',
-                  },
-                  performanceContribution: 0,
-                  useCount: 1,
-                }),
-              ),
-          );
-        }
+              ?.filter((k) => k.source?.url && k.source?.authorUsername)
+              .map((k) => ({
+                content: k.content,
+                type: k.type,
+                useCase: k.useCase,
+                createdAt: k.createdAt,
+                source: {
+                  tweetId: k.source?.tweetId,
+                  url: k.source?.url || '',
+                  authorUsername: k.source?.authorUsername || '',
+                  metrics: k.source?.metrics
+                    ? {
+                        likes: k.source.metrics.likes || 0,
+                        retweets: k.source.metrics.retweets || 0,
+                        replies: k.source.metrics.replies || 0,
+                      }
+                    : undefined,
+                },
+              })) || [],
+        });
 
         elizaLogger.info('[InformativeThreads] Successfully processed topic', {
           primaryTopic: topic.primaryTopic,

@@ -12,7 +12,7 @@ import {
   elizaLogger,
   generateObject,
 } from '@elizaos/core';
-import { threadTrackingQueries } from '../../db/queries';
+import { threadQueries } from '../../db/thread-queries';
 
 /**
  * Generates topic and knowledge suggestions for thread creation
@@ -74,10 +74,10 @@ export async function generateHypothesis(
 
     // Get recently used knowledge to avoid repetition
     const recentlyUsedKnowledge =
-      await threadTrackingQueries.getRecentlyUsedKnowledge(timeframeHours);
+      await threadQueries.getRecentlyUsedKnowledge(timeframeHours);
 
-    // Get topic performance data
-    const topicPerformance = await threadTrackingQueries.getTopicPerformance(
+    // Get topic performance data from posted threads
+    const topicPerformance = await threadQueries.getTopicPerformance(
       validTopicRows.map((row) => row.topic),
     );
 
@@ -86,7 +86,7 @@ export async function generateHypothesis(
 
     // Fetch recent threads for each topic with sufficient knowledge
     for (const row of validTopicRows) {
-      const topicThreads = await threadTrackingQueries.getPostedThreadsByTopic(
+      const topicThreads = await threadQueries.getPostedThreadsByTopic(
         row.topic,
         2, // Limit to 2 most recent threads per topic
       );
@@ -97,8 +97,8 @@ export async function generateHypothesis(
     const relevantThreads = recentThreads.filter((thread) => {
       return validTopicRows.some(
         (row) =>
-          thread.primary_topic === row.topic ||
-          thread.related_topics?.includes(row.topic),
+          thread.primaryTopic === row.topic ||
+          thread.relatedTopics?.includes(row.topic),
       );
     });
 
@@ -106,9 +106,9 @@ export async function generateHypothesis(
       'Recent threads for hypothesis generation:',
       relevantThreads.map((t) => ({
         id: t.id,
-        title: t.title,
-        primary_topic: t.primary_topic,
-        related_topics: t.related_topics,
+        title: t.threadIdea,
+        primary_topic: t.primaryTopic,
+        related_topics: t.relatedTopics,
       })),
     );
 
@@ -189,7 +189,7 @@ export async function generateHypothesis(
       hasKnowledge: hypothesis.selectedTopic.relevantKnowledge.length > 0,
       confidenceScore: hypothesis.selectedTopic.confidenceScore,
       recentThreadsOnTopic: relevantThreads.filter(
-        (t) => t.primary_topic === hypothesis.selectedTopic?.primaryTopic,
+        (t) => t.primaryTopic === hypothesis.selectedTopic?.primaryTopic,
       ).length,
     });
 
@@ -197,6 +197,7 @@ export async function generateHypothesis(
   } catch (error) {
     elizaLogger.error(`${logPrefix} Error generating topic suggestions:`, {
       error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   }

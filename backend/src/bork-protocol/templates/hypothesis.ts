@@ -4,7 +4,7 @@ import type {
   PostedThread,
   TopicPerformance,
   UsedKnowledge,
-} from '../db/schema';
+} from '../db/thread-schema';
 
 interface KnowledgeMetadata {
   sourceId?: string;
