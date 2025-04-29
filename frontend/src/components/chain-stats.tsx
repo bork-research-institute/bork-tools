@@ -6,10 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   BarChart2,
-  DollarSign,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import Image from 'next/image';
 
 export function ChainStats() {
   const { data, isLoading, isError } = useQuery({
@@ -19,47 +19,53 @@ export function ChainStats() {
 
   if (isError) {
     return (
-      <div className="flex items-center space-x-2 text-sm text-red-400">
-        <AlertTriangle className="h-4 w-4" />
+      <div className="flex items-center space-x-1.5 text-xs text-red-400">
+        <AlertTriangle className="h-3 w-3" />
         <span>Error loading chain stats</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center space-x-4">
-      <div className="flex items-center space-x-2">
-        <DollarSign className="h-4 w-4 text-emerald-400" />
+    <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-1.5">
+        <Image
+          src="/assets/solana-logo.png"
+          alt="Solana"
+          width={14}
+          height={14}
+          className="text-emerald-400"
+        />
         {isLoading ? (
-          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-3.5 w-14" />
         ) : (
-          <span className="text-sm text-white">
+          <span className="text-xs text-white">
             ${formatNumber(data?.price ?? 0)}
           </span>
         )}
       </div>
-      <div className="flex items-center space-x-2">
-        <BarChart2 className="h-4 w-4 text-emerald-400" />
+      <div className="flex items-center space-x-1.5">
+        <BarChart2 className="h-3.5 w-3.5 text-emerald-400" />
         {isLoading ? (
-          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3.5 w-20" />
         ) : (
           <div className="flex items-center space-x-1">
-            <span className="text-sm text-white">
+            <span className="text-xs text-white">
               ${formatNumber(data?.volume24h ?? 0)}
             </span>
             {data?.volumeChange24h !== undefined && (
               <div
                 className={cn(
-                  'flex items-center text-xs space-x-1',
+                  'flex items-center text-[10px] space-x-0.5',
                   data.volumeChange24h >= 0
                     ? 'text-emerald-400'
                     : 'text-red-400',
                 )}
               >
                 {data.volumeChange24h >= 0 ? (
-                  <TrendingUp className="h-3 w-3" />
+                  <TrendingUp className="h-2.5 w-2.5" />
                 ) : (
-                  <TrendingDown className="h-3 w-3" />
+                  <TrendingDown className="h-2.5 w-2.5" />
                 )}
                 <span>{Math.abs(data.volumeChange24h).toFixed(1)}%</span>
               </div>

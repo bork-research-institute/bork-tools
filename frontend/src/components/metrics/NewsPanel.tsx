@@ -245,7 +245,7 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                       <div className="flex flex-wrap gap-2 mt-2">
                         {tweet.topics.map((topic) => (
                           <span
-                            key={topic}
+                            key={`${tweet.tweet_id}-${topic}`}
                             className="px-2 py-1 bg-white/5 rounded-full text-xs"
                           >
                             {topic}

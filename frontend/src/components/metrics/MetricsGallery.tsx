@@ -9,7 +9,7 @@ import {
   relationshipsService,
 } from '@/lib/services/relationships';
 import { type TrendingTweet, tweetService } from '@/lib/services/tweets';
-import { Brain, Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
+import { Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
@@ -41,8 +41,9 @@ const RelationshipsPanel = dynamic<RelationshipsPanelProps>(
   { ssr: false },
 );
 
-const ROW_HEIGHT = 300; // Base height for single row panels
-const DOUBLE_ROW_HEIGHT = ROW_HEIGHT * 2 + 24; // Height for double row panels, including gap
+// Calculate available height by subtracting header and banner
+const PANEL_HEIGHT =
+  'calc(100vh - theme(spacing.header) - theme(spacing.banner))';
 
 export function MetricsGallery() {
   const [tokenAddress, setTokenAddress] = useState('');
@@ -198,79 +199,74 @@ export function MetricsGallery() {
     switch (maximizedPanel) {
       case 'socials':
         return (
-          <Tabs defaultValue="yaps" className="h-full flex flex-col">
+          <Tabs defaultValue="mindshare" className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Network className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Network className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   socials
                 </h2>
               </div>
               <TabsList className="bg-transparent">
                 <TabsTrigger
-                  value="yaps"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  value="mindshare"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
-                  top users
+                  mindshare
+                </TabsTrigger>
+                <TabsTrigger
+                  value="yaps"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                >
+                  yaps
                 </TabsTrigger>
                 <TabsTrigger
                   value="relationships"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
-                  map
+                  links
                 </TabsTrigger>
               </TabsList>
             </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="yaps" className="h-full">
-                <KaitoLeaderboard maxHeight="calc(90vh - 120px)" />
+                <KaitoLeaderboard maxHeight={PANEL_HEIGHT} />
               </TabsContent>
               <TabsContent value="relationships" className="h-full">
                 <RelationshipsPanel
-                  maxHeight="calc(90vh - 120px)"
+                  maxHeight={PANEL_HEIGHT}
                   relationships={relationships}
                   loading={relationshipsLoading}
                 />
+              </TabsContent>
+              <TabsContent value="mindshare" className="h-full">
+                <MindsharePanel maxHeight={PANEL_HEIGHT} />
               </TabsContent>
             </div>
           </Tabs>
         );
       case 'mindshare':
-        return (
-          <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  mindshare
-                </h2>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MindsharePanel maxHeight="calc(90vh - 120px)" />
-            </div>
-          </div>
-        );
+        return null;
       case 'trending':
         return (
           <Tabs defaultValue="tweets" className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <TrendingUp className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   trending
                 </h2>
               </div>
               <TabsList className="bg-transparent">
                 <TabsTrigger
                   value="tweets"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
                   tweets
                 </TabsTrigger>
                 <TabsTrigger
                   value="news"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
                   news
                 </TabsTrigger>
@@ -285,7 +281,7 @@ export function MetricsGallery() {
               </TabsContent>
               <TabsContent value="news" className="h-full">
                 <NewsPanel
-                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
+                  maxHeight={PANEL_HEIGHT}
                   tweets={newsTweets}
                   loading={loading}
                 />
@@ -298,8 +294,8 @@ export function MetricsGallery() {
           <Tabs defaultValue="market" className="h-full flex flex-col">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Filter className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   market
                 </h2>
               </div>
@@ -311,12 +307,12 @@ export function MetricsGallery() {
                       size="icon"
                       className="h-8 w-8 text-white/40 hover:text-white"
                     >
-                      <Filter className="h-4 w-4" />
+                      <Filter className="h-3 w-3" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-black/90 border-white/10">
                     <DialogHeader>
-                      <DialogTitle className="text-white lowercase tracking-wide font-display">
+                      <DialogTitle className="text-sm text-white lowercase tracking-wide font-display">
                         set token address
                       </DialogTitle>
                     </DialogHeader>
@@ -325,10 +321,10 @@ export function MetricsGallery() {
                         placeholder="enter token address (0x...)"
                         value={tokenAddress}
                         onChange={(e) => setTokenAddress(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white lowercase tracking-wide"
+                        className="bg-white/5 border-white/10 text-xs text-white lowercase tracking-wide"
                       />
                       <Button
-                        className="w-full lowercase tracking-wide font-display"
+                        className="w-full text-xs lowercase tracking-wide font-display"
                         onClick={() => setIsDialogOpen(false)}
                       >
                         apply
@@ -339,13 +335,13 @@ export function MetricsGallery() {
                 <TabsList className="bg-transparent">
                   <TabsTrigger
                     value="market"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                   >
                     technicals
                   </TabsTrigger>
                   <TabsTrigger
                     value="risk"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                   >
                     risk analysis (mock data)
                   </TabsTrigger>
@@ -355,7 +351,7 @@ export function MetricsGallery() {
             <div className="flex-1 overflow-hidden">
               <TabsContent value="market" className="h-full">
                 <MarketStatsPanel
-                  maxHeight="calc(90vh - 120px)"
+                  maxHeight={PANEL_HEIGHT}
                   marketStats={marketStats}
                   isLoading={marketStatsLoading}
                   error={marketStatsError}
@@ -366,10 +362,10 @@ export function MetricsGallery() {
               <TabsContent value="risk" className="h-full">
                 <div className="grid grid-cols-2 gap-4 h-full">
                   <BundlerPanel
-                    maxHeight="calc(90vh - 120px)"
+                    maxHeight={PANEL_HEIGHT}
                     tokenAddress={tokenAddress}
                   />
-                  <TokenHolderPanel maxHeight="calc(90vh - 120px)" />
+                  <TokenHolderPanel maxHeight={PANEL_HEIGHT} />
                 </div>
               </TabsContent>
             </div>
@@ -381,7 +377,7 @@ export function MetricsGallery() {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 h-[calc(100vh-theme(spacing.header)-theme(spacing.banner))] overflow-hidden">
       <Dialog
         open={maximizedPanel !== null}
         onOpenChange={() => setMaximizedPanel(null)}
@@ -398,39 +394,43 @@ export function MetricsGallery() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-12 gap-6 h-[calc(100vh-8rem)] relative">
+      <div className="grid grid-cols-12 gap-6 h-full relative">
         {/* Vertical dividers */}
         <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/5" />
         <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/5" />
-        {/* Horizontal divider */}
-        <div
-          className="absolute left-0 right-0 top-1/2 h-px bg-white/5"
-          style={{ width: '66.666667%' }}
-        />
 
-        {/* Top Row */}
-        <div className="col-span-4" style={{ height: ROW_HEIGHT }}>
-          <Tabs defaultValue="yaps" className="h-full flex flex-col">
+        {/* Left Column - Socials (Full Height) */}
+        <div className="col-span-4 flex flex-col min-h-0">
+          <Tabs
+            defaultValue="mindshare"
+            className="flex-1 flex flex-col min-h-0"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Network className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Network className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   socials
                 </h2>
               </div>
               <div className="flex items-center gap-2">
                 <TabsList className="bg-transparent">
                   <TabsTrigger
-                    value="yaps"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    value="mindshare"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    top users
+                    mindshare
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="yaps"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    yaps
                   </TabsTrigger>
                   <TabsTrigger
                     value="relationships"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    map
+                    links
                   </TabsTrigger>
                 </TabsList>
                 <Button
@@ -439,111 +439,43 @@ export function MetricsGallery() {
                   className="h-8 w-8 p-0 text-white/40 hover:text-white"
                   onClick={() => setMaximizedPanel('socials')}
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="yaps" className="h-full">
-                <KaitoLeaderboard maxHeight={`${ROW_HEIGHT - 48}px`} />
+            <div className="flex-1 min-h-0">
+              <TabsContent value="yaps" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <KaitoLeaderboard />
+                </div>
               </TabsContent>
-              <TabsContent value="relationships" className="h-full">
-                <RelationshipsPanel
-                  maxHeight={`${ROW_HEIGHT - 48}px`}
-                  relationships={relationships}
-                  loading={relationshipsLoading}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
-
-        <div className="col-span-4" style={{ height: ROW_HEIGHT }}>
-          <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  mindshare
-                </h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                onClick={() => setMaximizedPanel('mindshare')}
+              <TabsContent
+                value="relationships"
+                className="h-full overflow-auto"
               >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MindsharePanel maxHeight={`${ROW_HEIGHT - 48}px`} />
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="col-span-4 row-span-2"
-          style={{ height: DOUBLE_ROW_HEIGHT }}
-        >
-          <Tabs defaultValue="tweets" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  trending
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <TabsList className="bg-transparent">
-                  <TabsTrigger
-                    value="tweets"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    tweets
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="news"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    news
-                  </TabsTrigger>
-                </TabsList>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                  onClick={() => setMaximizedPanel('trending')}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="tweets" className="h-full">
-                <TrendingTweetsPanel
-                  tweets={trendingTweets}
-                  loading={loading}
-                />
+                <div className="h-full overflow-auto">
+                  <RelationshipsPanel
+                    relationships={relationships}
+                    loading={relationshipsLoading}
+                  />
+                </div>
               </TabsContent>
-              <TabsContent value="news" className="h-full">
-                <NewsPanel
-                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
-                  tweets={newsTweets}
-                  loading={loading}
-                />
+              <TabsContent value="mindshare" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MindsharePanel />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
         </div>
 
-        {/* Bottom Row */}
-        <div className="col-span-8" style={{ height: ROW_HEIGHT }}>
-          <Tabs defaultValue="market" className="h-full flex flex-col">
+        {/* Middle Column - Market */}
+        <div className="col-span-4 flex flex-col min-h-0">
+          <Tabs defaultValue="market" className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Filter className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   market
                 </h2>
               </div>
@@ -555,12 +487,12 @@ export function MetricsGallery() {
                       size="icon"
                       className="h-8 w-8 p-0 text-white/40 hover:text-white"
                     >
-                      <Filter className="h-4 w-4" />
+                      <Filter className="h-3 w-3" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-black/90 border-white/10">
                     <DialogHeader>
-                      <DialogTitle className="text-white lowercase tracking-wide font-display">
+                      <DialogTitle className="text-sm text-white lowercase tracking-wide font-display">
                         set token address
                       </DialogTitle>
                     </DialogHeader>
@@ -569,10 +501,10 @@ export function MetricsGallery() {
                         placeholder="enter token address (0x...)"
                         value={tokenAddress}
                         onChange={(e) => setTokenAddress(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white lowercase tracking-wide"
+                        className="bg-white/5 border-white/10 text-xs text-white lowercase tracking-wide"
                       />
                       <Button
-                        className="w-full lowercase tracking-wide font-display"
+                        className="w-full text-xs lowercase tracking-wide font-display"
                         onClick={() => setIsDialogOpen(false)}
                       >
                         apply
@@ -583,13 +515,13 @@ export function MetricsGallery() {
                 <TabsList className="bg-transparent">
                   <TabsTrigger
                     value="market"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
                     technicals
                   </TabsTrigger>
                   <TabsTrigger
                     value="risk"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
                     risk analysis (mock data)
                   </TabsTrigger>
@@ -600,28 +532,79 @@ export function MetricsGallery() {
                   className="h-8 w-8 p-0 text-white/40 hover:text-white"
                   onClick={() => setMaximizedPanel('market')}
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="market" className="h-full">
-                <MarketStatsPanel
-                  maxHeight={`${ROW_HEIGHT - 48}px`}
-                  marketStats={marketStats}
-                  isLoading={marketStatsLoading}
-                  error={marketStatsError}
-                  timeframe={timeframe}
-                  onTimeframeChange={setTimeframe}
-                />
-              </TabsContent>
-              <TabsContent value="risk" className="h-full">
-                <div className="grid grid-cols-2 gap-4 h-full">
-                  <BundlerPanel
-                    maxHeight={`${ROW_HEIGHT - 48}px`}
-                    tokenAddress={tokenAddress}
+            <div className="flex-1 min-h-0">
+              <TabsContent value="market" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MarketStatsPanel
+                    marketStats={marketStats}
+                    isLoading={marketStatsLoading}
+                    error={marketStatsError}
+                    timeframe={timeframe}
+                    onTimeframeChange={setTimeframe}
                   />
-                  <TokenHolderPanel maxHeight={`${ROW_HEIGHT - 48}px`} />
+                </div>
+              </TabsContent>
+              <TabsContent value="risk" className="h-full overflow-auto">
+                <div className="grid grid-cols-2 gap-4 h-full overflow-auto">
+                  <BundlerPanel tokenAddress={tokenAddress} />
+                  <TokenHolderPanel />
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+
+        {/* Right Column - Trending */}
+        <div className="col-span-4 flex flex-col min-h-0">
+          <Tabs defaultValue="tweets" className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
+                  trending
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <TabsList className="bg-transparent">
+                  <TabsTrigger
+                    value="tweets"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    tweets
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="news"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    news
+                  </TabsTrigger>
+                </TabsList>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                  onClick={() => setMaximizedPanel('trending')}
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <TabsContent value="tweets" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <TrendingTweetsPanel
+                    tweets={trendingTweets}
+                    loading={loading}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="news" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <NewsPanel tweets={newsTweets} loading={loading} />
                 </div>
               </TabsContent>
             </div>

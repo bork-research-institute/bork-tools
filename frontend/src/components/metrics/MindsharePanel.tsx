@@ -29,7 +29,6 @@ import {
   MessageCircle,
   Quote,
   Repeat2,
-  TrendingUp,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -111,7 +110,7 @@ const engagementMetrics = {
 function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   if (!data) {
     return (
-      <div className="h-[48px] rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-sm">
+      <div className="h-[80px] rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-sm">
         Click a topic to see details
       </div>
     );
@@ -129,8 +128,6 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   };
 
   const getBrainColor = (percentage: number) => {
-    // Map percentage (typically 0-100) to a green intensity (darker = higher percentage)
-    // Using emerald colors from Tailwind
     if (percentage >= 20) {
       return 'text-emerald-400';
     }
@@ -146,11 +143,17 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
     return 'text-emerald-800';
   };
 
+  const timeframeLabel =
+    timeFrameOptions
+      .find((opt) => opt.value === timeFrame)
+      ?.label.toLowerCase() || timeFrame;
+
   return (
-    <div className="h-[48px] rounded-lg bg-white/5 px-3 flex items-center">
-      <div className="grid grid-cols-[1fr_auto] gap-4 w-full">
-        <div className="flex items-center gap-4">
-          <h3 className="font-medium text-sm text-white/90 truncate max-w-[300px]">
+    <div className="h-[80px] rounded-lg bg-white/5 px-3 py-2 flex flex-col overflow-hidden">
+      {/* Top Row - Title and Primary Metrics */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-4 min-w-0">
+          <h3 className="font-medium text-sm text-white/90 truncate">
             {data.topic}
           </h3>
           <div className="flex items-center gap-3">
@@ -185,7 +188,7 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
                   sideOffset={4}
                 >
                   <p className="text-xs text-white">
-                    {`Change in mindshare over the ${timeFrameOptions.find((opt) => opt.value === timeFrame)?.label.toLowerCase() || timeFrame}`}
+                    {`Change in mindshare over the ${timeframeLabel}`}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -195,11 +198,44 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
         <button
           type="button"
           onClick={onClose}
-          className="text-white/40 hover:text-white/60 transition-colors"
+          className="text-white/40 hover:text-white/60 transition-colors flex-shrink-0"
           aria-label="Clear selection"
         >
           <X className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* Bottom Row - Engagement Metrics */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+        {data.engagement_metrics &&
+          Object.entries(data.engagement_metrics).map(([key, value]) => {
+            const metricInfo =
+              engagementMetrics[key as keyof typeof engagementMetrics];
+            if (!metricInfo) {
+              return null;
+            }
+
+            return (
+              <div
+                key={key}
+                className={cn(
+                  'px-2 py-1 rounded bg-white/5 flex-shrink-0',
+                  key === 'impressions' && 'bg-white/10',
+                )}
+              >
+                <MetricWithTooltip
+                  key={key}
+                  icon={metricInfo.icon}
+                  value={(value || 0).toLocaleString()}
+                  tooltip={`${metricInfo.label}: ${(value || 0).toLocaleString()}`}
+                  className={cn(
+                    'text-white/60',
+                    key === 'impressions' && 'text-white/80',
+                  )}
+                />
+              </div>
+            );
+          })}
       </div>
     </div>
   );
@@ -220,7 +256,6 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [timeFrame, setTimeFrame] = useState<string>('24h');
   const [selectedData, setSelectedData] = useState<TreemapData | null>(null);
-  const isEnlarged = !maxHeight;
 
   // Debounce search input
   useEffect(() => {
@@ -273,14 +308,17 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         // Create a Map to keep only unique topics with their latest data
         const uniqueTopics = new Map();
         for (const item of filteredData) {
-          uniqueTopics.set(item.topic, item);
+          uniqueTopics.set(item.topic, {
+            ...item,
+            percentage: (item.engagement_score / totalEngagementScore) * 100,
+          });
         }
 
         const processedData = Array.from(uniqueTopics.values())
           .map((item) => ({
             topic: item.topic,
             value: item.engagement_score,
-            percentage: (item.engagement_score / totalEngagementScore) * 100,
+            percentage: item.percentage,
             percentage_change: item.percentage_change,
             engagement_score: item.engagement_score,
             engagement_metrics: item.engagement_metrics,
@@ -290,29 +328,11 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           .sort((a, b) => b.value - a.value)
           .slice(0, 25);
 
-        // Calculate total engagement score for percentage calculation
-        const totalEngagementScoreProcessed = processedData.reduce(
-          (sum, item) => sum + item.engagement_score,
-          0,
-        );
-
-        // Recalculate percentages based on total engagement score
-        for (const item of processedData) {
-          item.percentage =
-            (item.engagement_score / totalEngagementScoreProcessed) * 100;
-        }
-
         // Define container dimensions
         const container = { x0: 0, y0: 0, x1: 100, y1: 100 };
 
         // Generate treemap layout
-        const layout = squarify<TreemapData>(
-          processedData.map((item) => ({
-            ...item,
-            value: item.value,
-          })),
-          container,
-        );
+        const layout = squarify<TreemapData>(processedData, container);
 
         setTreemapRects(layout);
       } catch (err) {
@@ -343,66 +363,14 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
     return `hsla(${hue}, ${saturation}%, 25%, ${alpha})`;
   };
 
-  const handleRectClick = (
-    rect: TreemapData,
-    event: React.MouseEvent<HTMLDivElement>,
-  ) => {
-    event.stopPropagation();
+  const handleRectClick = (rect: TreemapData) => {
+    console.log('Clicked rect:', rect);
     setSelectedData(rect);
   };
 
-  const renderMetrics = (data: TreemapData, showEngagement = true) => {
-    const timeframeLabel =
-      timeFrameOptions
-        .find((opt) => opt.value === timeFrame)
-        ?.label.toLowerCase() || timeFrame;
-    return (
-      <>
-        <MetricWithTooltip
-          icon={Brain}
-          value={`${data.percentage.toFixed(1)}%`}
-          tooltip="Engagement Score: Weighted sum of likes (1x), retweets (2x), and replies (3x)"
-          className="text-xs"
-        />
-        <MetricWithTooltip
-          icon={TrendingUp}
-          value={`${(data.engagement_score * 100).toFixed(0)}%`}
-          tooltip="Engagement Score: Measure of topic's influence and reach"
-        />
-        {showEngagement &&
-          data.engagement_metrics &&
-          Object.entries(data.engagement_metrics || {}).map(([key, value]) => {
-            const metricInfo =
-              engagementMetrics[key as keyof typeof engagementMetrics];
-            if (!metricInfo) {
-              return null;
-            }
-
-            return (
-              <MetricWithTooltip
-                key={key}
-                icon={metricInfo.icon}
-                value={(value || 0).toLocaleString()}
-                tooltip={`${metricInfo.label}: ${(value || 0).toLocaleString()}`}
-              />
-            );
-          })}
-        <MetricWithTooltip
-          icon={Brain}
-          value={`${data.percentage_change >= 0 ? '+' : ''}${data.percentage_change.toFixed(1)}%`}
-          tooltip={`Change in mindshare over the ${timeframeLabel}`}
-          className={cn(
-            'text-xs',
-            Math.abs(data.percentage_change) < 0.1
-              ? 'text-white/60'
-              : data.percentage_change > 0
-                ? 'text-green-400'
-                : 'text-red-400',
-          )}
-        />
-      </>
-    );
-  };
+  useEffect(() => {
+    console.log('Selected data updated:', selectedData);
+  }, [selectedData]);
 
   if (loading) {
     return (
@@ -483,32 +451,16 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
                   rect.percentage_change,
                 ),
               }}
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
-                handleRectClick(
-                  rect,
-                  e as unknown as React.MouseEvent<HTMLDivElement>,
-                )
-              }
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleRectClick(
-                    rect,
-                    e as unknown as React.MouseEvent<HTMLDivElement>,
-                  );
-                }
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent the parent's onClick from firing
+                handleRectClick(rect);
               }}
             >
-              {isEnlarged && (
-                <div className="p-3 h-full flex flex-col">
-                  <div className="font-medium text-base text-white/90 truncate">
-                    {rect.topic}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    {renderMetrics(rect, false)}
-                  </div>
+              <div className="p-3 h-full flex flex-col">
+                <div className="font-medium text-sm text-white/90 truncate">
+                  {rect.topic}
                 </div>
-              )}
+              </div>
             </button>
           ))}
         </div>

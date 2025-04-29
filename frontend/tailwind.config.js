@@ -4,6 +4,10 @@ module.exports = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
+      spacing: {
+        header: '4rem', // 64px
+        banner: '3rem', // 48px
+      },
       fontFamily: {
         sans: ['var(--font-inter)'],
         display: ['var(--font-bolota)'],

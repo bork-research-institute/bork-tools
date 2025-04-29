@@ -28,7 +28,7 @@ export function ConnectButton({ onError, disabled }: Props) {
 
   return (
     <Button
-      className="flex w-48 items-center justify-center space-x-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-white transition-all duration-200 hover:bg-emerald-400/20"
+      className="flex w-48 items-center justify-center space-x-1.5 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-1.5 text-xs text-white transition-all duration-200 hover:bg-emerald-400/20"
       type="button"
       onClick={() => {
         if (connected) {
@@ -38,7 +38,7 @@ export function ConnectButton({ onError, disabled }: Props) {
       }}
       disabled={disabled}
     >
-      <Wallet className="h-5 w-5" />
+      <Wallet className="h-3.5 w-3.5" />
       <span>{connected && publicKey && trimAddress(publicKey.toString())}</span>
     </Button>
   );

@@ -1,5 +1,6 @@
 // TO-DO: run the token monitoring service here alongside the other research clients and have it run a search instance on a periodic basis
 
+// biome-ignore lint/correctness/noNodejsModules: <explanation>
 import { EventEmitter } from 'node:events';
 import { tokenQueries } from '@/db/token-queries';
 import { dexScreenerService } from '@/services/token-monitor/dexscreener-service';
