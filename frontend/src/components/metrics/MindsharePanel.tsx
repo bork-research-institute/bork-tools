@@ -81,8 +81,8 @@ function MetricWithTooltip({
       <Tooltip>
         <TooltipTrigger asChild={true}>
           <div className="flex items-center gap-1.5 cursor-help">
-            <Icon className={cn('h-4 w-4', className)} />
-            <span className={cn('text-sm font-medium tabular-nums', className)}>
+            <Icon className={cn('h-3 w-3', className)} />
+            <span className={cn('text-xs font-medium tabular-nums', className)}>
               {value}
             </span>
           </div>
@@ -110,7 +110,7 @@ const engagementMetrics = {
 function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   if (!data) {
     return (
-      <div className="h-[80px] rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-sm">
+      <div className="rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-xs p-3">
         Click a topic to see details
       </div>
     );
@@ -149,11 +149,11 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
       ?.label.toLowerCase() || timeFrame;
 
   return (
-    <div className="h-[80px] rounded-lg bg-white/5 px-3 py-2 flex flex-col overflow-hidden">
+    <div className="rounded-lg bg-white/5 px-3 py-2 flex flex-col">
       {/* Top Row - Title and Primary Metrics */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-4 min-w-0">
-          <h3 className="font-medium text-sm text-white/90 truncate">
+          <h3 className="font-medium text-xs text-white/90 truncate">
             {data.topic}
           </h3>
           <div className="flex items-center gap-3">
@@ -170,7 +170,7 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
                     {getChangeIcon(data.percentage_change)}
                     <span
                       className={cn(
-                        'text-xs',
+                        'text-[10px]',
                         Math.abs(data.percentage_change) < 0.1
                           ? 'text-white/60'
                           : data.percentage_change > 0
@@ -457,7 +457,7 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
               }}
             >
               <div className="p-3 h-full flex flex-col">
-                <div className="font-medium text-sm text-white/90 truncate">
+                <div className="font-medium text-xs text-white/90 truncate">
                   {rect.topic}
                 </div>
               </div>

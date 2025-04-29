@@ -14,7 +14,7 @@ export function Panel({
   return (
     <div className="bg-[#020617]/80 h-full flex flex-col" style={{ maxHeight }}>
       {(icon || headerContent) && (
-        <div className="flex items-center justify-between p-4 shrink-0">
+        <div className="flex items-center justify-between p-1 shrink-0">
           {icon && <div className="text-emerald-400/80">{icon}</div>}
           {headerContent}
         </div>

@@ -67,11 +67,19 @@ export function MetricsGallery() {
       try {
         // Fetch regular tweets
         const trendingData = await tweetService.getTrendingTweets(20);
-        setTrendingTweets(trendingData);
+        // Create a Map to store unique tweets by tweet_id
+        const uniqueTrendingTweets = new Map(
+          trendingData.map((tweet) => [tweet.tweet_id, tweet]),
+        );
+        setTrendingTweets(Array.from(uniqueTrendingTweets.values()));
 
         // Fetch news tweets
         const newsData = await tweetService.getNewsTweets(20);
-        setNewsTweets(newsData);
+        // Create a Map to store unique tweets by tweet_id
+        const uniqueNewsTweets = new Map(
+          newsData.map((tweet) => [tweet.tweet_id, tweet]),
+        );
+        setNewsTweets(Array.from(uniqueNewsTweets.values()));
       } catch (error) {
         console.error('Error fetching tweets:', error);
       } finally {
