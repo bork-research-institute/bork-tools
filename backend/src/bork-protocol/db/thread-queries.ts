@@ -261,30 +261,32 @@ export const threadQueries = {
     metrics: ThreadPerformanceMetrics,
     client?: PoolClient,
   ): Promise<void> {
-    return withClient(client || null, async (c) => {
-      const query = `
-        UPDATE posted_threads
-        SET 
-          engagement = jsonb_build_object(
-            'likes', $2,
-            'retweets', $3,
-            'replies', $4,
-            'views', $5
-          ),
-          performance_score = $6,
-          updated_at = NOW()
-        WHERE id = $1
-      `;
+    const query = `
+      UPDATE posted_threads
+      SET 
+        engagement = $2::jsonb,
+        performance_score = $3,
+        updated_at = NOW()
+      WHERE id = $1
+    `;
 
-      await c.query(query, [
-        threadId,
-        metrics.likes,
-        metrics.retweets,
-        metrics.replies,
-        metrics.views,
-        metrics.performanceScore,
-      ]);
-    });
+    try {
+      await withClient(client || null, async (c) => {
+        await c.query(query, [
+          threadId,
+          JSON.stringify({
+            likes: metrics.likes,
+            retweets: metrics.retweets,
+            replies: metrics.replies,
+            views: metrics.views,
+          }),
+          metrics.performanceScore,
+        ]);
+      });
+    } catch (error) {
+      elizaLogger.error('Error updating thread performance metrics:', error);
+      throw error;
+    }
   },
 
   /**
@@ -317,7 +319,20 @@ export const threadQueries = {
     client?: PoolClient,
   ): Promise<PostedThread[]> {
     const query = `
-      SELECT * FROM posted_threads 
+      SELECT 
+        id,
+        agent_id,
+        primary_topic,
+        related_topics,
+        thread_idea,
+        unique_angle,
+        engagement,
+        performance_score,
+        tweet_ids,
+        used_knowledge,
+        created_at,
+        updated_at
+      FROM posted_threads 
       WHERE agent_id = $1 
       ORDER BY created_at DESC
     `;
@@ -325,7 +340,20 @@ export const threadQueries = {
     try {
       return withClient(client || null, async (c) => {
         const result = await c.query(query, [agentId]);
-        return result.rows;
+        return result.rows.map((row) => ({
+          id: row.id,
+          agentId: row.agent_id,
+          primaryTopic: row.primary_topic,
+          relatedTopics: row.related_topics || [],
+          threadIdea: row.thread_idea,
+          uniqueAngle: row.unique_angle,
+          engagement: row.engagement,
+          performanceScore: row.performance_score,
+          tweetIds: Array.isArray(row.tweet_ids) ? row.tweet_ids : [],
+          usedKnowledge: row.used_knowledge || [],
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }));
       });
     } catch (error) {
       elizaLogger.error('Error getting threads by agent:', error);

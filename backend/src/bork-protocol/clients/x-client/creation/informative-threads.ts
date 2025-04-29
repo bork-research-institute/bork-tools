@@ -6,6 +6,7 @@ import { generateHypothesis } from '@/utils/generate-ai-object/hypothesis';
 import { generateThread } from '@/utils/generate-ai-object/informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { threadQueries } from '../../../db/thread-queries';
+import { updateAllThreadsMetrics } from '../../../utils/active-tweeting';
 
 interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
   agentId: string;
@@ -59,7 +60,19 @@ export class InformativeThreadsClient {
       elizaLogger.info(
         '[InformativeThreads] Updating performance metrics for all threads',
       );
-      await threadQueries.updateAllThreadPerformanceMetrics();
+
+      // Fetch all threads and update their metrics
+      const allThreads = await threadQueries.getThreadsByAgent(
+        (this.runtime as RuntimeWithAgent).agentId || 'default',
+      );
+
+      await updateAllThreadsMetrics(
+        allThreads.map((thread) => ({
+          id: thread.id,
+          tweetIds: thread.tweetIds,
+        })),
+        this.twitterService,
+      );
 
       // Check if we need to generate a new hypothesis
       const now = Date.now();
