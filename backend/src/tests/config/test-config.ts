@@ -1,6 +1,6 @@
 import type { TwitterConfig } from '@/types/config';
 import type { Character, IAgentRuntime } from '@elizaos/core';
-import { ModelProviderName, stringToUuid } from '@elizaos/core';
+import { character as borkAnalyzer } from '../../characters/bork-analyzer';
 
 // Test enable/disable flags
 export const TEST_FLAGS = {
@@ -15,42 +15,7 @@ export const TEST_FLAGS = {
   // Add more flags here as needed
 } as const;
 
-export interface TestResult {
-  success: boolean;
-  error?: Error;
-  data?: unknown;
-}
-
-export interface TestConfig {
-  name: string;
-  enabled: boolean;
-  testFn: (runtime: IAgentRuntime) => Promise<unknown>;
-  description: string;
-}
-
-export const testCharacter: Character = {
-  id: stringToUuid('test-agent'),
-  name: 'Test Agent',
-  username: 'test-agent',
-  modelProvider: ModelProviderName.OPENAI,
-  system: 'You are a test agent.',
-  plugins: [],
-  settings: {
-    secrets: {},
-  },
-  bio: ['Test agent for unit testing'],
-  lore: ['Created for testing Eliza agent functionality'],
-  messageExamples: [],
-  postExamples: [],
-  adjectives: ['helpful', 'precise'],
-  topics: ['testing', 'agents'],
-  style: {
-    all: ['be concise', 'be helpful'],
-    chat: ['respond clearly'],
-    post: ['write clearly'],
-  },
-};
-
+// Test Twitter configuration
 export const testTwitterConfig: TwitterConfig = {
   search: {
     tweetLimits: {
@@ -76,6 +41,21 @@ export const testTwitterConfig: TwitterConfig = {
   targetAccounts: [],
 };
 
+export interface TestResult {
+  success: boolean;
+  data?: unknown;
+  error?: Error;
+}
+
+export interface TestConfig {
+  name: string;
+  enabled: boolean;
+  testFn: (runtime: IAgentRuntime) => Promise<unknown>;
+  description: string;
+}
+
+export const testCharacter: Character = borkAnalyzer;
+
 export const testConfig: TestConfig[] = [
   {
     name: 'topic-relationships',
@@ -86,7 +66,7 @@ export const testConfig: TestConfig[] = [
       );
       return testGetRelatedTopics(runtime);
     },
-    description: 'Tests topic relationship analysis functionality',
+    description: 'Tests topic relationship analysis',
   },
   {
     name: 'topic-selection',
@@ -97,8 +77,7 @@ export const testConfig: TestConfig[] = [
       );
       return testSelectTopics(runtime);
     },
-    description:
-      'Tests topic selection with weight adjustments and relationships',
+    description: 'Tests topic selection based on weights and relationships',
   },
   {
     name: 'account-selection',
@@ -109,7 +88,7 @@ export const testConfig: TestConfig[] = [
       );
       return testSelectAccounts(runtime);
     },
-    description: 'Tests account selection with real data and topic preferences',
+    description: 'Tests account selection based on topic and engagement',
   },
   {
     name: 'tweet-selection',
@@ -120,8 +99,7 @@ export const testConfig: TestConfig[] = [
       );
       return testSelectTweetsFromAccounts(runtime);
     },
-    description:
-      'Tests tweet selection from accounts based on engagement criteria',
+    description: 'Tests tweet selection from target accounts',
   },
   {
     name: 'tweet-processing',
@@ -132,8 +110,7 @@ export const testConfig: TestConfig[] = [
       );
       return testFetchUpstreamTweets(runtime);
     },
-    description:
-      'Tests tweet validation, preparation, and merging with related tweets',
+    description: 'Tests tweet processing and analysis',
   },
   {
     name: 'influence-score',

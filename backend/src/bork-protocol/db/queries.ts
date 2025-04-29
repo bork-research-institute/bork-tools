@@ -12,7 +12,11 @@ import type {
   AgentSetting,
   ConsciousnessStream,
   Log,
+  PostedThread,
   StreamSetting,
+  ThreadPerformanceMetrics,
+  TopicPerformance,
+  UsedKnowledge,
   YapsData,
 } from './schema';
 
@@ -1696,5 +1700,357 @@ export const accountTopicQueries = {
       });
       return [];
     }
+  },
+};
+
+export const threadTrackingQueries = {
+  async savePostedThread(
+    thread: Omit<PostedThread, 'id' | 'createdAt'>,
+    client?: PoolClient,
+  ): Promise<PostedThread> {
+    const query = `
+      INSERT INTO posted_threads (
+        id,
+        agent_id,
+        primary_topic,
+        related_topics,
+        thread_idea,
+        unique_angle,
+        engagement,
+        performance_score,
+        tweet_ids,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      RETURNING *
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      thread.agentId,
+      thread.primaryTopic,
+      thread.relatedTopics,
+      thread.threadIdea,
+      thread.uniqueAngle,
+      JSON.stringify(thread.engagement),
+      thread.performanceScore,
+      thread.tweetIds,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, values);
+        return result.rows[0];
+      });
+    } catch (error) {
+      elizaLogger.error('Error saving posted thread:', error);
+      throw error;
+    }
+  },
+
+  async saveUsedKnowledge(
+    knowledge: Omit<UsedKnowledge, 'id' | 'firstUsed' | 'lastUsed'>,
+    client?: PoolClient,
+  ): Promise<UsedKnowledge> {
+    const query = `
+      INSERT INTO used_knowledge (
+        id,
+        thread_id,
+        content,
+        source,
+        use_count,
+        performance_contribution,
+        first_used,
+        last_used
+      ) VALUES ($1, $2, $3, $4, 1, $5, NOW(), NOW())
+      ON CONFLICT (content) DO UPDATE SET
+        use_count = used_knowledge.use_count + 1,
+        last_used = NOW(),
+        performance_contribution = 
+          (used_knowledge.performance_contribution * used_knowledge.use_count + $5) / (used_knowledge.use_count + 1)
+      RETURNING *
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      knowledge.threadId,
+      knowledge.content,
+      JSON.stringify(knowledge.source),
+      knowledge.performanceContribution,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, values);
+        return result.rows[0];
+      });
+    } catch (error) {
+      elizaLogger.error('Error saving used knowledge:', error);
+      throw error;
+    }
+  },
+
+  async updateTopicPerformance(
+    threadId: string,
+    topic: string,
+    engagement: PostedThread['engagement'],
+    performanceScore: number,
+    client?: PoolClient,
+  ): Promise<void> {
+    const query = `
+      INSERT INTO topic_performance (
+        id,
+        topic,
+        total_threads,
+        avg_engagement,
+        last_posted,
+        performance_score,
+        best_performing_thread_id,
+        worst_performing_thread_id
+      ) VALUES ($1, $2, 1, $3, NOW(), $4, $5, $5)
+      ON CONFLICT (topic) DO UPDATE SET
+        total_threads = topic_performance.total_threads + 1,
+        avg_engagement = jsonb_build_object(
+          'likes', (COALESCE((topic_performance.avg_engagement->>'likes')::numeric, 0) * topic_performance.total_threads + 
+                    COALESCE(($3->>'likes')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'retweets', (COALESCE((topic_performance.avg_engagement->>'retweets')::numeric, 0) * topic_performance.total_threads + 
+                       COALESCE(($3->>'retweets')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'replies', (COALESCE((topic_performance.avg_engagement->>'replies')::numeric, 0) * topic_performance.total_threads + 
+                     COALESCE(($3->>'replies')::numeric, 0)) / (topic_performance.total_threads + 1),
+          'views', (COALESCE((topic_performance.avg_engagement->>'views')::numeric, 0) * topic_performance.total_threads + 
+                   COALESCE(($3->>'views')::numeric, 0)) / (topic_performance.total_threads + 1)
+        ),
+        last_posted = NOW(),
+        performance_score = (COALESCE(topic_performance.performance_score, 0) * topic_performance.total_threads + COALESCE($4, 0)) 
+          / (topic_performance.total_threads + 1),
+        best_performing_thread_id = CASE
+          WHEN COALESCE($4, 0) > COALESCE(topic_performance.performance_score, 0) THEN $5
+          ELSE topic_performance.best_performing_thread_id
+        END,
+        worst_performing_thread_id = CASE
+          WHEN COALESCE($4, 0) < COALESCE(topic_performance.performance_score, 0) THEN $5
+          ELSE topic_performance.worst_performing_thread_id
+        END
+    `;
+
+    const id = uuidv4();
+    const values = [
+      id,
+      topic,
+      JSON.stringify(engagement),
+      performanceScore,
+      threadId,
+    ];
+
+    try {
+      return withClient(client || null, async (c) => {
+        await c.query(query, values);
+      });
+    } catch (error) {
+      elizaLogger.error('Error updating topic performance:', error);
+      throw error;
+    }
+  },
+
+  async getRecentlyUsedKnowledge(
+    timeframeHours = 168, // 1 week default
+    client?: PoolClient,
+  ): Promise<UsedKnowledge[]> {
+    const query = `
+      SELECT *
+      FROM used_knowledge
+      WHERE last_used >= NOW() - INTERVAL '${timeframeHours} hours'
+      ORDER BY use_count DESC, performance_contribution DESC
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting recently used knowledge:', error);
+      throw error;
+    }
+  },
+
+  async getTopicPerformance(
+    topics: string[],
+    client?: PoolClient,
+  ): Promise<TopicPerformance[]> {
+    const query = `
+      SELECT *
+      FROM topic_performance
+      WHERE topic = ANY($1)
+      ORDER BY performance_score DESC
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, [topics]);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting topic performance:', error);
+      throw error;
+    }
+  },
+
+  async getPostedThreadsByTopic(
+    topic: string,
+    limit = 10,
+    client?: PoolClient,
+  ): Promise<PostedThread[]> {
+    const query = `
+      SELECT *
+      FROM posted_threads
+      WHERE primary_topic = $1 OR $1 = ANY(related_topics)
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
+
+    try {
+      return withClient(client || null, async (c) => {
+        const result = await c.query(query, [topic, limit]);
+        return result.rows;
+      });
+    } catch (error) {
+      elizaLogger.error('Error getting posted threads by topic:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Updates performance metrics for all threads to incorporate the latest engagement data
+   * This should be called before generating a new hypothesis to ensure we have the most up-to-date metrics
+   */
+  async updateAllThreadPerformanceMetrics(client?: PoolClient): Promise<void> {
+    const query = `
+      WITH thread_metrics AS (
+        -- Get the latest metrics for each thread
+        SELECT 
+          pt.id as thread_id,
+          pt.primary_topic,
+          COALESCE(
+            jsonb_build_object(
+              'likes', AVG(COALESCE((t.likes), 0)),
+              'retweets', AVG(COALESCE((t.retweets), 0)),
+              'replies', AVG(COALESCE((t.replies), 0)),
+              'views', AVG(COALESCE((t.views), 0))
+            ),
+            pt.engagement
+          ) as current_engagement,
+          -- Calculate performance score based on engagement
+          (
+            COALESCE(AVG(t.likes), 0) * 0.4 + 
+            COALESCE(AVG(t.retweets), 0) * 0.3 + 
+            COALESCE(AVG(t.replies), 0) * 0.3
+          ) as calculated_score
+        FROM 
+          posted_threads pt
+        LEFT JOIN 
+          tweets t ON t.tweet_id = ANY(pt.tweet_ids) AND t.status = 'sent'
+        GROUP BY 
+          pt.id, pt.primary_topic, pt.engagement
+      )
+      -- Update posted_threads with new metrics
+      UPDATE posted_threads pt
+      SET 
+        engagement = tm.current_engagement,
+        performance_score = CASE 
+          WHEN tm.calculated_score > 0 THEN tm.calculated_score 
+          ELSE pt.performance_score 
+        END,
+        updated_at = NOW()
+      FROM 
+        thread_metrics tm
+      WHERE 
+        pt.id = tm.thread_id;
+    `;
+
+    try {
+      await withClient(client || null, async (c) => {
+        // First update the thread performance metrics
+        await c.query(query);
+
+        // Now update topic performance based on the updated thread metrics
+        const topicsQuery = `
+          SELECT DISTINCT primary_topic FROM posted_threads
+          UNION
+          SELECT DISTINCT unnest(related_topics) FROM posted_threads
+        `;
+
+        const { rows } = await c.query(topicsQuery);
+        const topics = rows.map((row) => row.primary_topic).filter(Boolean);
+
+        // For each topic, get most recent thread and update topic metrics
+        for (const topic of topics) {
+          const threadsQuery = `
+            SELECT * FROM posted_threads
+            WHERE primary_topic = $1 OR $1 = ANY(related_topics)
+            ORDER BY created_at DESC
+            LIMIT 1
+          `;
+
+          const threadResult = await c.query(threadsQuery, [topic]);
+          if (threadResult.rows.length > 0) {
+            const thread = threadResult.rows[0];
+
+            // Re-update topic performance with the latest thread metrics
+            await this.updateTopicPerformance(
+              thread.id,
+              topic,
+              thread.engagement,
+              thread.performance_score,
+              c,
+            ).catch((err) =>
+              elizaLogger.error(
+                `Error updating performance for topic ${topic}:`,
+                err,
+              ),
+            );
+          }
+        }
+
+        elizaLogger.info(
+          `Updated performance metrics for ${topics.length} topics`,
+        );
+      });
+    } catch (error) {
+      elizaLogger.error('Error updating thread performance metrics:', error);
+      throw error;
+    }
+  },
+
+  async updateThreadPerformanceMetrics(
+    threadId: string,
+    metrics: ThreadPerformanceMetrics,
+    client?: PoolClient,
+  ): Promise<void> {
+    return withClient(client || null, async (c) => {
+      const query = `
+        UPDATE posted_threads
+        SET 
+          engagement = jsonb_build_object(
+            'likes', $2,
+            'retweets', $3,
+            'replies', $4,
+            'views', $5
+          ),
+          performance_score = $6,
+          updated_at = NOW()
+        WHERE id = $1
+      `;
+
+      await c.query(query, [
+        threadId,
+        metrics.likes,
+        metrics.retweets,
+        metrics.replies,
+        metrics.views,
+        metrics.performanceScore,
+      ]);
+    });
   },
 };

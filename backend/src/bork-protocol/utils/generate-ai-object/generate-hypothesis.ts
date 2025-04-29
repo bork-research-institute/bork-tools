@@ -1,7 +1,6 @@
 import { hypothesisTemplate } from '@/templates/hypothesis';
 import {
   type HypothesisResponse,
-  type LessonLearned,
   hypothesisResponseSchema,
 } from '@/types/response/hypothesis';
 import { fetchTopicKnowledge } from '@/utils/knowledge/fetch-topic-knowledge';
@@ -13,6 +12,7 @@ import {
   elizaLogger,
   generateObject,
 } from '@elizaos/core';
+import { threadTrackingQueries } from '../../../bork-protocol/db/queries';
 
 /**
  * Generates topic and knowledge suggestions for thread creation
@@ -20,7 +20,6 @@ import {
 export async function generateHypothesis(
   runtime: IAgentRuntime,
   timeframeHours = 24,
-  lessonsLearned: LessonLearned[] = [],
   logPrefix = '[Hypothesis Generation]',
 ): Promise<HypothesisResponse> {
   try {
@@ -33,7 +32,7 @@ export async function generateHypothesis(
       runtime,
       timeframeHours,
       undefined,
-      10,
+      20,
     );
     const topicKnowledgeMap = new Map<string, RAGKnowledgeItem[]>();
 
@@ -72,6 +71,46 @@ export async function generateHypothesis(
       topicKnowledgeMap.has(row.topic),
     );
 
+    // Get recently used knowledge to avoid repetition
+    const recentlyUsedKnowledge =
+      await threadTrackingQueries.getRecentlyUsedKnowledge(timeframeHours);
+
+    // Get topic performance data
+    const topicPerformance = await threadTrackingQueries.getTopicPerformance(
+      validTopicRows.map((row) => row.topic),
+    );
+
+    // Get recent threads for all topics
+    const recentThreads = [];
+
+    // Fetch recent threads for each topic with sufficient knowledge
+    for (const row of validTopicRows) {
+      const topicThreads = await threadTrackingQueries.getPostedThreadsByTopic(
+        row.topic,
+        2, // Limit to 2 most recent threads per topic
+      );
+      recentThreads.push(...topicThreads);
+    }
+
+    // Filter threads to only include those related to our topics
+    const relevantThreads = recentThreads.filter((thread) => {
+      return validTopicRows.some(
+        (row) =>
+          thread.primary_topic === row.topic ||
+          thread.related_topics?.includes(row.topic),
+      );
+    });
+
+    elizaLogger.info(
+      'Recent threads for hypothesis generation:',
+      relevantThreads.map((t) => ({
+        id: t.id,
+        title: t.title,
+        primary_topic: t.primary_topic,
+        related_topics: t.related_topics,
+      })),
+    );
+
     // Log knowledge items for selected topics
     elizaLogger.info(`${logPrefix} Knowledge items for selected topics:`, {
       topics: Array.from(topicKnowledgeMap.entries()).map(
@@ -105,21 +144,25 @@ export async function generateHypothesis(
       ),
     });
 
-    // Log lessons learned if available
-    if (lessonsLearned.length > 0) {
-      elizaLogger.info(
-        `${logPrefix} Incorporating ${lessonsLearned.length} lessons learned`,
-        {
-          topics: lessonsLearned.map((l) => l.topic),
-        },
-      );
-    }
+    // Log historical performance data
+    elizaLogger.info(`${logPrefix} Historical performance data:`, {
+      topicPerformance: topicPerformance.map((tp) => ({
+        topic: tp.topic,
+        totalThreads: tp.totalThreads,
+        avgEngagement: tp.avgEngagement,
+        performanceScore: tp.performanceScore,
+      })),
+      recentlyUsedKnowledge: recentlyUsedKnowledge.length,
+      recentThreads: relevantThreads.length,
+    });
 
     // Create the template
     const template = hypothesisTemplate({
       topicWeights: validTopicRows,
       topicKnowledge: topicKnowledgeMap,
-      lessonsLearned,
+      recentThreads: relevantThreads,
+      topicPerformance,
+      recentlyUsedKnowledge,
     });
 
     // Generate topic suggestions using the AI
@@ -143,6 +186,9 @@ export async function generateHypothesis(
       selectedTopic: hypothesis.selectedTopic.primaryTopic,
       hasKnowledge: hypothesis.selectedTopic.relevantKnowledge.length > 0,
       confidenceScore: hypothesis.selectedTopic.confidenceScore,
+      recentThreadsOnTopic: relevantThreads.filter(
+        (t) => t.primary_topic === hypothesis.selectedTopic?.primaryTopic,
+      ).length,
     });
 
     return hypothesis;
@@ -154,4 +200,4 @@ export async function generateHypothesis(
   }
 }
 
-export type { HypothesisResponse, LessonLearned };
+export type { HypothesisResponse };

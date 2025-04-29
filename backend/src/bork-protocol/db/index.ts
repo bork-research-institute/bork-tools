@@ -1,6 +1,7 @@
 import { elizaLogger } from '@elizaos/core';
 import { Pool } from 'pg';
 import { getEnv } from '../../config/env';
+import { knowledgeQueries } from './knowledge';
 import * as queries from './queries';
 import * as schema from './schema';
 
@@ -166,4 +167,4 @@ export const db = dbManager.getPool();
 export const cleanupPool = () => dbManager.cleanup();
 
 // Export schemas and queries
-export { schema, queries };
+export { schema, queries, knowledgeQueries };

@@ -17,10 +17,8 @@ export const mediaSchema = z.object({
 });
 
 export const tweetSchema = z.object({
-  content: z.string().max(280),
-  mediaPrompt: mediaSchema.optional(), // The prompt used to generate media
-  media: mediaSchema.optional(), // The actual generated media
-  isHighlight: z.boolean(), // Whether this is a key tweet in the thread
+  text: z.string(),
+  hasMedia: z.boolean().optional().default(false),
 });
 
 export const threadSchema = z.object({
@@ -32,7 +30,6 @@ export const threadSchema = z.object({
     retweetsPrediction: z.number(),
     repliesPrediction: z.number(),
   }),
-  hashtags: z.array(z.string()),
   optimalPostingTime: z.string(),
 });
 
@@ -66,12 +63,12 @@ export async function generateThread(
     const thread = object as ThreadResponse;
 
     // Log some stats about the generated thread
-    const highlightCount = thread.tweets.filter((t) => t.isHighlight).length;
+    const mediaCount = thread.tweets.filter((t) => t.hasMedia).length;
 
     elizaLogger.info(`${logPrefix} Successfully generated thread`, {
       primaryTopic: topic?.primaryTopic,
       tweetCount: thread.tweets.length,
-      highlightCount,
+      mediaCount,
       targetAudience: thread.targetAudience,
     });
 

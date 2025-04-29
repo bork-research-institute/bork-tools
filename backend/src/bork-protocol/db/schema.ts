@@ -239,3 +239,59 @@ export interface AccountTopic {
   firstSeenAt: Date;
   lastSeenAt: Date;
 }
+
+export interface PostedThread {
+  id: string;
+  agentId: string;
+  primaryTopic: string;
+  relatedTopics: string[];
+  threadIdea: string;
+  uniqueAngle: string;
+  createdAt: Date;
+  engagement: {
+    likes: number;
+    retweets: number;
+    replies: number;
+    views: number;
+  };
+  performanceScore: number;
+  tweetIds: string[];
+}
+
+export interface UsedKnowledge {
+  id: string;
+  threadId: string;
+  content: string;
+  source: {
+    url: string;
+    authorUsername: string;
+  };
+  useCount: number;
+  lastUsed: Date;
+  firstUsed: Date;
+  performanceContribution: number;
+}
+
+export interface TopicPerformance {
+  id: string;
+  topic: string;
+  totalThreads: number;
+  avgEngagement: {
+    likes: number;
+    retweets: number;
+    replies: number;
+    views: number;
+  };
+  lastPosted: Date;
+  performanceScore: number;
+  bestPerformingThreadId: string;
+  worstPerformingThreadId: string;
+}
+
+export interface ThreadPerformanceMetrics {
+  likes: number;
+  retweets: number;
+  replies: number;
+  views: number;
+  performanceScore: number;
+}

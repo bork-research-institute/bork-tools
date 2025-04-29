@@ -3,21 +3,27 @@ import {
   type IAgentRuntime,
   elizaLogger,
 } from '@elizaos/core';
-import type { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
+import { Scraper } from 'agent-twitter-client';
+import { TwitterService } from '../../bork-protocol/services/twitter/twitter-service';
 
 export class TestTwitterClient implements ClientInstance {
   public twitterService: TwitterService;
+  private twitterClient: Scraper;
 
-  constructor(_runtime: IAgentRuntime) {
-    // Create a minimal TwitterService with just the methods we need for tests
-    this.twitterService = {
-      cacheTweet: async () => {},
-      initialize: async () => true,
-    } as unknown as TwitterService;
+  constructor(runtime: IAgentRuntime) {
+    this.twitterClient = new Scraper();
+    this.twitterService = new TwitterService(this.twitterClient, runtime);
   }
 
   async start(): Promise<void> {
     elizaLogger.info('[TestTwitterClient] Starting test Twitter client');
+    const initialized = await this.twitterService.initialize();
+    if (!initialized) {
+      throw new Error('Failed to initialize Twitter service');
+    }
+    elizaLogger.info(
+      '[TestTwitterClient] Successfully initialized Twitter service',
+    );
   }
 
   async stop(): Promise<void> {
