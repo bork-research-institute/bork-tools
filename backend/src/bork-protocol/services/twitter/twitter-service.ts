@@ -141,6 +141,29 @@ export class TwitterService {
       });
     }
 
+    // Apply engagement thresholds if provided
+    if (engagementThresholds) {
+      const {
+        minLikes = 0,
+        minRetweets = 0,
+        minReplies = 0,
+      } = engagementThresholds;
+
+      filteredTweets = filteredTweets.filter((tweet) => {
+        const meetsLikesThreshold = tweet.likes >= minLikes;
+        const meetsRetweetsThreshold = tweet.retweets >= minRetweets;
+        const meetsRepliesThreshold = tweet.replies >= minReplies;
+
+        return (
+          meetsLikesThreshold && meetsRetweetsThreshold && meetsRepliesThreshold
+        );
+      });
+
+      elizaLogger.info(
+        `${context} Filtered out ${maxTweets - filteredTweets.length} tweets based on engagement thresholds`,
+      );
+    }
+
     // Filter spam tweets
     const {
       filteredTweets: nonSpamTweets,

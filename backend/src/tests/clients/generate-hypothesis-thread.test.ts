@@ -1,7 +1,8 @@
+import { CONTENT_CREATION } from '@/config/creation';
 import type { TwitterService } from '@/services/twitter/twitter-service';
 import { tweetSchema } from '@/types/response/hypothesis';
-import { generateHypothesis } from '@/utils/generate-ai-object/generate-hypothesis';
-import { generateThread } from '@/utils/generate-ai-object/generate-informative-thread';
+import { generateHypothesis } from '@/utils/generate-ai-object/hypothesis';
+import { generateThread } from '@/utils/generate-ai-object/informative-thread';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { threadTrackingQueries } from '../../bork-protocol/db/queries';
 
@@ -33,10 +34,14 @@ export async function testHypothesisAndThreadGeneration(
     await threadTrackingQueries.updateAllThreadPerformanceMetrics();
 
     // Get recent topic weights from the database
-    const timeframeHours = 168; // Last 7 days
+    const timeframeHours = 24; // In hours
 
     // Generate hypothesis using real data
-    const hypothesis = await generateHypothesis(runtime, timeframeHours);
+    const hypothesis = await generateHypothesis(
+      runtime,
+      timeframeHours,
+      CONTENT_CREATION.PREFERRED_TOPIC,
+    );
 
     elizaLogger.info(`${logPrefix} Generated hypothesis`, {
       selectedTopic: hypothesis.selectedTopic

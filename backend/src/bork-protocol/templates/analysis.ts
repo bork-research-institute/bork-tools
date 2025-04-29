@@ -99,7 +99,7 @@ Response format MUST be a JSON object with the following structure with THREE to
     "format": "statement|question|poll|call_to_action|thread|image_focus|video_focus|link_share|other",
     "sentiment": "positive|negative|neutral|controversial|inspirational",
     "confidence": 0-1,
-    "summary": "CONCISE factual analysis. Structure: [Key Claims] + [Supporting Evidence] + [Context]. Include ONLY: verified facts, direct quotes, specific data points, clear attributions. NO interpretations or speculation. Format: Claim: Evidence (Source). Omit filler words and redundant context.",
+    "summary": "CONCISE factual analysis. Structure: [Key Claims] + [Supporting Evidence] + [Context]. Include ONLY: verified facts, direct quotes, specific data points, clear attributions. NO interpretations or speculation. Format: Claim: Evidence (Source). Omit filler words and redundant context. Explicitly spell out any tickers (e.g., $SOL, $BORK) and token addresses (CAs) mentioned in the tweet, verbatim.",
     "topics": ["topic1", "topic2", "topic3"],
     "entities": ["person1", "org1", "product1", "location1", "event1"],
     "qualityMetrics": {
@@ -118,7 +118,7 @@ Response format MUST be a JSON object with the following structure with THREE to
     "summary": "CONCISE engagement analysis. Structure: [Metrics Impact] + [Key Elements] + [Action Items]. Focus: quantifiable patterns, successful triggers, replicable tactics. Format: Pattern -> Impact -> Action. NO general advice or explanations. ONLY specific, actionable insights tied to observable data."
   }
 }
-\`\`\`
+\`
 ${messageCompletionFooter}`,
     modelClass: input.modelClass || ModelClass.MEDIUM,
   };

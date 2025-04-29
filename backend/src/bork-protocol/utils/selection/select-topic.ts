@@ -1,6 +1,6 @@
 import type { TopicWeightRow } from '@/types/topic';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { analyzeTopicRelationships } from '../generate-ai-object/generate-related-topics';
+import { analyzeTopicRelationships } from '../generate-ai-object/related-topics';
 import { getAggregatedTopicWeights } from '../topic-weights/topics';
 
 /**

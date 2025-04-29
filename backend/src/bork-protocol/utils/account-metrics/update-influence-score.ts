@@ -31,7 +31,7 @@ async function updateAccountEngagementMetrics(
     }
 
     // Log that we're updating metrics
-    elizaLogger.info(
+    elizaLogger.debug(
       `${context} Updating engagement metrics for ${account.username}`,
     );
 
@@ -40,7 +40,7 @@ async function updateAccountEngagementMetrics(
       providedTweets ||
       (await tweetQueries.getTweetsByUsername(account.username, 50));
 
-    elizaLogger.info(
+    elizaLogger.debug(
       `${context} Found ${tweets.length} tweets in database for ${account.username}`,
     );
 
@@ -85,7 +85,7 @@ async function updateAccountEngagementMetrics(
         influenceScore,
       });
 
-      elizaLogger.info(
+      elizaLogger.debug(
         `${context} Updated engagement metrics for ${account.username}:`,
       );
       elizaLogger.debug({

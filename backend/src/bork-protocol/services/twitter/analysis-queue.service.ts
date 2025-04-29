@@ -107,10 +107,6 @@ export class TweetQueueService {
     topicWeights: TopicWeightRow[],
   ): Promise<void> {
     try {
-      elizaLogger.info(
-        `[TweetQueueService] Processing batch of ${tweets.length} tweets`,
-      );
-
       await processTweets(
         this.runtime,
         this.twitterService,

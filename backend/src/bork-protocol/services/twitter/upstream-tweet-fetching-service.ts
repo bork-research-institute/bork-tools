@@ -207,11 +207,7 @@ export async function getUpstreamTweets(
         processedIds.add(tweet.tweet_id);
 
         elizaLogger.info(
-          '[Tweet Processing] Successfully fetched upstream tweets',
-          {
-            tweetId: tweet.tweet_id,
-            upstreamTweetsLength: totalRelatedTweets + 1,
-          },
+          `[Tweet Processing] Successfully fetched ${totalRelatedTweets + 1} upstream tweets`,
         );
       } catch (error) {
         elizaLogger.error('[Tweet Processing] Error processing tweet:', {

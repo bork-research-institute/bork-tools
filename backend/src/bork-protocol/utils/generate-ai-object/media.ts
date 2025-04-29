@@ -1,6 +1,6 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { ImageGenerationService } from '../../services/image/image-generation';
-import type { Media, TweetContent } from './generate-informative-thread';
+import type { Media, TweetContent } from './informative-thread';
 
 /**
  * Analyzes tweet content and determines if it needs media enhancement

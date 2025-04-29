@@ -7,6 +7,7 @@ const relevantKnowledgeSchema = z.object({
   content: z.string(),
   type: z.string(),
   useCase: z.string(),
+  createdAt: z.number(), // Timestamp in milliseconds when the knowledge was created
   source: z.object({
     tweetId: z.string(),
     authorUsername: z.string(),
@@ -58,12 +59,6 @@ export const hypothesisResponseSchema = z.object({
 export type HypothesisResponse = z.infer<typeof hypothesisResponseSchema>;
 export type SelectedTopic = z.infer<typeof selectedTopicSchema>;
 export type Tweet = z.infer<typeof tweetSchema>;
-
-export type LessonLearned = {
-  topic: string;
-  whatWorked: string[];
-  whatDidntWork: string[];
-};
 
 export const topicSuggestionsSchema = z.object({
   selectedTopics: z.array(selectedTopicSchema),

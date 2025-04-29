@@ -9,7 +9,7 @@ import type { IAgentRuntime } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import { getEnv } from '../../../config/env';
 import { updateYapsData } from '../account-metrics/yaps';
-import { analyzeTopicRelationships } from '../generate-ai-object/generate-related-topics';
+import { analyzeTopicRelationships } from '../generate-ai-object/related-topics';
 import { getAggregatedTopicWeights } from '../topic-weights/topics';
 
 /**

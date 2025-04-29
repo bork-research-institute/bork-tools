@@ -12,7 +12,7 @@ import {
   elizaLogger,
   generateObject,
 } from '@elizaos/core';
-import { threadTrackingQueries } from '../../../bork-protocol/db/queries';
+import { threadTrackingQueries } from '../../db/queries';
 
 /**
  * Generates topic and knowledge suggestions for thread creation
@@ -20,6 +20,7 @@ import { threadTrackingQueries } from '../../../bork-protocol/db/queries';
 export async function generateHypothesis(
   runtime: IAgentRuntime,
   timeframeHours = 24,
+  preferredTopic = 'solana',
   logPrefix = '[Hypothesis Generation]',
 ): Promise<HypothesisResponse> {
   try {
@@ -31,7 +32,7 @@ export async function generateHypothesis(
     const selectedTopicRows = await selectTopic(
       runtime,
       timeframeHours,
-      undefined,
+      preferredTopic,
       20,
     );
     const topicKnowledgeMap = new Map<string, RAGKnowledgeItem[]>();
@@ -132,6 +133,7 @@ export async function generateHypothesis(
               index: index + 1,
               similarity: k.similarity?.toFixed(3),
               preview: k.content.text,
+              createdAt: k.createdAt || Date.now(),
               source: {
                 tweetId: metadata?.sourceId,
                 author: metadata?.authorUsername,

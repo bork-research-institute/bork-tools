@@ -12,6 +12,7 @@ import { TwitterInteractionClient } from './creation/interactions';
 import { TwitterAccountDiscoveryClient } from './research/account-discovery';
 import { TwitterAccountsClient } from './research/accounts';
 import { TwitterSearchClient } from './research/search';
+import { TokenMonitorClient } from './research/token-monitor';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
@@ -22,6 +23,7 @@ export class TwitterClient implements ClientInstance {
   private discoveryClient: TwitterAccountDiscoveryClient | null = null;
   private tweetQueueService: TweetQueueService | null = null;
   private informativeThreadsClient: InformativeThreadsClient | null = null;
+  private tokenMonitorClient: TokenMonitorClient | null = null;
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -96,6 +98,11 @@ export class TwitterClient implements ClientInstance {
         this.twitterService,
         this.runtime,
       );
+      this.tokenMonitorClient = new TokenMonitorClient(
+        this.twitterService,
+        this.runtime,
+        this.tweetQueueService,
+      );
 
       // Start clients concurrently
       await Promise.all([
@@ -103,7 +110,8 @@ export class TwitterClient implements ClientInstance {
         this.searchClient.start(),
         // this.interactionClient.start(),
         // this.discoveryClient.start(),
-        this.informativeThreadsClient.start(),
+        // this.informativeThreadsClient.start(),
+        this.tokenMonitorClient.start(),
       ]);
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');
@@ -120,6 +128,9 @@ export class TwitterClient implements ClientInstance {
     elizaLogger.info('[TwitterClient] Stopping Twitter client');
     try {
       // Stop all clients in reverse order
+      if (this.tokenMonitorClient) {
+        await this.tokenMonitorClient.stop();
+      }
       if (this.informativeThreadsClient) {
         await this.informativeThreadsClient.stop();
       }

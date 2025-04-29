@@ -12,10 +12,12 @@ export const TIME_INTERVALS = {
  * Content creation settings
  */
 export const CONTENT_CREATION = {
+  PREFERRED_TOPIC: 'solana',
+
   // Main cycle intervals
   HYPOTHESIS_REFRESH_INTERVAL: TIME_INTERVALS.DAY, // Generate new hypothesis every 24 hours
   CONTENT_GENERATION_INTERVAL: TIME_INTERVALS.DAY, // Generate content every 24 hours
-  TIMEFRAME_HOURS: 168, // Default timeframe for content analysis in hours
+  TIMEFRAME_HOURS: 24, // Default timeframe for content analysis in hours
 
   // Thread generation settings
   MAX_THREAD_LENGTH: 25, // Maximum number of tweets in a thread
