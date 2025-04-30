@@ -6,107 +6,236 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {} from '@/components/ui/select';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import type {
-  MarketStat,
-  TimeFrame,
-} from '@/lib/services/market-stats-service';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import type { TimeFrame } from '@/lib/services/token-snapshot-service';
 import { cn } from '@/lib/utils';
-import { Settings } from 'lucide-react';
+import {
+  formatCurrency,
+  formatPrice,
+  formatSupply,
+} from '@/lib/utils/format-number';
+import { getTimeAgo } from '@/lib/utils/format-time';
+import type { TokenSnapshot } from '@/types/token-monitor/token';
+import { ArrowUpDown, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Panel } from './Panel';
 
+type ColumnKey =
+  | 'timestamp'
+  | 'name'
+  | 'symbol'
+  | 'price'
+  | 'volume'
+  | 'marketCap'
+  | 'liquidity'
+  | 'holders'
+  | 'supply';
+
 type SortConfig = {
-  key: keyof MarketStat;
+  key: ColumnKey;
   direction: 'asc' | 'desc';
+};
+
+type ColumnDef = {
+  key: ColumnKey;
+  label: string;
+  format: (snapshot: TokenSnapshot, index: number) => string | JSX.Element;
+  getChange?: (
+    current: TokenSnapshot,
+    previous: TokenSnapshot,
+  ) => string | null;
 };
 
 interface MarketStatsPanelProps {
   maxHeight?: string;
-  marketStats: MarketStat[];
+  tokenSnapshots?: TokenSnapshot[];
   isLoading: boolean;
   error: string | null;
   timeframe: TimeFrame;
   onTimeframeChange: (timeframe: TimeFrame) => void;
 }
 
-const columns: {
-  key: keyof MarketStat;
-  label: string;
-  getLabelWithTimeframe?: (timeframe: TimeFrame) => string;
-}[] = [
-  { key: 'symbol', label: 'Symbol' },
-  { key: 'price', label: 'Price' },
+const calculatePercentageChange = (
+  current: number,
+  previous: number,
+): string => {
+  const change = ((current - previous) / previous) * 100;
+  const sign = change >= 0 ? '+' : '';
+  return `${sign}${change.toFixed(2)}%`;
+};
+
+const timeframeLabels: Record<TimeFrame, string> = {
+  '1d': 'D',
+  '1w': 'W',
+  '1m': 'M',
+};
+
+const columns: ColumnDef[] = [
   {
-    key: 'change24h',
-    label: 'Change',
-    getLabelWithTimeframe: (timeframe: TimeFrame) => {
-      switch (timeframe) {
-        case '5m':
-          return '5m Change';
-        case '1h':
-          return '1h Change';
-        case '4h':
-          return '4h Change';
-        case '1d':
-          return '24h Change';
-      }
+    key: 'name',
+    label: 'Token',
+    format: (snapshot, index) => {
+      const symbol = snapshot.data?.ticker || 'N/A';
+      const name = snapshot.data?.name || 'N/A';
+      return (
+        <div className="flex items-center">
+          <span className="text-emerald-400/40 text-[10px] mr-2">
+            #{index + 1}
+          </span>
+          <span>
+            {symbol} / {name}
+          </span>
+        </div>
+      );
     },
   },
-  { key: 'rsi', label: 'RSI' },
-  { key: 'macd', label: 'MACD' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'spreadPercentage', label: 'Spread %' },
-  { key: 'liquidity', label: 'Liquidity' },
+  {
+    key: 'price',
+    label: 'Price',
+    format: (snapshot) => {
+      const priceInfo = snapshot.data?.priceInfo;
+      return priceInfo?.price ? formatPrice(priceInfo.price) : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentPrice = current.data?.priceInfo?.price;
+      const previousPrice = previous.data?.priceInfo?.price;
+      if (currentPrice && previousPrice) {
+        return calculatePercentageChange(currentPrice, previousPrice);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'volume',
+    label: 'Volume (24h)',
+    format: (snapshot) => {
+      const volumeMetrics = snapshot.data?.liquidityMetrics?.volumeMetrics;
+      return volumeMetrics?.volume24h
+        ? formatCurrency(volumeMetrics.volume24h)
+        : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentVolume =
+        current.data?.liquidityMetrics?.volumeMetrics?.volume24h;
+      const previousVolume =
+        previous.data?.liquidityMetrics?.volumeMetrics?.volume24h;
+      if (currentVolume && previousVolume) {
+        return calculatePercentageChange(currentVolume, previousVolume);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'marketCap',
+    label: 'Market Cap',
+    format: (snapshot) => {
+      const marketCap = snapshot.data?.marketCap;
+      return marketCap ? formatCurrency(marketCap) : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentMarketCap = current.data?.marketCap;
+      const previousMarketCap = previous.data?.marketCap;
+      if (currentMarketCap && previousMarketCap) {
+        return calculatePercentageChange(currentMarketCap, previousMarketCap);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'liquidity',
+    label: 'Liquidity',
+    format: (snapshot) => {
+      const liquidityMetrics = snapshot.data?.liquidityMetrics;
+      return liquidityMetrics?.totalLiquidity
+        ? formatCurrency(liquidityMetrics.totalLiquidity)
+        : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentLiquidity = current.data?.liquidityMetrics?.totalLiquidity;
+      const previousLiquidity = previous.data?.liquidityMetrics?.totalLiquidity;
+      if (currentLiquidity && previousLiquidity) {
+        return calculatePercentageChange(currentLiquidity, previousLiquidity);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'holders',
+    label: 'Holders',
+    format: (snapshot) => {
+      const holderCount = snapshot.data?.holderCount;
+      return holderCount ? formatSupply(holderCount) : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentHolders = current.data?.holderCount;
+      const previousHolders = previous.data?.holderCount;
+      if (currentHolders && previousHolders) {
+        return calculatePercentageChange(currentHolders, previousHolders);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'supply',
+    label: 'Supply',
+    format: (snapshot) => {
+      const supply = snapshot.data?.supply;
+      return supply ? formatSupply(supply) : 'N/A';
+    },
+    getChange: (current, previous) => {
+      const currentSupply = current.data?.supply;
+      const previousSupply = previous.data?.supply;
+      if (currentSupply && previousSupply) {
+        return calculatePercentageChange(currentSupply, previousSupply);
+      }
+      return null;
+    },
+  },
+  {
+    key: 'timestamp',
+    label: 'Last Updated',
+    format: (snapshot) =>
+      snapshot.timestamp ? getTimeAgo(snapshot.timestamp) : 'N/A',
+  },
 ];
-
-const formatNumber = (value: number, decimals = 2): string => {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value);
-};
-
-const formatCurrency = (value: string | number): string => {
-  const num = typeof value === 'string' ? Number.parseFloat(value) : value;
-  if (num >= 1_000_000_000) {
-    return `$${formatNumber(num / 1_000_000_000)}B`;
-  }
-  if (num >= 1_000_000) {
-    return `$${formatNumber(num / 1_000_000)}M`;
-  }
-  if (num >= 1_000) {
-    return `$${formatNumber(num / 1_000)}K`;
-  }
-  return `$${formatNumber(num)}`;
-};
 
 export function MarketStatsPanel({
   maxHeight,
-  marketStats,
+  tokenSnapshots,
   isLoading,
   error,
   timeframe,
   onTimeframeChange,
 }: MarketStatsPanelProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'symbol',
-    direction: 'asc',
+    key: 'marketCap',
+    direction: 'desc',
   });
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof MarketStat>>(
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
     new Set(columns.map((col) => col.key)),
   );
 
-  const handleSort = (columnKey: keyof MarketStat) => {
+  // Debug logging
+  console.log('MarketStatsPanel props:', {
+    tokenSnapshots,
+    isLoading,
+    error,
+    timeframe,
+    visibleColumns: Array.from(visibleColumns),
+  });
+
+  const handleSort = (columnKey: ColumnKey) => {
     setSortConfig((current) => ({
       key: columnKey,
       direction:
@@ -117,50 +246,55 @@ export function MarketStatsPanel({
   };
 
   const sortedData = useMemo(() => {
-    return [...marketStats].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+    if (!tokenSnapshots) {
+      return [];
+    }
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortConfig.direction === 'asc'
+    return [...tokenSnapshots].sort((a, b) => {
+      const columnKey = sortConfig.key;
+      let aValue: unknown;
+      let bValue: unknown;
+
+      if (columnKey === 'timestamp') {
+        aValue = a.timestamp;
+        bValue = b.timestamp;
+      } else {
+        // Get the corresponding column definition
+        const column = columns.find((col) => col.key === columnKey);
+        if (column) {
+          // Use the format function to get the sortable value
+          aValue = column.format(a, 0);
+          bValue = column.format(b, 0);
+        }
+      }
+
+      if (aValue === bValue) {
+        return 0;
+      }
+      if (aValue === null || aValue === undefined || aValue === 'N/A') {
+        return 1;
+      }
+      if (bValue === null || bValue === undefined || bValue === 'N/A') {
+        return -1;
+      }
+
+      const compareResult =
+        typeof aValue === 'string' && typeof bValue === 'string'
           ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
+          : Number(aValue) - Number(bValue);
 
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc'
-          ? aValue - bValue
-          : bValue - aValue;
-      }
-
-      return 0;
+      return sortConfig.direction === 'asc' ? compareResult : -compareResult;
     });
-  }, [marketStats, sortConfig]);
+  }, [tokenSnapshots, sortConfig]);
 
-  const formatValue = (
-    key: keyof MarketStat,
-    value: string | number | boolean,
-  ): string => {
-    if (typeof value === 'boolean') {
-      return value ? 'Yes' : 'No';
-    }
-    if (key === 'price' || key === 'volume' || key === 'liquidity') {
-      return formatCurrency(value.toString());
-    }
-    if (key === 'spreadPercentage' || key === 'change24h') {
-      return `${formatNumber(Number(value), 2)}%`;
-    }
-    if (key === 'rsi' || key === 'macd') {
-      return formatNumber(value as number, 2);
-    }
-    return value.toString();
-  };
+  // Debug logging for sorted data
+  console.log('Sorted data:', sortedData);
 
   if (isLoading) {
     return (
       <Panel maxHeight={maxHeight}>
         <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">Loading market stats...</span>
+          <span className="text-emerald-400/60">Loading token data...</span>
         </div>
       </Panel>
     );
@@ -176,11 +310,11 @@ export function MarketStatsPanel({
     );
   }
 
-  if (!marketStats.length) {
+  if (!tokenSnapshots?.length) {
     return (
       <Panel maxHeight={maxHeight}>
         <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">No market stats available</span>
+          <span className="text-emerald-400/60">No token data available</span>
         </div>
       </Panel>
     );
@@ -189,55 +323,20 @@ export function MarketStatsPanel({
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between border-b border-emerald-400/10">
-          <h2 className="text-sm font-medium text-emerald-400">Market Stats</h2>
+        <div className="flex items-center justify-between border-b border-emerald-400/10 px-3">
           <div className="flex items-center gap-2">
-            <Select
-              value={timeframe}
-              onValueChange={(value: TimeFrame) => onTimeframeChange(value)}
-            >
-              <SelectTrigger className="w-24 h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors">
-                <SelectValue placeholder="Timeframe" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#020617] border-emerald-400/20">
-                <SelectItem
-                  value="5m"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  5 Min
-                </SelectItem>
-                <SelectItem
-                  value="1h"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  1 Hour
-                </SelectItem>
-                <SelectItem
-                  value="4h"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  4 Hours
-                </SelectItem>
-                <SelectItem
-                  value="1d"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  1 Day
-                </SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu>
               <DropdownMenuTrigger asChild={true}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                  className="h-7 w-7 p-0 flex items-center justify-center bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
                 >
                   <Settings className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                align="end"
+                align="start"
                 className="bg-[#020617] border-emerald-400/20"
               >
                 <DropdownMenuLabel className="text-xs text-emerald-400/60">
@@ -264,6 +363,75 @@ export function MarketStatsPanel({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild={true}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0 flex items-center justify-center bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                >
+                  <ArrowUpDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="bg-[#020617] border-emerald-400/20"
+              >
+                <DropdownMenuLabel className="text-xs text-emerald-400/60">
+                  Sort Rank By
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-emerald-400/20" />
+                <DropdownMenuRadioGroup
+                  value={`${sortConfig.key}-${sortConfig.direction}`}
+                  onValueChange={(value) => {
+                    const [key, direction] = value.split('-');
+                    setSortConfig({
+                      key: key as ColumnKey,
+                      direction: direction as 'asc' | 'desc',
+                    });
+                  }}
+                >
+                  <DropdownMenuRadioItem
+                    value="marketCap-desc"
+                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                  >
+                    Market Cap (High to Low)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem
+                    value="marketCap-asc"
+                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                  >
+                    Market Cap (Low to High)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem
+                    value="timestamp-desc"
+                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
+                  >
+                    Most Recent
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {Object.entries(timeframeLabels).map(([value, label]) => (
+              <Button
+                key={value}
+                variant="ghost"
+                size="sm"
+                onClick={() => onTimeframeChange(value as TimeFrame)}
+                className={cn(
+                  'h-7 px-3 text-xs bg-transparent hover:bg-emerald-400/5',
+                  timeframe === value
+                    ? 'text-emerald-400 border-b-2 border-emerald-400 rounded-none'
+                    : 'text-emerald-400/60 hover:text-emerald-400',
+                )}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
         </div>
         <div className="min-w-[800px]">
@@ -275,15 +443,28 @@ export function MarketStatsPanel({
                     visibleColumns.has(column.key) && (
                       <th
                         key={column.key}
-                        className="sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1 text-left"
+                        className={cn(
+                          'sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1',
+                          {
+                            'text-left': column.label === 'Token',
+                            'text-right': column.label !== 'Token',
+                          },
+                        )}
                       >
                         <button
                           type="button"
                           onClick={() => handleSort(column.key)}
-                          className="flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                          className={cn(
+                            'flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors uppercase',
+                            {
+                              'text-right justify-end w-full':
+                                column.label !== 'Token',
+                              'text-left justify-start':
+                                column.label === 'Token',
+                            },
+                          )}
                         >
-                          {column.getLabelWithTimeframe?.(timeframe) ||
-                            column.label}
+                          {column.label}
                           {sortConfig.key === column.key && (
                             <span className="text-emerald-400/60">
                               {sortConfig.direction === 'asc' ? '↑' : '↓'}
@@ -296,14 +477,17 @@ export function MarketStatsPanel({
               </tr>
             </thead>
             <tbody>
-              {sortedData.map((stat) => (
+              {sortedData.map((snapshot, index) => (
                 <tr
-                  key={`${stat.symbol}-${timeframe}-${stat.timestamp}`}
+                  key={`${snapshot.token_address}-${snapshot.timestamp}`}
                   className="hover:bg-emerald-400/5 transition-colors group"
                 >
                   {Array.from(visibleColumns).map((columnKey) => {
-                    const value = stat[columnKey];
-                    const formattedValue = formatValue(columnKey, value);
+                    const column = columns.find((col) => col.key === columnKey);
+                    if (!column) {
+                      return null;
+                    }
+                    const formattedValue = column.format(snapshot, index);
 
                     return (
                       <td
@@ -311,58 +495,84 @@ export function MarketStatsPanel({
                         className={cn(
                           'px-3 py-1 text-xs border-b border-emerald-400/10 group-hover:border-emerald-400/20',
                           {
-                            'font-medium':
-                              columnKey === 'symbol' || columnKey === 'name',
-                            'text-right': [
-                              'price',
-                              'volume',
-                              'liquidity',
-                            ].includes(columnKey),
-                            'text-center': [
-                              'rsi',
-                              'macd',
-                              'change24h',
-                            ].includes(columnKey),
+                            'text-left': column.label === 'Token',
+                            'text-right': column.label !== 'Token',
                           },
                         )}
                       >
-                        {columnKey === 'change24h' ? (
-                          <span
-                            className={
-                              stat.isPositive
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
-                            }
-                          >
-                            {formattedValue}
-                          </span>
-                        ) : columnKey === 'rsi' ? (
-                          <span
-                            className={cn(
-                              stat.rsi > 70
-                                ? 'text-red-400'
-                                : stat.rsi < 30
-                                  ? 'text-emerald-400'
-                                  : 'text-emerald-400/60',
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild={true}>
+                              <span className="text-white">
+                                {formattedValue}
+                              </span>
+                            </TooltipTrigger>
+                            {column.getChange && (
+                              <TooltipContent side="top">
+                                {(() => {
+                                  const previousSnapshots = sortedData.filter(
+                                    (s) =>
+                                      s.token_address ===
+                                        snapshot.token_address &&
+                                      s.timestamp < snapshot.timestamp,
+                                  );
+
+                                  if (!previousSnapshots?.length) {
+                                    return null;
+                                  }
+
+                                  const changes = previousSnapshots
+                                    .map((prevSnapshot) => {
+                                      const change = column.getChange?.(
+                                        snapshot,
+                                        prevSnapshot,
+                                      );
+                                      if (!change) {
+                                        return null;
+                                      }
+                                      const timeDiff = getTimeAgo(
+                                        prevSnapshot.timestamp,
+                                      );
+                                      return {
+                                        change,
+                                        timeDiff,
+                                        timestamp: prevSnapshot.timestamp,
+                                      };
+                                    })
+                                    .filter(
+                                      (
+                                        c,
+                                      ): c is {
+                                        change: string;
+                                        timeDiff: string;
+                                        timestamp: string;
+                                      } => c !== null,
+                                    );
+
+                                  if (!changes.length) {
+                                    return null;
+                                  }
+
+                                  return (
+                                    <div className="flex flex-col gap-1 text-xs">
+                                      <div className="font-medium">
+                                        Changes:
+                                      </div>
+                                      {changes.map((changeInfo) => (
+                                        <div
+                                          key={`${changeInfo.timestamp}-${changeInfo.change}`}
+                                          className="text-emerald-400/60"
+                                        >
+                                          {`${changeInfo.change} (${changeInfo.timeDiff} ago)`}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
+                              </TooltipContent>
                             )}
-                          >
-                            {formattedValue}
-                          </span>
-                        ) : columnKey === 'macd' ? (
-                          <span
-                            className={
-                              stat.macd > 0
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
-                            }
-                          >
-                            {formattedValue}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-400/60">
-                            {formattedValue}
-                          </span>
-                        )}
+                          </Tooltip>
+                        </TooltipProvider>
                       </td>
                     );
                   })}

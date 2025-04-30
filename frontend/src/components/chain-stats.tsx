@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { getChainStats } from '@/lib/services/defillama';
 import { cn } from '@/lib/utils/cn';
-import { formatNumber } from '@/lib/utils/format-number';
+import { formatCurrency, formatPrice } from '@/lib/utils/format-number';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -40,7 +40,7 @@ export function ChainStats() {
           <Skeleton className="h-3.5 w-14" />
         ) : (
           <span className="text-xs text-white">
-            ${formatNumber(data?.price ?? 0)}
+            {formatPrice(data?.price ?? 0)}
           </span>
         )}
       </div>
@@ -51,7 +51,7 @@ export function ChainStats() {
         ) : (
           <div className="flex items-center space-x-1">
             <span className="text-xs text-white">
-              ${formatNumber(data?.volume24h ?? 0)}
+              {formatCurrency(data?.volume24h ?? 0)}
             </span>
             {data?.volumeChange24h !== undefined && (
               <div

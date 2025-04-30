@@ -1,14 +1,12 @@
 'use client';
 import {
-  type MarketStat,
-  type TimeFrame,
-  marketStatsService,
-} from '@/lib/services/market-stats-service';
-import {
   type UserRelationship,
   relationshipsService,
 } from '@/lib/services/relationships';
+import type { TimeFrame } from '@/lib/services/token-snapshot-service';
+import { tokenSnapshotService } from '@/lib/services/token-snapshot-service';
 import { type TrendingTweet, tweetService } from '@/lib/services/tweets';
+import type { TokenSnapshot } from '@/types/token-monitor/token';
 import { Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
@@ -55,11 +53,13 @@ export function MetricsGallery() {
   const [relationships, setRelationships] = useState<UserRelationship[]>([]);
   const [relationshipsLoading, setRelationshipsLoading] = useState(true);
 
-  // Add new states for market stats
-  const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
-  const [marketStatsLoading, setMarketStatsLoading] = useState(true);
-  const [marketStatsError, setMarketStatsError] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<TimeFrame>('1h');
+  const [timeframe, setTimeframe] = useState<TimeFrame>('1d');
+  const [tokenSnapshots, setTokenSnapshots] = useState<TokenSnapshot[]>([]);
+
+  // Add timeframe handler
+  const handleTimeframeChange = (newTimeframe: TimeFrame) => {
+    setTimeframe(newTimeframe);
+  };
 
   useEffect(() => {
     const fetchTweets = async () => {
@@ -90,99 +90,104 @@ export function MetricsGallery() {
     fetchTweets();
   }, []);
 
-  // Initialize market stats service
+  // Initialize token snapshot service
   useEffect(() => {
-    console.log('Initializing market stats service...');
-    // Ensure we're using the singleton instance
-    const service = marketStatsService;
-    console.log('Market stats service initialized:', service);
-  }, []);
-
-  // Add useEffect for market stats
-  useEffect(() => {
-    let isSubscribed = true;
-
-    const fetchMarketStats = async () => {
+    console.log('Initializing token snapshot service...', { timeframe });
+    const fetchTokenSnapshots = async () => {
       try {
-        console.log('Fetching market stats with timeframe:', timeframe);
-        setMarketStatsLoading(true);
-        setMarketStatsError(null);
-        marketStatsService.setTimeframe(timeframe);
+        tokenSnapshotService.setTimeframe(timeframe);
+        const snapshots = await tokenSnapshotService.getTokenSnapshots();
+        console.log('Raw token snapshots:', snapshots);
 
-        // Add more detailed logging for the Supabase query
-        const stats = await marketStatsService.getMarketStats();
-        console.log('Received market stats:', {
-          count: stats.length,
-          timeframe,
-          firstItem: stats[0],
-          stats,
-        });
-
-        if (isSubscribed) {
-          setMarketStats(stats);
-        }
-      } catch (err) {
-        console.error('Error fetching market stats:', {
-          error: err,
-          message: err instanceof Error ? err.message : 'Unknown error',
-          timeframe,
-        });
-        if (isSubscribed) {
-          setMarketStatsError(
-            err instanceof Error ? err.message : 'Failed to fetch market stats',
-          );
-        }
-      } finally {
-        if (isSubscribed) {
-          setMarketStatsLoading(false);
-        }
-      }
-    };
-
-    const setupMarketStatsSubscription = async () => {
-      try {
-        console.log(
-          'Setting up market stats subscription with timeframe:',
-          timeframe,
-        );
-        const unsubscribe = await marketStatsService.subscribeToMarketStats(
-          (stats) => {
-            console.log('Received stats from subscription:', {
-              count: stats.length,
-              timeframe,
-              firstItem: stats[0],
-              stats,
-            });
-            if (isSubscribed) {
-              setMarketStats(stats);
-            }
+        // Transform the snapshots to match our expected format
+        const transformedSnapshots = snapshots.map((snapshot) => ({
+          id: snapshot.id,
+          token_address: snapshot.token_address,
+          timestamp: snapshot.timestamp,
+          created_at: snapshot.created_at,
+          data: {
+            ...snapshot.data,
+            timestamp: snapshot.data.timestamp || snapshot.timestamp,
+            priceInfo: snapshot.data.priceInfo
+              ? {
+                  ...snapshot.data.priceInfo,
+                  lastTradeAt: snapshot.data.priceInfo.lastTradeAt,
+                }
+              : undefined,
+            liquidityMetrics: snapshot.data.liquidityMetrics
+              ? {
+                  ...snapshot.data.liquidityMetrics,
+                  volumeMetrics: snapshot.data.liquidityMetrics.volumeMetrics
+                    ? {
+                        ...snapshot.data.liquidityMetrics.volumeMetrics,
+                      }
+                    : undefined,
+                }
+              : undefined,
           },
-        );
-        return unsubscribe;
-      } catch (err) {
-        console.error('Error setting up market stats subscription:', {
-          error: err,
-          message: err instanceof Error ? err.message : 'Unknown error',
-          timeframe,
-        });
-        return () => {};
+        }));
+
+        console.log('Transformed token snapshots:', transformedSnapshots);
+        setTokenSnapshots(transformedSnapshots);
+      } catch (error) {
+        console.error('Error fetching token snapshots:', error);
       }
     };
 
-    let unsubscribe = () => {};
+    const setupSubscription = async () => {
+      tokenSnapshotService.setTimeframe(timeframe);
+      const unsubscribe = await tokenSnapshotService.subscribeToTokenSnapshots(
+        (snapshots) => {
+          console.log('Raw subscription update:', snapshots);
 
-    fetchMarketStats();
-    setupMarketStatsSubscription().then((unsub) => {
-      unsubscribe = unsub;
-    });
+          // Transform the subscription data using the same transformation
+          const transformedSnapshots = snapshots.map((snapshot) => ({
+            id: snapshot.id,
+            token_address: snapshot.token_address,
+            timestamp: snapshot.timestamp,
+            created_at: snapshot.created_at,
+            data: {
+              ...snapshot.data,
+              timestamp: snapshot.data.timestamp || snapshot.timestamp,
+              priceInfo: snapshot.data.priceInfo
+                ? {
+                    ...snapshot.data.priceInfo,
+                    lastTradeAt: snapshot.data.priceInfo.lastTradeAt,
+                  }
+                : undefined,
+              liquidityMetrics: snapshot.data.liquidityMetrics
+                ? {
+                    ...snapshot.data.liquidityMetrics,
+                    volumeMetrics: snapshot.data.liquidityMetrics.volumeMetrics
+                      ? {
+                          ...snapshot.data.liquidityMetrics.volumeMetrics,
+                        }
+                      : undefined,
+                  }
+                : undefined,
+            },
+          }));
+
+          console.log('Transformed subscription update:', transformedSnapshots);
+          setTokenSnapshots(transformedSnapshots);
+        },
+      );
+      return unsubscribe;
+    };
+
+    let cleanup: (() => void) | undefined;
+
+    const initialize = async () => {
+      await fetchTokenSnapshots();
+      cleanup = await setupSubscription();
+    };
+
+    initialize().catch(console.error);
 
     return () => {
-      console.log(
-        'Cleaning up market stats subscription for timeframe:',
-        timeframe,
-      );
-      isSubscribed = false;
-      unsubscribe();
+      if (cleanup) {
+        cleanup();
+      }
     };
   }, [timeframe]);
 
@@ -262,7 +267,7 @@ export function MetricsGallery() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
-                  trending
+                  tweets
                 </h2>
               </div>
               <TabsList className="bg-transparent">
@@ -270,7 +275,7 @@ export function MetricsGallery() {
                   value="tweets"
                   className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
-                  tweets
+                  trending
                 </TabsTrigger>
                 <TabsTrigger
                   value="news"
@@ -304,7 +309,7 @@ export function MetricsGallery() {
               <div className="flex items-center gap-2">
                 <Filter className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
-                  market
+                  tokens
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -345,13 +350,13 @@ export function MetricsGallery() {
                     value="market"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                   >
-                    technicals
+                    trending
                   </TabsTrigger>
                   <TabsTrigger
                     value="risk"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                   >
-                    risk analysis (mock data)
+                    risk eval
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -359,12 +364,11 @@ export function MetricsGallery() {
             <div className="flex-1 overflow-hidden">
               <TabsContent value="market" className="h-full">
                 <MarketStatsPanel
-                  maxHeight={PANEL_HEIGHT}
-                  marketStats={marketStats}
-                  isLoading={marketStatsLoading}
-                  error={marketStatsError}
+                  tokenSnapshots={tokenSnapshots}
                   timeframe={timeframe}
-                  onTimeframeChange={setTimeframe}
+                  onTimeframeChange={handleTimeframeChange}
+                  isLoading={false}
+                  error={null}
                 />
               </TabsContent>
               <TabsContent value="risk" className="h-full">
@@ -484,7 +488,7 @@ export function MetricsGallery() {
               <div className="flex items-center gap-2">
                 <Filter className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
-                  market
+                  tokens
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -525,13 +529,13 @@ export function MetricsGallery() {
                     value="market"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    technicals
+                    trending
                   </TabsTrigger>
                   <TabsTrigger
                     value="risk"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    risk analysis (mock data)
+                    risk eval
                   </TabsTrigger>
                 </TabsList>
                 <Button
@@ -548,11 +552,11 @@ export function MetricsGallery() {
               <TabsContent value="market" className="h-full overflow-auto">
                 <div className="h-full overflow-auto">
                   <MarketStatsPanel
-                    marketStats={marketStats}
-                    isLoading={marketStatsLoading}
-                    error={marketStatsError}
+                    tokenSnapshots={tokenSnapshots}
                     timeframe={timeframe}
-                    onTimeframeChange={setTimeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    isLoading={false}
+                    error={null}
                   />
                 </div>
               </TabsContent>
@@ -573,7 +577,7 @@ export function MetricsGallery() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
-                  trending
+                  tweets
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -582,7 +586,7 @@ export function MetricsGallery() {
                     value="tweets"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    tweets
+                    trending
                   </TabsTrigger>
                   <TabsTrigger
                     value="news"
