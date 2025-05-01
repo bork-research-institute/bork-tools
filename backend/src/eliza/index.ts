@@ -99,7 +99,7 @@ export const startAgents = async () => {
   if (charactersArg) {
     characters = await loadCharacters(charactersArg);
   }
-  elizaLogger.info('[Initialize] Loading database adapter');
+  elizaLogger.info(`[Initialize] Loading database adapter: ${getEnv().POSTGRES_URL}`);
   let db: (IDatabaseAdapter & IDatabaseCacheAdapter) | undefined;
   try {
     db = new PostgresDatabaseAdapter({
