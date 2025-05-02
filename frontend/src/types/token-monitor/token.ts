@@ -63,4 +63,14 @@ export interface TokenSnapshot {
   timestamp: string;
   created_at: string;
   data: TokenData;
+  tweet_ids?: string[];
+}
+
+export interface TokenWithEngagement extends TokenSnapshot {
+  engagement?: {
+    likes: number;
+    replies: number;
+    retweets: number;
+    views: number;
+  };
 }

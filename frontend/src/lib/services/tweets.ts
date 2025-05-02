@@ -1,3 +1,8 @@
+import type {
+  DatabaseTweet,
+  TweetAnalysis as ExternalTweetAnalysis,
+  TweetWithAnalysis,
+} from '@/types/tweets-analysis';
 import { supabaseClient } from '../config/client-supabase';
 
 export type ScoreFilter =
@@ -9,6 +14,18 @@ export type ScoreFilter =
   | 'value_add'
   | 'engagement_score';
 
+export interface TrendingTweet extends TweetAnalysis {
+  aggregate_score: number;
+  engagement_score: number;
+  impact_score: number;
+  permanent_url: string;
+  name: string;
+  username: string;
+  content: string;
+  photos: string[];
+}
+
+// Local TweetAnalysis for trending/analysis logic
 export interface TweetAnalysis {
   id: string;
   tweet_id: string;
@@ -35,17 +52,6 @@ export interface TweetAnalysis {
   marketing_summary: string;
   is_spam: boolean;
   spam_score: number;
-}
-
-export interface TrendingTweet extends TweetAnalysis {
-  aggregate_score: number;
-  engagement_score: number;
-  impact_score: number;
-  permanent_url: string;
-  name: string;
-  username: string;
-  content: string;
-  photos: string[];
 }
 
 // Calculate engagement score based on weighted metrics
@@ -164,6 +170,78 @@ export const tweetService = {
       }));
     } catch (error) {
       console.error('Error in getNewsTweets:', error);
+      return [];
+    }
+  },
+
+  async getTweetsByIds(tweetIds: string[]): Promise<TrendingTweet[]> {
+    if (!tweetIds || tweetIds.length === 0) {
+      return [];
+    }
+    try {
+      const { data, error } = await supabaseClient
+        .from('tweet_analysis')
+        .select('*, tweet:tweet_id (text, media_url, photos)')
+        .in('tweet_id', tweetIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching tweets by ids:', error);
+        return [];
+      }
+
+      return (data || []).map((row) => ({
+        ...processTweet(row),
+        content: row.tweet?.text || row.content_summary,
+        photos: row.tweet?.photos || [],
+      }));
+    } catch (error) {
+      console.error('Error in getTweetsByIds:', error);
+      return [];
+    }
+  },
+
+  async getTweetsAndAnalysesByIds(
+    tweetIds: string[],
+  ): Promise<TweetWithAnalysis[]> {
+    if (!tweetIds || tweetIds.length === 0) {
+      return [];
+    }
+    try {
+      // Fetch tweets
+      const { data: tweets, error: tweetsError } = await supabaseClient
+        .from('tweets')
+        .select('*')
+        .in('tweet_id', tweetIds);
+
+      if (tweetsError) {
+        console.error('Error fetching tweets:', tweetsError);
+        return [];
+      }
+
+      // Fetch analyses
+      const { data: analyses, error: analysesError } = await supabaseClient
+        .from('tweet_analysis')
+        .select('*')
+        .in('tweet_id', tweetIds);
+
+      if (analysesError) {
+        console.error('Error fetching tweet analyses:', analysesError);
+        return [];
+      }
+
+      // Merge analyses into tweets by tweet_id
+      const analysisMap = new Map<string, ExternalTweetAnalysis>();
+      for (const analysis of analyses || []) {
+        analysisMap.set(analysis.tweet_id, analysis as ExternalTweetAnalysis);
+      }
+
+      return (tweets || []).map((tweet: DatabaseTweet) => ({
+        ...tweet,
+        analysis: analysisMap.get(tweet.tweet_id),
+      }));
+    } catch (error) {
+      console.error('Error in getTweetsAndAnalysesByIds:', error);
       return [];
     }
   },

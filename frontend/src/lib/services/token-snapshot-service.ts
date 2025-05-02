@@ -80,6 +80,7 @@ export class TokenSnapshotService {
       snapshotsCount: data?.length ?? 0,
       timeframeCutoff: timeframeCutoff.toISOString(),
       error,
+      firstSnapshot: data?.[0],
     });
 
     if (error) {
@@ -95,12 +96,17 @@ export class TokenSnapshotService {
         !existing ||
         new Date(snapshot.timestamp) > new Date(existing.timestamp)
       ) {
-        latestSnapshots.set(snapshot.token_address, snapshot);
+        latestSnapshots.set(snapshot.token_address, {
+          ...snapshot,
+        });
       }
     }
 
     const result = Array.from(latestSnapshots.values());
-    console.log(`Returning ${result.length} latest token snapshots`);
+    console.log(
+      `Returning ${result.length} latest token snapshots with tweet IDs:`,
+      result[0],
+    );
     return result;
   }
 

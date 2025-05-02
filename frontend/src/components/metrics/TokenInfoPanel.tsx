@@ -9,6 +9,7 @@ import {
   formatPrice,
   formatSupply,
 } from '@/lib/utils/format-number';
+import { getTimeAgo } from '@/lib/utils/format-time';
 import type { TokenSnapshot } from '@/types/token-monitor/token';
 import { CheckCircle2, Copy, XCircle } from 'lucide-react';
 
@@ -186,7 +187,7 @@ export function TokenInfoPanel({
         </TooltipProvider>
       </div>
       {/* Main info grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
         {Object.entries(selectedToken.data || {}).map(([key, value]) => {
           // Skip fields already rendered or not needed
           if (
@@ -199,10 +200,10 @@ export function TokenInfoPanel({
             key === 'freezeAuthority' ||
             key === 'liquidityMetrics' ||
             key === 'decimals' ||
-            key === 'timestamp' ||
             key === 'tokenAddress' ||
             key === 'name' ||
-            key === 'ticker'
+            key === 'ticker' ||
+            key === 'timestamp' // Add timestamp to skipped fields
           ) {
             return null;
           }
@@ -278,8 +279,17 @@ export function TokenInfoPanel({
             </div>
           );
         })}
-        {/* No timestamp, tokenAddress, decimals, name, or ticker as separate boxes */}
-        {/* No separate box for priceInfo if not present */}
+        {/* Add Last Updated field at the end */}
+        {selectedToken.timestamp && (
+          <div className="flex flex-col bg-white/5 rounded p-2">
+            <span className="text-emerald-400/80 font-semibold">
+              Last Updated
+            </span>
+            <span className="text-white/90 break-all whitespace-pre-wrap">
+              {getTimeAgo(selectedToken.timestamp)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
