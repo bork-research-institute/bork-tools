@@ -9,7 +9,10 @@ export const tokenQueries = {
   /**
    * Creates a new token snapshot
    */
-  async createSnapshot(enrichedToken: EnrichedToken): Promise<void> {
+  async createSnapshot(
+    enrichedToken: EnrichedToken,
+    tweetIds?: string[],
+  ): Promise<void> {
     try {
       const snapshot: TokenSnapshot = {
         tokenAddress: enrichedToken.tokenAddress,
@@ -38,9 +41,16 @@ export const tokenQueries = {
           id,
           token_address,
           timestamp,
-          data
-        ) VALUES ($1, $2, $3, $4)`,
-        [uuidv4(), snapshot.tokenAddress, snapshot.timestamp, snapshot],
+          data,
+          tweet_ids
+        ) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          uuidv4(),
+          snapshot.tokenAddress,
+          snapshot.timestamp,
+          snapshot,
+          tweetIds ?? null,
+        ],
       );
 
       // Also store key metrics in the history table for time-series analysis

@@ -1,8 +1,6 @@
 // TO-DO: run the token monitoring service here alongside the other research clients and have it run a search instance on a periodic basis
 
-// biome-ignore lint/correctness/noNodejsModules: <explanation>
 import { EventEmitter } from 'node:events';
-import { tokenQueries } from '@/db/token-queries';
 import { dexScreenerService } from '@/services/token-monitor/dexscreener-service';
 import { marketDataService } from '@/services/token-monitor/market-data-service';
 import { tokenEnrichmentService } from '@/services/token-monitor/token-enrichment-service';
@@ -118,9 +116,6 @@ export class TokenMonitorClient extends EventEmitter {
         },
       };
 
-      // Store token snapshot
-      await tokenQueries.createSnapshot(enrichedToken);
-
       return enrichedToken;
     } catch (error) {
       elizaLogger.error(
@@ -193,6 +188,7 @@ export class TokenMonitorClient extends EventEmitter {
                     this.twitterConfigService,
                     this.tweetQueueService,
                     this.recentlySearchedTokens,
+                    enrichedToken,
                   );
                 }
               } catch (err) {

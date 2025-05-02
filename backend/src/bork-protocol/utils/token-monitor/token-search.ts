@@ -1,7 +1,11 @@
+import { tokenQueries } from '@/db/token-queries';
 import type { TweetQueueService } from '@/services/twitter/analysis-queue.service';
 import type { TwitterConfigService } from '@/services/twitter/twitter-config-service';
 import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { InterestingToken } from '@/types/token-monitor/token';
+import type {
+  EnrichedToken,
+  InterestingToken,
+} from '@/types/token-monitor/token';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 
@@ -12,6 +16,7 @@ import { SearchMode } from 'agent-twitter-client';
  * @param twitterConfigService Service to get Twitter configuration
  * @param tweetQueueService Service to queue tweets for processing
  * @param recentlySearchedTokens Set of tokens that were recently searched
+ * @param enrichedToken Optional enriched token for creating snapshot
  * @returns The updated set of recently searched tokens
  */
 export async function searchTokenTweets(
@@ -20,6 +25,7 @@ export async function searchTokenTweets(
   twitterConfigService: TwitterConfigService,
   tweetQueueService: TweetQueueService,
   recentlySearchedTokens: Set<string>,
+  enrichedToken?: EnrichedToken,
 ): Promise<Set<string>> {
   // Only process tokens we haven't recently searched
   if (recentlySearchedTokens.has(token.tokenAddress)) {
@@ -49,6 +55,12 @@ export async function searchTokenTweets(
       config.search.parameters,
       config.search.engagementThresholds,
     );
+
+    // Create snapshot with tweet IDs if enrichedToken is provided
+    if (enrichedToken) {
+      const tweetIds = searchTweets.map((tweet) => tweet.id);
+      await tokenQueries.createSnapshot(enrichedToken, tweetIds);
+    }
 
     if (!searchTweets.length) {
       elizaLogger.warn(
