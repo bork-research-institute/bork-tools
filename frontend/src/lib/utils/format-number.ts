@@ -16,18 +16,20 @@ export function formatPrice(value: number): string {
   // Count leading zeros after decimal point
   const leadingZeros = Math.max(0, -Math.floor(Math.log10(value)) - 1);
 
-  // If 4 or fewer leading zeros, show the number normally
-  if (leadingZeros <= 4) {
+  // If 2 or fewer leading zeros, show the number normally
+  if (leadingZeros <= 2) {
     // Show all digits up to 4 decimal places after the significant digits
     const significantDigits = 4;
     const totalDecimals = leadingZeros + significantDigits;
     return `$${value.toFixed(totalDecimals)}`;
   }
 
-  // For more than 4 leading zeros, use subscript notation
-  // Extract the significant digits (always show 4 digits)
+  // For more than 2 leading zeros, use subscript notation for all leading zeros
+  // Extract the 4 significant digits after the zeros
   const normalized = value * 10 ** leadingZeros;
-  const significantDigits = normalized.toFixed(4);
+  let significantDigits = normalized.toFixed(4);
+  // Remove any leading zeros and the decimal point from the string
+  significantDigits = significantDigits.replace(/^0+\.?/, '');
 
   // Convert number to subscript using unicode subscript digits
   const subscriptMap: { [key: string]: string } = {
@@ -42,13 +44,13 @@ export function formatPrice(value: number): string {
     '8': '₈',
     '9': '₉',
   };
-  const subscript = (leadingZeros - 1)
+  const subscript = leadingZeros
     .toString()
     .split('')
     .map((digit) => subscriptMap[digit])
     .join('');
 
-  return `$0.0${subscript}${significantDigits.slice(2)}`;
+  return `$0.0${subscript}${significantDigits}`;
 }
 
 /**

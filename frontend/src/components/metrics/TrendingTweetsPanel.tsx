@@ -18,6 +18,8 @@ interface TrendingTweetsPanelProps {
   maxHeight?: string;
   tweets: TrendingTweet[];
   loading: boolean;
+  selectedTokenTicker?: string;
+  onReset?: () => void;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
@@ -50,6 +52,8 @@ export function TrendingTweetsPanel({
   maxHeight,
   tweets,
   loading,
+  selectedTokenTicker,
+  onReset,
 }: TrendingTweetsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
@@ -98,6 +102,34 @@ export function TrendingTweetsPanel({
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col gap-4">
+        {/* Deletable tag for selected token */}
+        {selectedTokenTicker && (
+          <div className="flex items-center mb-2">
+            <span className="bg-emerald-900/40 text-emerald-400 px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+              {selectedTokenTicker}
+              <button
+                type="button"
+                onClick={onReset}
+                aria-label="Clear selected token"
+                className="ml-1 text-emerald-400 hover:text-red-400 focus:outline-none"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="w-3 h-3"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <Input
             placeholder="Search by username..."
@@ -200,8 +232,6 @@ export function TrendingTweetsPanel({
                       const isVideo =
                         mediaUrl.includes('video.twimg.com') ||
                         mediaUrl.includes('ext_tw_video');
-                      // Fallback image for broken media
-                      const fallbackImg = '/media-fallback.png';
                       if (isVideo) {
                         return (
                           <div key={mediaKey} className="w-full h-full">
@@ -240,8 +270,9 @@ export function TrendingTweetsPanel({
                           aria-label="Tweet image content"
                           className="absolute inset-0 w-full h-full object-cover"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src =
-                              fallbackImg;
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = 'none';
                           }}
                         />
                       );

@@ -5,8 +5,10 @@ import {
 } from '@/lib/services/relationships';
 import type { TimeFrame } from '@/lib/services/token-snapshot-service';
 import { tokenSnapshotService } from '@/lib/services/token-snapshot-service';
+import { fetchRecentTweetsForTicker } from '@/lib/services/tweet-analysis-service';
 import { type TrendingTweet, tweetService } from '@/lib/services/tweets';
 import type { TokenSnapshot } from '@/types/token-monitor/token';
+import type { TweetAnalysis } from '@/types/tweets-analysis';
 import { Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
@@ -55,6 +57,14 @@ export function MetricsGallery() {
 
   const [timeframe, setTimeframe] = useState<TimeFrame>('1d');
   const [tokenSnapshots, setTokenSnapshots] = useState<TokenSnapshot[]>([]);
+  const [selectedToken, setSelectedToken] = useState<TokenSnapshot | null>(
+    null,
+  );
+  const [selectedTokenTweets, setSelectedTokenTweets] = useState<
+    TrendingTweet[]
+  >([]);
+  const [selectedTokenTweetsLoading, setSelectedTokenTweetsLoading] =
+    useState(false);
 
   // Add timeframe handler
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
@@ -208,6 +218,60 @@ export function MetricsGallery() {
     fetchRelationships();
   }, []);
 
+  // Fetch token-specific tweets when selectedToken changes
+  useEffect(() => {
+    const fetchTokenTweets = async () => {
+      if (!selectedToken?.data?.ticker || !selectedToken?.token_address) {
+        setSelectedTokenTweets([]);
+        return;
+      }
+      setSelectedTokenTweetsLoading(true);
+      const tweets: TweetAnalysis[] = await fetchRecentTweetsForTicker(
+        selectedToken.data.ticker,
+        selectedToken.token_address,
+      );
+      // Map TweetAnalysis to minimal TrendingTweet shape for TrendingTweetsPanel
+      setSelectedTokenTweets(
+        tweets.map((tweet) => ({
+          // Required fields from TweetAnalysis
+          id: tweet.id,
+          tweet_id: tweet.id,
+          type: 'tweet',
+          format: 'text',
+          sentiment: tweet.sentiment || '',
+          confidence: 1,
+          content_summary: tweet.tweet_text,
+          topics: [],
+          entities: [],
+          relevance: 0,
+          clarity: 0,
+          authenticity: 0,
+          value_add: 0,
+          likes: 0,
+          replies: 0,
+          retweets: 0,
+          created_at: tweet.timestamp,
+          analyzed_at: tweet.timestamp,
+          author_username: tweet.author,
+          marketing_summary: '',
+          is_spam: false,
+          spam_score: 0,
+          // TrendingTweet fields
+          aggregate_score: 0,
+          engagement_score: 0,
+          impact_score: 0,
+          permanent_url: '',
+          name: tweet.author,
+          username: tweet.author,
+          content: tweet.tweet_text,
+          photos: [],
+        })),
+      );
+      setSelectedTokenTweetsLoading(false);
+    };
+    fetchTokenTweets();
+  }, [selectedToken]);
+
   const renderMaximizedContent = () => {
     switch (maximizedPanel) {
       case 'socials':
@@ -288,8 +352,10 @@ export function MetricsGallery() {
             <div className="flex-1 overflow-hidden">
               <TabsContent value="tweets" className="h-full">
                 <TrendingTweetsPanel
-                  tweets={trendingTweets}
-                  loading={loading}
+                  tweets={selectedToken ? selectedTokenTweets : trendingTweets}
+                  loading={selectedToken ? selectedTokenTweetsLoading : loading}
+                  selectedTokenTicker={selectedToken?.data?.ticker}
+                  onReset={() => setSelectedToken(null)}
                 />
               </TabsContent>
               <TabsContent value="news" className="h-full">
@@ -369,6 +435,9 @@ export function MetricsGallery() {
                   onTimeframeChange={handleTimeframeChange}
                   isLoading={false}
                   error={null}
+                  selectedTokenAddress={selectedToken?.token_address}
+                  onTokenSelect={setSelectedToken}
+                  selectedToken={selectedToken}
                 />
               </TabsContent>
               <TabsContent value="risk" className="h-full">
@@ -557,6 +626,9 @@ export function MetricsGallery() {
                     onTimeframeChange={handleTimeframeChange}
                     isLoading={false}
                     error={null}
+                    selectedTokenAddress={selectedToken?.token_address}
+                    onTokenSelect={setSelectedToken}
+                    selectedToken={selectedToken}
                   />
                 </div>
               </TabsContent>
@@ -609,8 +681,14 @@ export function MetricsGallery() {
               <TabsContent value="tweets" className="h-full overflow-auto">
                 <div className="h-full overflow-auto">
                   <TrendingTweetsPanel
-                    tweets={trendingTweets}
-                    loading={loading}
+                    tweets={
+                      selectedToken ? selectedTokenTweets : trendingTweets
+                    }
+                    loading={
+                      selectedToken ? selectedTokenTweetsLoading : loading
+                    }
+                    selectedTokenTicker={selectedToken?.data?.ticker}
+                    onReset={() => setSelectedToken(null)}
                   />
                 </div>
               </TabsContent>
