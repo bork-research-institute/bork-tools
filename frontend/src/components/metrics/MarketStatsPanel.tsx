@@ -55,6 +55,9 @@ type ColumnDef = {
     current: TokenSnapshot,
     previous: TokenSnapshot,
   ) => string | null;
+  getSortValue?: (
+    snapshot: TokenSnapshot,
+  ) => number | string | null | undefined;
 };
 
 interface MarketStatsPanelProps {
@@ -99,6 +102,11 @@ const columns: ColumnDef[] = [
         </div>
       );
     },
+    getSortValue: (snapshot) => {
+      const symbol = snapshot.data?.ticker || '';
+      const name = snapshot.data?.name || '';
+      return `${symbol} / ${name}`;
+    },
   },
   {
     key: 'price',
@@ -115,6 +123,7 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) => snapshot.data?.priceInfo?.price ?? null,
   },
   {
     key: 'volume',
@@ -135,6 +144,8 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) =>
+      snapshot.data?.liquidityMetrics?.volumeMetrics?.volume24h ?? null,
   },
   {
     key: 'marketCap',
@@ -151,6 +162,7 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) => snapshot.data?.marketCap ?? null,
   },
   {
     key: 'liquidity',
@@ -169,6 +181,8 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) =>
+      snapshot.data?.liquidityMetrics?.totalLiquidity ?? null,
   },
   {
     key: 'holders',
@@ -185,6 +199,7 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) => snapshot.data?.holderCount ?? null,
   },
   {
     key: 'supply',
@@ -201,12 +216,14 @@ const columns: ColumnDef[] = [
       }
       return null;
     },
+    getSortValue: (snapshot) => snapshot.data?.supply ?? null,
   },
   {
     key: 'timestamp',
     label: 'Last Updated',
     format: (snapshot) =>
       snapshot.timestamp ? getTimeAgo(snapshot.timestamp) : 'N/A',
+    getSortValue: (snapshot) => snapshot.timestamp ?? null,
   },
 ];
 
@@ -252,20 +269,20 @@ export function MarketStatsPanel({
 
     return [...tokenSnapshots].sort((a, b) => {
       const columnKey = sortConfig.key;
+      // Get the corresponding column definition
+      const column = columns.find((col) => col.key === columnKey);
       let aValue: unknown;
       let bValue: unknown;
 
-      if (columnKey === 'timestamp') {
+      if (column?.getSortValue) {
+        aValue = column.getSortValue(a);
+        bValue = column.getSortValue(b);
+      } else if (columnKey === 'timestamp') {
         aValue = a.timestamp;
         bValue = b.timestamp;
-      } else {
-        // Get the corresponding column definition
-        const column = columns.find((col) => col.key === columnKey);
-        if (column) {
-          // Use the format function to get the sortable value
-          aValue = column.format(a, 0);
-          bValue = column.format(b, 0);
-        }
+      } else if (column) {
+        aValue = column.format(a, 0);
+        bValue = column.format(b, 0);
       }
 
       if (aValue === bValue) {
@@ -278,48 +295,23 @@ export function MarketStatsPanel({
         return -1;
       }
 
-      const compareResult =
-        typeof aValue === 'string' && typeof bValue === 'string'
-          ? aValue.localeCompare(bValue)
-          : Number(aValue) - Number(bValue);
-
-      return sortConfig.direction === 'asc' ? compareResult : -compareResult;
+      // If both are numbers, compare numerically
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc'
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+      // Otherwise, compare as strings
+      return sortConfig.direction === 'asc'
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
     });
   }, [tokenSnapshots, sortConfig]);
 
   // Debug logging for sorted data
   console.log('Sorted data:', sortedData);
 
-  if (isLoading) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">Loading token data...</span>
-        </div>
-      </Panel>
-    );
-  }
-
-  if (error) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-red-400">{error}</span>
-        </div>
-      </Panel>
-    );
-  }
-
-  if (!tokenSnapshots?.length) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">No token data available</span>
-        </div>
-      </Panel>
-    );
-  }
-
+  // Always render the header row (controls)
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
@@ -434,152 +426,172 @@ export function MarketStatsPanel({
             ))}
           </div>
         </div>
+
+        {/* Conditional rendering for table or messages */}
         <div className="min-w-[800px]">
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr>
-                {columns.map(
-                  (column) =>
-                    visibleColumns.has(column.key) && (
-                      <th
-                        key={column.key}
-                        className={cn(
-                          'sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1',
-                          {
-                            'text-left': column.label === 'Token',
-                            'text-right': column.label !== 'Token',
-                          },
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleSort(column.key)}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <span className="text-emerald-400/60">Loading token data...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-32">
+              <span className="text-red-400">{error}</span>
+            </div>
+          ) : tokenSnapshots && tokenSnapshots.length > 0 ? (
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  {columns.map(
+                    (column) =>
+                      visibleColumns.has(column.key) && (
+                        <th
+                          key={column.key}
                           className={cn(
-                            'flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors uppercase',
+                            'sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1',
                             {
-                              'text-right justify-end w-full':
-                                column.label !== 'Token',
-                              'text-left justify-start':
-                                column.label === 'Token',
+                              'text-left': column.label === 'Token',
+                              'text-right': column.label !== 'Token',
                             },
                           )}
                         >
-                          {column.label}
-                          {sortConfig.key === column.key && (
-                            <span className="text-emerald-400/60">
-                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </button>
-                      </th>
-                    ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData.map((snapshot, index) => (
-                <tr
-                  key={`${snapshot.token_address}-${snapshot.timestamp}`}
-                  className="hover:bg-emerald-400/5 transition-colors group"
-                >
-                  {Array.from(visibleColumns).map((columnKey) => {
-                    const column = columns.find((col) => col.key === columnKey);
-                    if (!column) {
-                      return null;
-                    }
-                    const formattedValue = column.format(snapshot, index);
-
-                    return (
-                      <td
-                        key={columnKey}
-                        className={cn(
-                          'px-3 py-1 text-xs border-b border-emerald-400/10 group-hover:border-emerald-400/20',
-                          {
-                            'text-left': column.label === 'Token',
-                            'text-right': column.label !== 'Token',
-                          },
-                        )}
-                      >
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild={true}>
-                              <span className="text-white">
-                                {formattedValue}
+                          <button
+                            type="button"
+                            onClick={() => handleSort(column.key)}
+                            className={cn(
+                              'flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors uppercase',
+                              {
+                                'text-right justify-end w-full':
+                                  column.label !== 'Token',
+                                'text-left justify-start':
+                                  column.label === 'Token',
+                              },
+                            )}
+                          >
+                            {column.label}
+                            {sortConfig.key === column.key && (
+                              <span className="text-emerald-400/60">
+                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
                               </span>
-                            </TooltipTrigger>
-                            {column.getChange && (
-                              <TooltipContent side="top">
-                                {(() => {
-                                  const previousSnapshots = sortedData.filter(
-                                    (s) =>
-                                      s.token_address ===
-                                        snapshot.token_address &&
-                                      s.timestamp < snapshot.timestamp,
-                                  );
+                            )}
+                          </button>
+                        </th>
+                      ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedData.map((snapshot, index) => (
+                  <tr
+                    key={`${snapshot.token_address}-${snapshot.timestamp}`}
+                    className="hover:bg-emerald-400/5 transition-colors group"
+                  >
+                    {Array.from(visibleColumns).map((columnKey) => {
+                      const column = columns.find(
+                        (col) => col.key === columnKey,
+                      );
+                      if (!column) {
+                        return null;
+                      }
+                      const formattedValue = column.format(snapshot, index);
 
-                                  if (!previousSnapshots?.length) {
-                                    return null;
-                                  }
-
-                                  const changes = previousSnapshots
-                                    .map((prevSnapshot) => {
-                                      const change = column.getChange?.(
-                                        snapshot,
-                                        prevSnapshot,
-                                      );
-                                      if (!change) {
-                                        return null;
-                                      }
-                                      const timeDiff = getTimeAgo(
-                                        prevSnapshot.timestamp,
-                                      );
-                                      return {
-                                        change,
-                                        timeDiff,
-                                        timestamp: prevSnapshot.timestamp,
-                                      };
-                                    })
-                                    .filter(
-                                      (
-                                        c,
-                                      ): c is {
-                                        change: string;
-                                        timeDiff: string;
-                                        timestamp: string;
-                                      } => c !== null,
+                      return (
+                        <td
+                          key={columnKey}
+                          className={cn(
+                            'px-3 py-1 text-xs border-b border-emerald-400/10 group-hover:border-emerald-400/20',
+                            {
+                              'text-left': column.label === 'Token',
+                              'text-right': column.label !== 'Token',
+                            },
+                          )}
+                        >
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild={true}>
+                                <span className="text-white">
+                                  {formattedValue}
+                                </span>
+                              </TooltipTrigger>
+                              {column.getChange && (
+                                <TooltipContent side="top">
+                                  {(() => {
+                                    const previousSnapshots = sortedData.filter(
+                                      (s) =>
+                                        s.token_address ===
+                                          snapshot.token_address &&
+                                        s.timestamp < snapshot.timestamp,
                                     );
 
-                                  if (!changes.length) {
-                                    return null;
-                                  }
+                                    if (!previousSnapshots?.length) {
+                                      return null;
+                                    }
 
-                                  return (
-                                    <div className="flex flex-col gap-1 text-xs">
-                                      <div className="font-medium">
-                                        Changes:
-                                      </div>
-                                      {changes.map((changeInfo) => (
-                                        <div
-                                          key={`${changeInfo.timestamp}-${changeInfo.change}`}
-                                          className="text-emerald-400/60"
-                                        >
-                                          {`${changeInfo.change} (${changeInfo.timeDiff} ago)`}
+                                    const changes = previousSnapshots
+                                      .map((prevSnapshot) => {
+                                        const change = column.getChange?.(
+                                          snapshot,
+                                          prevSnapshot,
+                                        );
+                                        if (!change) {
+                                          return null;
+                                        }
+                                        const timeDiff = getTimeAgo(
+                                          prevSnapshot.timestamp,
+                                        );
+                                        return {
+                                          change,
+                                          timeDiff,
+                                          timestamp: prevSnapshot.timestamp,
+                                        };
+                                      })
+                                      .filter(
+                                        (
+                                          c,
+                                        ): c is {
+                                          change: string;
+                                          timeDiff: string;
+                                          timestamp: string;
+                                        } => c !== null,
+                                      );
+
+                                    if (!changes.length) {
+                                      return null;
+                                    }
+
+                                    return (
+                                      <div className="flex flex-col gap-1 text-xs">
+                                        <div className="font-medium">
+                                          Changes:
                                         </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })()}
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                                        {changes.map((changeInfo) => (
+                                          <div
+                                            key={`${changeInfo.timestamp}-${changeInfo.change}`}
+                                            className="text-emerald-400/60"
+                                          >
+                                            {`${changeInfo.change} (${changeInfo.timeDiff} ago)`}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex items-center justify-center h-32">
+              <span className="text-emerald-400/60">
+                No token data available
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Panel>

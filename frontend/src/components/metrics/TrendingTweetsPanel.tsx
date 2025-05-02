@@ -181,46 +181,68 @@ export function TrendingTweetsPanel({
                 {/* Media Display */}
                 {tweet.photos && tweet.photos.length > 0 && (
                   <div className="relative aspect-[16/9] rounded-lg overflow-hidden">
-                    {tweet.photos.map((photo: TweetMediaItem) => {
-                      const mediaUrl =
-                        typeof photo === 'string' ? photo : photo.url;
+                    {tweet.photos.map((photo: TweetMediaItem, idx: number) => {
+                      let mediaUrl: string | undefined;
+                      let previewUrl: string | undefined;
+                      let mediaKey: string | number = idx;
+                      if (typeof photo === 'string') {
+                        mediaUrl = photo;
+                        mediaKey = photo;
+                      } else if (photo && typeof photo === 'object') {
+                        mediaUrl = photo.url;
+                        previewUrl = photo.preview || photo.url;
+                        mediaKey = photo.id || idx;
+                      }
+                      if (!mediaUrl) {
+                        // Skip rendering if URL is missing
+                        return null;
+                      }
                       const isVideo =
                         mediaUrl.includes('video.twimg.com') ||
                         mediaUrl.includes('ext_tw_video');
-                      const previewUrl =
-                        typeof photo === 'string'
-                          ? undefined
-                          : photo.preview || photo.url;
-
-                      return isVideo ? (
-                        <div
-                          key={typeof photo === 'string' ? mediaUrl : photo.id}
-                          className="w-full h-full"
-                        >
-                          <video
-                            controls={true}
-                            preload="none"
-                            poster={previewUrl}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            aria-label="Tweet video content"
-                          >
-                            <source src={mediaUrl} type="video/mp4" />
-                            <track
-                              kind="captions"
-                              src=""
-                              label="English captions"
-                              srcLang="en"
-                              default={true}
-                            />
-                            Your browser does not support the video tag.
-                          </video>
-                        </div>
-                      ) : (
+                      // Fallback image for broken media
+                      const fallbackImg = '/media-fallback.png';
+                      if (isVideo) {
+                        return (
+                          <div key={mediaKey} className="w-full h-full">
+                            <video
+                              controls={true}
+                              preload="none"
+                              poster={previewUrl}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              aria-label="Tweet video content"
+                              tabIndex={0}
+                              onError={(e) => {
+                                // Hide video if it fails to load
+                                (
+                                  e.currentTarget as HTMLVideoElement
+                                ).style.display = 'none';
+                              }}
+                            >
+                              <source src={mediaUrl} type="video/mp4" />
+                              <track
+                                kind="captions"
+                                src=""
+                                label="English captions"
+                                srcLang="en"
+                                default={true}
+                              />
+                              Your browser does not support the video tag.
+                            </video>
+                          </div>
+                        );
+                      }
+                      return (
                         <img
-                          key={typeof photo === 'string' ? mediaUrl : photo.id}
+                          key={mediaKey}
                           src={mediaUrl}
                           alt="Tweet media"
+                          aria-label="Tweet image content"
                           className="absolute inset-0 w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              fallbackImg;
+                          }}
                         />
                       );
                     })}
