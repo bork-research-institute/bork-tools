@@ -35,7 +35,7 @@ interface MarketStatsPanelProps {
   timeframe: TimeFrame;
   onTimeframeChange: (timeframe: TimeFrame) => void;
   selectedTokenAddress?: string;
-  onTokenSelect?: (snapshot: TokenSnapshot) => void;
+  onTokenSelect?: (snapshot: TokenSnapshot | null) => void;
   selectedToken?: TokenSnapshot | null;
 }
 
@@ -274,130 +274,176 @@ export function MarketStatsPanel({
             </div>
           </div>
 
-          <div>
-            {isLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <span className="text-emerald-400/60">
-                  Loading token data...
-                </span>
+          <div className="flex flex-col h-full w-full">
+            {selectedToken ? (
+              <div className="mb-2">
+                <TokenInfoPanel
+                  selectedToken={selectedToken}
+                  onClose={() => onTokenSelect?.(null)}
+                />
               </div>
-            ) : error ? (
-              <div className="flex items-center justify-center h-32">
-                <span className="text-red-400">{error}</span>
-              </div>
-            ) : tokenSnapshots && tokenSnapshots.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 p-0">
-                {sortedData.map((snapshot, index) => {
-                  const isSelected =
-                    selectedTokenAddress === snapshot.token_address;
-                  return (
-                    <div
-                      key={snapshot.token_address}
-                      className={cn(
-                        'bg-[#101c2c] rounded-md p-2 border transition-colors cursor-pointer group w-full',
-                        isSelected
-                          ? 'border-emerald-400/60 shadow-lg'
-                          : 'border-emerald-400/10 hover:border-emerald-400/30',
-                      )}
-                      onClick={() => onTokenSelect?.(snapshot)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          onTokenSelect?.(snapshot);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="text-emerald-400/40 text-xs mr-1">
-                          #{index + 1}
-                        </span>
-                        <span className="text-white/90 font-bold text-xs truncate">
-                          {snapshot.data?.ticker || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-[11px] text-white/90">
-                        {visibleFields.includes('marketCap') && (
-                          <div>
-                            <span className="font-semibold text-emerald-400/80">
-                              MCap:{' '}
-                            </span>
-                            {snapshot.data?.marketCap
-                              ? formatCurrency(snapshot.data.marketCap)
-                              : 'N/A'}
-                          </div>
-                        )}
-                        {visibleFields.includes('volume') && (
-                          <div>
-                            <span className="font-semibold text-emerald-400/80">
-                              24h Vol:{' '}
-                            </span>
-                            {snapshot.data?.liquidityMetrics?.volumeMetrics
-                              ?.volume24h
-                              ? formatCurrency(
-                                  snapshot.data.liquidityMetrics.volumeMetrics
-                                    .volume24h,
-                                )
-                              : 'N/A'}
-                          </div>
-                        )}
-                        {visibleFields.includes('price') && (
-                          <div>
-                            <span className="font-semibold text-emerald-400/80">
-                              Price:{' '}
-                            </span>
-                            {snapshot.data?.priceInfo?.price
-                              ? formatPrice(snapshot.data.priceInfo.price)
-                              : 'N/A'}
-                          </div>
-                        )}
-                        {visibleFields.includes('holders') && (
-                          <div>
-                            <span className="font-semibold text-emerald-400/80">
-                              Holders:{' '}
-                            </span>
-                            {snapshot.data?.holderCount
-                              ? formatSupply(snapshot.data.holderCount)
-                              : 'N/A'}
-                          </div>
-                        )}
-                        {visibleFields.includes('supply') && (
-                          <div>
-                            <span className="font-semibold text-emerald-400/80">
-                              Supply:{' '}
-                            </span>
-                            {snapshot.data?.supply
-                              ? formatSupply(snapshot.data.supply)
-                              : 'N/A'}
-                          </div>
-                        )}
-                        {visibleFields.includes('lastUpdated') && (
-                          <div className="flex items-center gap-1">
-                            <Clock
-                              className="w-3 h-3 text-emerald-400/80"
-                              aria-label="Last Updated"
-                            />
-                            <span>
-                              {snapshot.timestamp
-                                ? getTimeAgo(snapshot.timestamp)
-                                : 'N/A'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-32">
-                <span className="text-emerald-400/60">
-                  No token data available
-                </span>
-              </div>
-            )}
+            ) : null}
+            <div>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-emerald-400/60">
+                    Loading token data...
+                  </span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-red-400">{error}</span>
+                </div>
+              ) : tokenSnapshots && tokenSnapshots.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="min-w-full text-xs text-white/90 border-separate border-spacing-0">
+                      <thead>
+                        <tr>
+                          <th className="sticky top-0 left-0 z-30 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left">
+                            Token
+                          </th>
+                          {/* Render default fields first */}
+                          {[
+                            'marketCap',
+                            'volume',
+                            'lastUpdated',
+                            ...visibleFields.filter(
+                              (f) =>
+                                ![
+                                  'marketCap',
+                                  'volume',
+                                  'lastUpdated',
+                                ].includes(f),
+                            ),
+                          ].map((field) => {
+                            let label: React.ReactNode = field;
+                            if (field === 'marketCap') {
+                              label = 'MCAP';
+                            } else if (field === 'volume') {
+                              label = '24H VOL';
+                            } else if (field === 'lastUpdated') {
+                              label = (
+                                <Clock
+                                  className="inline w-4 h-4 text-emerald-400/80"
+                                  aria-label="Last Updated"
+                                />
+                              );
+                            } else {
+                              label =
+                                FIELD_OPTIONS.find((opt) => opt.key === field)
+                                  ?.label || field;
+                            }
+                            return (
+                              <th
+                                key={field}
+                                className="sticky top-0 z-20 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left whitespace-nowrap"
+                              >
+                                {label}
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedData.map((snapshot, index) => {
+                          const isSelected =
+                            selectedTokenAddress === snapshot.token_address;
+                          return (
+                            <tr
+                              key={snapshot.token_address}
+                              className={cn(
+                                'transition-colors cursor-pointer group',
+                                isSelected
+                                  ? 'bg-emerald-400/10 border-l-4 border-emerald-400'
+                                  : 'hover:bg-emerald-400/5',
+                              )}
+                              onClick={() => onTokenSelect?.(snapshot)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  onTokenSelect?.(snapshot);
+                                }
+                              }}
+                              tabIndex={0}
+                              aria-label={`Select token ${snapshot.data?.ticker || ''}`}
+                            >
+                              <td className="sticky left-0 z-10 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10">
+                                <span className="text-emerald-400/40 text-xs mr-1 font-mono">
+                                  #{index + 1}
+                                </span>
+                                <span className="text-white/90 font-bold text-xs truncate">
+                                  {snapshot.data?.ticker || 'N/A'}
+                                </span>
+                              </td>
+                              {/* Render default fields first, then others */}
+                              {[
+                                'marketCap',
+                                'volume',
+                                'lastUpdated',
+                                ...visibleFields.filter(
+                                  (f) =>
+                                    ![
+                                      'marketCap',
+                                      'volume',
+                                      'lastUpdated',
+                                    ].includes(f),
+                                ),
+                              ].map((field) => {
+                                let value: React.ReactNode = 'N/A';
+                                if (field === 'marketCap') {
+                                  value = snapshot.data?.marketCap
+                                    ? formatCurrency(snapshot.data.marketCap)
+                                    : 'N/A';
+                                } else if (field === 'volume') {
+                                  value = snapshot.data?.liquidityMetrics
+                                    ?.volumeMetrics?.volume24h
+                                    ? formatCurrency(
+                                        snapshot.data.liquidityMetrics
+                                          .volumeMetrics.volume24h,
+                                      )
+                                    : 'N/A';
+                                } else if (field === 'price') {
+                                  value = snapshot.data?.priceInfo?.price
+                                    ? formatPrice(snapshot.data.priceInfo.price)
+                                    : 'N/A';
+                                } else if (field === 'holders') {
+                                  value = snapshot.data?.holderCount
+                                    ? formatSupply(snapshot.data.holderCount)
+                                    : 'N/A';
+                                } else if (field === 'supply') {
+                                  value = snapshot.data?.supply
+                                    ? formatSupply(snapshot.data.supply)
+                                    : 'N/A';
+                                } else if (field === 'lastUpdated') {
+                                  value = snapshot.timestamp
+                                    ? getTimeAgo(snapshot.timestamp)
+                                    : 'N/A';
+                                }
+                                return (
+                                  <td
+                                    key={field}
+                                    className="px-2 py-2 border-b border-emerald-400/10 whitespace-nowrap"
+                                  >
+                                    {value}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-emerald-400/60">
+                    No token data available
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex-1 min-h-0 overflow-auto">
-          <TokenInfoPanel selectedToken={selectedToken ?? null} />
         </div>
       </div>
     </Panel>

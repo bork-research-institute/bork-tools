@@ -14,9 +14,13 @@ import { CheckCircle2, Copy, XCircle } from 'lucide-react';
 
 interface TokenInfoPanelProps {
   selectedToken: TokenSnapshot | null;
+  onClose?: () => void;
 }
 
-export function TokenInfoPanel({ selectedToken }: TokenInfoPanelProps) {
+export function TokenInfoPanel({
+  selectedToken,
+  onClose,
+}: TokenInfoPanelProps) {
   if (!selectedToken) {
     return null;
   }
@@ -28,7 +32,24 @@ export function TokenInfoPanel({ selectedToken }: TokenInfoPanelProps) {
   const mintable = selectedToken.data?.isMintable;
 
   return (
-    <div className="mt-4 p-4 bg-[#0f172a] rounded-lg border border-emerald-400/10">
+    <div className="relative mt-4 p-4 bg-[#0f172a] rounded-lg border border-emerald-400/10">
+      {onClose && (
+        <button
+          type="button"
+          className="absolute top-2 right-2 text-emerald-400 hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded p-1"
+          aria-label="Close info panel"
+          tabIndex={0}
+          onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+        >
+          <XCircle className="w-5 h-5" />
+        </button>
+      )}
       {/* Ticker and Name header */}
       <div className="flex items-center gap-2 mb-2">
         {icon && (
