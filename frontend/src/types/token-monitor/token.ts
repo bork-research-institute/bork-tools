@@ -1,3 +1,5 @@
+import type { TweetWithAnalysis } from '../tweets-analysis';
+
 export interface LiquidityMetrics {
   totalLiquidity: number;
   burnedLpPercentage?: number;
@@ -57,6 +59,22 @@ export interface TokenData {
   timestamp: string;
 }
 
+export interface Tweet {
+  id: string;
+  timestamp: number;
+  likes: number;
+  replies: number;
+  retweets: number;
+  views: number;
+  bookmarkCount?: number;
+  analysis?: {
+    relevance: number;
+    clarity: number;
+    authenticity: number;
+    value_add: number;
+  };
+}
+
 export interface TokenSnapshot {
   id: string;
   token_address: string;
@@ -72,5 +90,6 @@ export interface TokenWithEngagement extends TokenSnapshot {
     replies: number;
     retweets: number;
     views: number;
+    tweets?: TweetWithAnalysis[];
   };
 }

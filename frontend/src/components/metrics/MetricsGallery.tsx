@@ -68,6 +68,18 @@ export function MetricsGallery() {
   );
   const [activeRightTab, setActiveRightTab] = useState('tweets');
 
+  // Add event listener for switchToTrending
+  useEffect(() => {
+    const handleSwitchToTrending = () => {
+      setActiveRightTab('tweets');
+    };
+
+    window.addEventListener('switchToTrending', handleSwitchToTrending);
+    return () => {
+      window.removeEventListener('switchToTrending', handleSwitchToTrending);
+    };
+  }, []);
+
   // Add timeframe handler
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
@@ -167,15 +179,29 @@ export function MetricsGallery() {
           if (!token.tweet_ids || token.tweet_ids.length === 0) {
             return {
               ...token,
-              engagement: { likes: 0, replies: 0, retweets: 0, views: 0 },
-            };
+              engagement: {
+                likes: 0,
+                replies: 0,
+                retweets: 0,
+                views: 0,
+                tweets: [],
+              },
+            } as TokenWithEngagement;
           }
 
           try {
+            // Fetch tweets with analyses once
             const tweets = await tweetService.getTweetsAndAnalysesByIds(
               token.tweet_ids,
             );
-            const engagement = tweets.reduce(
+
+            // Filter out spam tweets
+            const validTweets = tweets.filter(
+              (tweet) => tweet.status !== 'spam',
+            );
+
+            // Calculate engagement metrics from valid tweets
+            const engagement = validTweets.reduce(
               (acc, tweet) => ({
                 likes: acc.likes + (tweet.likes || 0),
                 replies: acc.replies + (tweet.replies || 0),
@@ -184,13 +210,27 @@ export function MetricsGallery() {
               }),
               { likes: 0, replies: 0, retweets: 0, views: 0 },
             );
-            return { ...token, engagement };
+
+            // Return token with both aggregated metrics and full tweet data
+            return {
+              ...token,
+              engagement: {
+                ...engagement,
+                tweets: validTweets, // Include full tweet objects with analyses
+              },
+            } as TokenWithEngagement;
           } catch (error) {
             console.error('Error fetching tweet data:', error);
             return {
               ...token,
-              engagement: { likes: 0, replies: 0, retweets: 0, views: 0 },
-            };
+              engagement: {
+                likes: 0,
+                replies: 0,
+                retweets: 0,
+                views: 0,
+                tweets: [],
+              },
+            } as TokenWithEngagement;
           }
         }),
       );
@@ -360,17 +400,15 @@ export function MetricsGallery() {
                   value="tokenTweets"
                   className="h-full overflow-auto"
                 >
-                  {(() => {
-                    console.log('Selected token:', selectedToken);
-                    // Get tweet_ids from the selected token's snapshot
-                    const tweetIds = selectedToken.tweet_ids || [];
-                    console.log('Tweet IDs from selected token:', tweetIds);
-                    return (
-                      <div className="h-full overflow-auto">
-                        <TokenTweetsPanel tweetIds={tweetIds} />
-                      </div>
-                    );
-                  })()}
+                  <div className="h-full overflow-auto">
+                    <TokenTweetsPanel
+                      tweetIds={selectedToken.tweet_ids || []}
+                      tweets={
+                        (selectedToken as TokenWithEngagement).engagement
+                          ?.tweets
+                      }
+                    />
+                  </div>
                 </TabsContent>
               )}
             </div>
@@ -448,9 +486,11 @@ export function MetricsGallery() {
                     setSelectedToken(token);
                     if (token) {
                       setActiveRightTab('tokenTweets');
+                    } else {
+                      setActiveRightTab('tweets');
                     }
                   }}
-                  selectedToken={selectedToken}
+                  selectedToken={selectedToken as TokenWithEngagement}
                 />
               </TabsContent>
               <TabsContent value="risk" className="h-full overflow-auto">
@@ -585,9 +625,11 @@ export function MetricsGallery() {
                       setSelectedToken(token);
                       if (token) {
                         setActiveRightTab('tokenTweets');
+                      } else {
+                        setActiveRightTab('tweets');
                       }
                     }}
-                    selectedToken={selectedToken}
+                    selectedToken={selectedToken as TokenWithEngagement}
                   />
                 </div>
               </TabsContent>
@@ -685,6 +727,10 @@ export function MetricsGallery() {
                   <div className="h-full overflow-auto">
                     <TokenTweetsPanel
                       tweetIds={selectedToken.tweet_ids || []}
+                      tweets={
+                        (selectedToken as TokenWithEngagement).engagement
+                          ?.tweets
+                      }
                     />
                   </div>
                 </TabsContent>

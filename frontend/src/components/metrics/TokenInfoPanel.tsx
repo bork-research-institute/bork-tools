@@ -52,7 +52,7 @@ export function TokenInfoPanel({
         </button>
       )}
       {/* Ticker and Name header */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-3 mb-2">
         {icon && (
           <img
             src={icon}
@@ -65,6 +65,62 @@ export function TokenInfoPanel({
           {selectedToken.data?.ticker ? `${selectedToken.data.ticker} - ` : ''}
           {selectedToken.data?.name || ''}
         </span>
+
+        {/* Safety checkmarks */}
+        <div className="flex gap-4">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild={true}>
+                <div className="flex items-center gap-1 text-xs">
+                  {freezable ? (
+                    <XCircle
+                      className="w-4 h-4 text-red-400"
+                      aria-label="Freezable"
+                    />
+                  ) : (
+                    <CheckCircle2
+                      className="w-4 h-4 text-green-400"
+                      aria-label="Not Freezable"
+                    />
+                  )}
+                  <span>Unfreezable</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>
+                  This token {freezable ? 'can' : 'cannot'} be frozen by the
+                  contract owner.
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild={true}>
+                <div className="flex items-center gap-1 text-xs">
+                  {mintable ? (
+                    <XCircle
+                      className="w-4 h-4 text-red-400"
+                      aria-label="Mintable"
+                    />
+                  ) : (
+                    <CheckCircle2
+                      className="w-4 h-4 text-green-400"
+                      aria-label="Not Mintable"
+                    />
+                  )}
+                  <span>Unmintable</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>
+                  This token {mintable ? 'can' : 'cannot'} be minted by the
+                  contract owner.
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
       {/* Description */}
       {description && (
@@ -73,7 +129,7 @@ export function TokenInfoPanel({
         </div>
       )}
       {/* Token address */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center mb-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-white/80 break-all">
             {selectedToken.token_address}
@@ -81,7 +137,7 @@ export function TokenInfoPanel({
         </div>
         <button
           type="button"
-          className="text-xs text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded hover:bg-emerald-400/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 flex items-center"
+          className="text-xs text-emerald-400 bg-emerald-900/30 ml-2 px-2 py-1 rounded hover:bg-emerald-400/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 flex items-center"
           onClick={() => {
             navigator.clipboard.writeText(selectedToken.token_address);
           }}
@@ -131,63 +187,8 @@ export function TokenInfoPanel({
           })}
         </div>
       )}
-      {/* Safety checkmarks */}
-      <div className="flex gap-4 mb-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild={true}>
-              <div className="flex items-center gap-1 text-xs">
-                {freezable ? (
-                  <XCircle
-                    className="w-4 h-4 text-red-400"
-                    aria-label="Freezable"
-                  />
-                ) : (
-                  <CheckCircle2
-                    className="w-4 h-4 text-green-400"
-                    aria-label="Not Freezable"
-                  />
-                )}
-                <span>Unfreezable</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span>
-                This token {freezable ? 'can' : 'cannot'} be frozen by the
-                contract owner.
-              </span>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild={true}>
-              <div className="flex items-center gap-1 text-xs">
-                {mintable ? (
-                  <XCircle
-                    className="w-4 h-4 text-red-400"
-                    aria-label="Mintable"
-                  />
-                ) : (
-                  <CheckCircle2
-                    className="w-4 h-4 text-green-400"
-                    aria-label="Not Mintable"
-                  />
-                )}
-                <span>Unmintable</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span>
-                This token {mintable ? 'can' : 'cannot'} be minted by the
-                contract owner.
-              </span>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
       {/* Main info grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
         {Object.entries(selectedToken.data || {}).map(([key, value]) => {
           // Skip fields already rendered or not needed
           if (

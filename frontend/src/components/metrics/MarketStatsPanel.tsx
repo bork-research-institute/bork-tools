@@ -6,13 +6,9 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {} from '@/components/ui/select';
-import {} from '@/components/ui/tooltip';
 import type { TimeFrame } from '@/lib/services/token-snapshot-service';
 import { cn } from '@/lib/utils';
 import {
@@ -21,42 +17,36 @@ import {
   formatSupply,
 } from '@/lib/utils/format-number';
 import { getTimeAgo } from '@/lib/utils/format-time';
+import { calculateTokenScore } from '@/lib/utils/market-stats';
+import type {
+  FieldOption,
+  MarketStatsPanelProps,
+  SortConfig,
+  TimeframeLabels,
+} from '@/types/token-monitor/market-stats';
 import type { TokenWithEngagement } from '@/types/token-monitor/token';
+import type { TweetWithAnalysis } from '@/types/tweets-analysis';
 import { ArrowUpDown, Clock, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Spinner } from '../ui/spinner';
 import { Panel } from './Panel';
 import { TokenInfoPanel } from './TokenInfoPanel';
 
-interface MarketStatsPanelProps {
-  maxHeight?: string;
-  tokenSnapshots?: TokenWithEngagement[];
-  loading?: boolean;
-  error: string | null;
-  timeframe: TimeFrame;
-  onTimeframeChange: (timeframe: TimeFrame) => void;
-  selectedTokenAddress?: string;
-  onTokenSelect?: (snapshot: TokenWithEngagement | null) => void;
-  selectedToken?: TokenWithEngagement | null;
-}
-
-const timeframeLabels: Record<TimeFrame, string> = {
+const timeframeLabels: TimeframeLabels = {
   '1d': 'D',
   '1w': 'W',
   '1m': 'M',
 };
 
-// Fields available for display
-const FIELD_OPTIONS = [
+const fieldOptions: FieldOption[] = [
   { key: 'marketCap', label: 'Market Cap' },
-  { key: 'volume', label: 'Volume (24h)' },
+  { key: 'volume', label: 'Volume' },
   { key: 'lastUpdated', label: 'Last Updated' },
-  { key: 'price', label: 'Price' },
-  { key: 'holders', label: 'Holders' },
-  { key: 'supply', label: 'Supply' },
   { key: 'likes', label: 'Likes' },
   { key: 'replies', label: 'Replies' },
   { key: 'retweets', label: 'Retweets' },
   { key: 'views', label: 'Views' },
+  { key: 'score', label: 'Score' },
 ];
 
 export function MarketStatsPanel({
@@ -70,11 +60,8 @@ export function MarketStatsPanel({
   onTokenSelect,
   selectedToken,
 }: MarketStatsPanelProps) {
-  const [sortConfig, setSortConfig] = useState<{
-    key: string;
-    direction: 'asc' | 'desc';
-  }>({
-    key: 'marketCap',
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'score',
     direction: 'desc',
   });
   const [visibleFields, setVisibleFields] = useState<string[]>([
@@ -85,6 +72,7 @@ export function MarketStatsPanel({
     'replies',
     'retweets',
     'views',
+    'score',
   ]);
 
   const sortedData = useMemo(() => {
@@ -101,23 +89,63 @@ export function MarketStatsPanel({
       // Add engagement metrics to sorting
       switch (key) {
         case 'likes': {
-          aValue = a.engagement?.likes;
-          bValue = b.engagement?.likes;
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
+              0,
+            );
           break;
         }
         case 'replies': {
-          aValue = a.engagement?.replies;
-          bValue = b.engagement?.replies;
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
+              0,
+            );
           break;
         }
         case 'retweets': {
-          aValue = a.engagement?.retweets;
-          bValue = b.engagement?.retweets;
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
+              0,
+            );
           break;
         }
         case 'views': {
-          aValue = a.engagement?.views;
-          bValue = b.engagement?.views;
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
+              0,
+            );
           break;
         }
         case 'marketCap': {
@@ -148,6 +176,11 @@ export function MarketStatsPanel({
         case 'lastUpdated': {
           aValue = a.timestamp;
           bValue = b.timestamp;
+          break;
+        }
+        case 'score': {
+          aValue = calculateTokenScore(a, a.engagement?.tweets);
+          bValue = calculateTokenScore(b, b.engagement?.tweets);
           break;
         }
         default: {
@@ -213,16 +246,88 @@ export function MarketStatsPanel({
         return snapshot.timestamp ? getTimeAgo(snapshot.timestamp) : 'N/A';
       }
       case 'likes': {
-        return snapshot.engagement?.likes.toLocaleString() || 'N/A';
+        const nonSpamTweets =
+          snapshot.engagement?.tweets?.filter(
+            (t: TweetWithAnalysis) => t.status !== 'spam',
+          ) || [];
+        return (
+          nonSpamTweets
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
+              0,
+            )
+            .toLocaleString() || 'N/A'
+        );
       }
       case 'replies': {
-        return snapshot.engagement?.replies.toLocaleString() || 'N/A';
+        const nonSpamTweets =
+          snapshot.engagement?.tweets?.filter(
+            (t: TweetWithAnalysis) => t.status !== 'spam',
+          ) || [];
+        return (
+          nonSpamTweets
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
+              0,
+            )
+            .toLocaleString() || 'N/A'
+        );
       }
       case 'retweets': {
-        return snapshot.engagement?.retweets.toLocaleString() || 'N/A';
+        const nonSpamTweets =
+          snapshot.engagement?.tweets?.filter(
+            (t: TweetWithAnalysis) => t.status !== 'spam',
+          ) || [];
+        return (
+          nonSpamTweets
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
+              0,
+            )
+            .toLocaleString() || 'N/A'
+        );
       }
       case 'views': {
-        return snapshot.engagement?.views.toLocaleString() || 'N/A';
+        const nonSpamTweets =
+          snapshot.engagement?.tweets?.filter(
+            (t: TweetWithAnalysis) => t.status !== 'spam',
+          ) || [];
+        return (
+          nonSpamTweets
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
+              0,
+            )
+            .toLocaleString() || 'N/A'
+        );
+      }
+      case 'score': {
+        const score = calculateTokenScore(
+          snapshot,
+          snapshot.engagement?.tweets,
+        );
+        return (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-1 bg-emerald-400/20 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full',
+                  score >= 80
+                    ? 'bg-emerald-400'
+                    : score >= 60
+                      ? 'bg-emerald-400/80'
+                      : score >= 40
+                        ? 'bg-emerald-400/60'
+                        : score >= 20
+                          ? 'bg-emerald-400/40'
+                          : 'bg-emerald-400/20',
+                )}
+                style={{ width: `${score}%` }}
+              />
+            </div>
+            <span>{score.toFixed(1)}</span>
+          </div>
+        );
       }
       default: {
         return 'N/A';
@@ -234,7 +339,28 @@ export function MarketStatsPanel({
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between border-b border-emerald-400/10 px-3">
+        <div className="flex items-center justify-end border-b border-emerald-400/10 gap-3 px-3 mb-2">
+          <div className="flex items-center gap-1">
+            {(Object.entries(timeframeLabels) as [TimeFrame, string][]).map(
+              ([value, label]) => (
+                <Button
+                  key={value}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onTimeframeChange(value)}
+                  className={cn(
+                    'h-7 px-3 text-xs bg-transparent hover:bg-emerald-400/5',
+                    timeframe === value
+                      ? 'text-emerald-400 border-b-2 border-emerald-400 rounded-none'
+                      : 'text-emerald-400/60 hover:text-emerald-400',
+                  )}
+                >
+                  {label}
+                </Button>
+              ),
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild={true}>
@@ -254,7 +380,7 @@ export function MarketStatsPanel({
                   Display Fields
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-emerald-400/20" />
-                {FIELD_OPTIONS.map((field) => (
+                {fieldOptions.map((field) => (
                   <DropdownMenuCheckboxItem
                     key={field.key}
                     className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
@@ -273,75 +399,6 @@ export function MarketStatsPanel({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild={true}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0 flex items-center justify-center bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
-                >
-                  <ArrowUpDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="bg-[#020617] border-emerald-400/20"
-              >
-                <DropdownMenuLabel className="text-xs text-emerald-400/60">
-                  Sort Rank By
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-emerald-400/20" />
-                <DropdownMenuRadioGroup
-                  value={`${sortConfig.key}-${sortConfig.direction}`}
-                  onValueChange={(value) => {
-                    const [key, direction] = value.split('-');
-                    setSortConfig({
-                      key: key as string,
-                      direction: direction as 'asc' | 'desc',
-                    });
-                  }}
-                >
-                  <DropdownMenuRadioItem
-                    value="marketCap-desc"
-                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                  >
-                    Market Cap (High to Low)
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem
-                    value="marketCap-asc"
-                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                  >
-                    Market Cap (Low to High)
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem
-                    value="timestamp-desc"
-                    className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                  >
-                    Most Recent
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {Object.entries(timeframeLabels).map(([value, label]) => (
-              <Button
-                key={value}
-                variant="ghost"
-                size="sm"
-                onClick={() => onTimeframeChange(value as TimeFrame)}
-                className={cn(
-                  'h-7 px-3 text-xs bg-transparent hover:bg-emerald-400/5',
-                  timeframe === value
-                    ? 'text-emerald-400 border-b-2 border-emerald-400 rounded-none'
-                    : 'text-emerald-400/60 hover:text-emerald-400',
-                )}
-              >
-                {label}
-              </Button>
-            ))}
           </div>
         </div>
 
@@ -366,9 +423,7 @@ export function MarketStatsPanel({
             <div className="h-full overflow-auto">
               {loading ? (
                 <div className="flex items-center justify-center h-32">
-                  <span className="text-emerald-400/60">
-                    Loading token data...
-                  </span>
+                  <Spinner size="lg" />
                 </div>
               ) : error ? (
                 <div className="flex items-center justify-center h-32">
@@ -405,15 +460,54 @@ export function MarketStatsPanel({
                           );
                         } else {
                           label =
-                            FIELD_OPTIONS.find((opt) => opt.key === field)
+                            fieldOptions.find((opt) => opt.key === field)
                               ?.label || field;
                         }
                         return (
                           <th
                             key={field}
-                            className="sticky top-0 z-20 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left whitespace-nowrap"
+                            scope="col"
+                            className={cn(
+                              'sticky top-0 z-20 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left whitespace-nowrap',
+                              sortConfig.key === field && 'text-emerald-400',
+                            )}
+                            aria-sort={
+                              sortConfig.key === field
+                                ? sortConfig.direction === 'asc'
+                                  ? 'ascending'
+                                  : 'descending'
+                                : 'none'
+                            }
                           >
-                            {label}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                'h-auto p-0 font-semibold hover:bg-transparent hover:text-emerald-400 flex items-center gap-1',
+                                sortConfig.key === field && 'text-emerald-400',
+                              )}
+                              onClick={() => {
+                                setSortConfig((prev) => ({
+                                  key: field,
+                                  direction:
+                                    prev.key === field &&
+                                    prev.direction === 'desc'
+                                      ? 'asc'
+                                      : 'desc',
+                                }));
+                              }}
+                            >
+                              {label}
+                              {sortConfig.key === field && (
+                                <ArrowUpDown
+                                  className={cn(
+                                    'w-3 h-3 transition-transform',
+                                    sortConfig.direction === 'asc' &&
+                                      'rotate-180',
+                                  )}
+                                />
+                              )}
+                            </Button>
                           </th>
                         );
                       })}
@@ -432,10 +526,28 @@ export function MarketStatsPanel({
                               ? 'bg-emerald-400/10 border-l-4 border-emerald-400'
                               : 'hover:bg-emerald-400/5',
                           )}
-                          onClick={() => onTokenSelect?.(snapshot)}
+                          onClick={() => {
+                            if (isSelected) {
+                              onTokenSelect?.(null);
+                              // Emit custom event to notify gallery to switch back to trending
+                              window.dispatchEvent(
+                                new CustomEvent('switchToTrending'),
+                              );
+                            } else {
+                              onTokenSelect?.(snapshot);
+                            }
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
-                              onTokenSelect?.(snapshot);
+                              if (isSelected) {
+                                onTokenSelect?.(null);
+                                // Emit custom event to notify gallery to switch back to trending
+                                window.dispatchEvent(
+                                  new CustomEvent('switchToTrending'),
+                                );
+                              } else {
+                                onTokenSelect?.(snapshot);
+                              }
                             }
                           }}
                           tabIndex={0}
