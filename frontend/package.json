@@ -59,5 +59,12 @@
     "globals": "^16.0.0",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.0"
+  },
+  "resolutions": {
+    "viem": "^2.0.0",
+    "@reown/appkit": "latest",
+    "@reown/appkit-controllers": "latest",
+    "@reown/appkit-utils": "latest",
+    "ox": "latest"
   }
 }
