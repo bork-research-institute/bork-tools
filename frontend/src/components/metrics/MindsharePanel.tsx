@@ -257,6 +257,27 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   const [timeFrame, setTimeFrame] = useState<string>('24h');
   const [selectedData, setSelectedData] = useState<TreemapData | null>(null);
 
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('MindsharePanel state:', {
+      loading,
+      error,
+      treemapRectsCount: treemapRects.length,
+      searchQuery,
+      debouncedSearch,
+      timeFrame,
+      selectedData: selectedData?.topic,
+    });
+  }, [
+    loading,
+    error,
+    treemapRects,
+    searchQuery,
+    debouncedSearch,
+    timeFrame,
+    selectedData,
+  ]);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -269,6 +290,7 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching mindshare data...');
         setLoading(true);
 
         // Calculate timeframe dates
@@ -276,6 +298,13 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         const start = new Date();
         const timeFrameValue = timeFrame.replace(/[^0-9]/g, '');
         const timeFrameUnit = timeFrame.replace(/[0-9]/g, '');
+
+        console.log('Timeframe params:', {
+          timeFrameValue,
+          timeFrameUnit,
+          start,
+          end,
+        });
 
         switch (timeFrameUnit) {
           case 'h':
@@ -293,6 +322,8 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           timeframe: { start, end },
         });
 
+        console.log('Raw mindshare data:', data);
+
         // Filter by search query if present
         const filteredData = debouncedSearch
           ? data.filter((item) =>
@@ -300,10 +331,14 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
             )
           : data;
 
+        console.log('Filtered data count:', filteredData.length);
+
         const totalEngagementScore = filteredData.reduce(
           (sum, item) => sum + item.engagement_score,
           0,
         );
+
+        console.log('Total engagement score:', totalEngagementScore);
 
         // Create a Map to keep only unique topics with their latest data
         const uniqueTopics = new Map();
@@ -328,16 +363,29 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           .sort((a, b) => b.value - a.value)
           .slice(0, 25);
 
+        console.log('Processed data:', {
+          uniqueTopicsCount: uniqueTopics.size,
+          processedDataCount: processedData.length,
+          firstItem: processedData[0],
+        });
+
         // Define container dimensions
         const container = { x0: 0, y0: 0, x1: 100, y1: 100 };
 
         // Generate treemap layout
         const layout = squarify<TreemapData>(processedData, container);
 
+        console.log('Treemap layout:', {
+          layoutCount: layout.length,
+          firstRect: layout[0],
+        });
+
         setTreemapRects(layout);
       } catch (err) {
         console.error('Error fetching mindshare data:', err);
-        setError('Failed to load mindshare data');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load mindshare data',
+        );
       } finally {
         setLoading(false);
       }
@@ -347,20 +395,22 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   }, [timeFrame, debouncedSearch]);
 
   const getBackgroundColor = (percentage: number, percentageChange: number) => {
-    // Base alpha on the topic weight percentage (0.3 to 0.9)
-    const alpha = Math.min(0.9, 0.3 + percentage * 0.03);
+    // Ensure minimum alpha for visibility
+    const alpha = Math.max(0.4, Math.min(0.9, 0.4 + percentage * 0.01));
 
-    // Use red for negative change, green for positive, grey for no change
-    const hue = percentageChange > 0 ? 160 : percentageChange < 0 ? 0 : 220;
+    // Use more vibrant colors
+    const hue = percentageChange > 0 ? 145 : percentageChange < 0 ? 0 : 210;
 
-    // Intensity based on absolute percentage change (max at 100%)
-    // For zero change, use a more muted saturation
+    // Higher base saturation and lightness for better visibility
     const saturation =
       Math.abs(percentageChange) < 0.1
-        ? 10 // Grey for no change
-        : Math.min(100, 45 + Math.abs(percentageChange) * 0.55);
+        ? 30 // More visible grey for no change
+        : Math.min(100, 60 + Math.abs(percentageChange) * 0.4);
 
-    return `hsla(${hue}, ${saturation}%, 25%, ${alpha})`;
+    // Increase lightness for better visibility
+    const lightness = Math.max(25, Math.min(45, 25 + percentage * 0.2));
+
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
   };
 
   const handleRectClick = (rect: TreemapData) => {
@@ -394,8 +444,9 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
 
   return (
     <Panel maxHeight={maxHeight}>
-      <div className="grid grid-rows-[auto_auto_1fr] h-full gap-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col h-full gap-4">
+        {/* Search and timeframe controls - Fixed height */}
+        <div className="flex gap-2 h-9 flex-shrink-0">
           <Input
             placeholder="Search topics..."
             value={searchQuery}
@@ -416,14 +467,18 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           </Select>
         </div>
 
-        <InfoArea
-          data={selectedData}
-          timeFrame={timeFrame}
-          onClose={() => setSelectedData(null)}
-        />
+        {/* Info area - Fixed height */}
+        <div className="h-[72px] flex-shrink-0">
+          <InfoArea
+            data={selectedData}
+            timeFrame={timeFrame}
+            onClose={() => setSelectedData(null)}
+          />
+        </div>
 
+        {/* Treemap container - Remaining height */}
         <div
-          className="relative w-full h-full"
+          className="flex-1 min-h-[300px] relative bg-black/20 rounded-lg overflow-hidden"
           onClick={() => setSelectedData(null)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -432,37 +487,59 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           }}
           role="presentation"
         >
-          {treemapRects.map((rect, index) => (
-            <button
-              type="button"
-              key={`${rect.topic}-${index}`}
-              className={cn(
-                'absolute cursor-pointer transition-all duration-200 rounded-lg overflow-hidden hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-background text-left',
-                selectedData?.topic === rect.topic &&
-                  'ring-2 ring-ring ring-offset-2 ring-offset-background',
-              )}
-              style={{
-                left: `${rect.x0}%`,
-                top: `${rect.y0}%`,
-                width: `${rect.x1 - rect.x0}%`,
-                height: `${rect.y1 - rect.y0}%`,
-                backgroundColor: getBackgroundColor(
-                  rect.percentage,
-                  rect.percentage_change,
-                ),
-              }}
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent the parent's onClick from firing
-                handleRectClick(rect);
-              }}
-            >
-              <div className="p-3 h-full flex flex-col">
-                <div className="font-medium text-xs text-white/90 truncate">
-                  {rect.topic}
-                </div>
-              </div>
-            </button>
-          ))}
+          <div className="absolute inset-0">
+            {treemapRects.map((rect, index) => {
+              // Calculate cell dimensions as percentages
+              const width = rect.x1 - rect.x0;
+              const height = rect.y1 - rect.y0;
+              const area = width * height;
+
+              // Much stricter thresholds
+              const isSmall = width < 15 || height < 15 || area < 225; // No percentage
+              const isTiny = width < 8 || height < 8 || area < 100; // No content at all
+
+              return (
+                <button
+                  type="button"
+                  key={`${rect.topic}-${index}`}
+                  className={cn(
+                    'absolute cursor-pointer transition-all duration-200 rounded-lg overflow-hidden hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-background text-left',
+                    !isTiny && 'p-2',
+                    selectedData?.topic === rect.topic &&
+                      'ring-2 ring-ring ring-offset-2 ring-offset-background',
+                  )}
+                  style={{
+                    left: `${rect.x0}%`,
+                    top: `${rect.y0}%`,
+                    width: `${Math.max(width, 0.1)}%`,
+                    height: `${Math.max(height, 0.1)}%`,
+                    backgroundColor: getBackgroundColor(
+                      rect.percentage,
+                      rect.percentage_change,
+                    ),
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRectClick(rect);
+                  }}
+                  title={`${rect.topic} (${rect.percentage.toFixed(1)}%)`}
+                >
+                  {!isTiny && (
+                    <div className="h-full flex flex-col justify-between">
+                      <div className="font-medium text-xs text-white/90 truncate">
+                        {rect.topic}
+                      </div>
+                      {!isSmall && (
+                        <div className="text-[10px] text-white/60 mt-1">
+                          {rect.percentage.toFixed(1)}%
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </Panel>
