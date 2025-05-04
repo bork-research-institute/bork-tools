@@ -1,16 +1,12 @@
 import type { TweetWithAnalysis } from '../tweets-analysis';
 
 export interface LiquidityMetrics {
-  totalLiquidity: number;
   burnedLpPercentage?: number;
+  totalLiquidity: number;
   lpHolderCount?: number;
   lpProgramId?: string;
   openTime?: string;
-  volumeMetrics?: {
-    volume24h: number;
-    volumeChange?: number;
-    isVolumeIncreasing?: boolean;
-  };
+  volumeMetrics?: VolumeMetrics;
 }
 
 export interface VolumeMetrics {

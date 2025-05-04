@@ -9,9 +9,15 @@ import {
   formatPrice,
   formatSupply,
 } from '@/lib/utils/format-number';
-import { getTimeAgo } from '@/lib/utils/format-time';
 import type { TokenSnapshot } from '@/types/token-monitor/token';
-import { CheckCircle2, Copy, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  XCircle,
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface TokenInfoPanelProps {
   selectedToken: TokenSnapshot | null;
@@ -22,6 +28,8 @@ export function TokenInfoPanel({
   selectedToken,
   onClose,
 }: TokenInfoPanelProps) {
+  const [isChartExpanded, setIsChartExpanded] = useState(false);
+
   if (!selectedToken) {
     return null;
   }
@@ -31,6 +39,19 @@ export function TokenInfoPanel({
   const description = selectedToken.data?.description;
   const freezable = selectedToken.data?.isFreezable;
   const mintable = selectedToken.data?.isMintable;
+  const lpProgramId = selectedToken.data?.liquidityMetrics?.lpProgramId;
+
+  // Format the timestamp to human readable format
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    }).format(date);
+  };
 
   return (
     <div className="relative mt-4 p-4 bg-[#0f172a] rounded-lg border border-emerald-400/10">
@@ -187,107 +208,95 @@ export function TokenInfoPanel({
           })}
         </div>
       )}
-      {/* Main info grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
-        {Object.entries(selectedToken.data || {}).map(([key, value]) => {
-          // Skip fields already rendered or not needed
-          if (
-            key === 'icon' ||
-            key === 'links' ||
-            key === 'description' ||
-            key === 'isFreezable' ||
-            key === 'isMintable' ||
-            key === 'mintAuthority' ||
-            key === 'freezeAuthority' ||
-            key === 'liquidityMetrics' ||
-            key === 'decimals' ||
-            key === 'tokenAddress' ||
-            key === 'name' ||
-            key === 'ticker' ||
-            key === 'timestamp' // Add timestamp to skipped fields
-          ) {
-            return null;
-          }
-          // Format supply and marketCap
-          if (key === 'supply' && typeof value === 'number') {
-            return (
-              <div key={key} className="flex flex-col bg-white/5 rounded p-2">
-                <span className="text-emerald-400/80 font-semibold">
-                  Supply
-                </span>
-                <span className="text-white/90 break-all whitespace-pre-wrap">
-                  {formatSupply(value)}
-                </span>
-              </div>
-            );
-          }
-          if (key === 'marketCap' && typeof value === 'number') {
-            return (
-              <div key={key} className="flex flex-col bg-white/5 rounded p-2">
-                <span className="text-emerald-400/80 font-semibold">MCap</span>
-                <span className="text-white/90 break-all whitespace-pre-wrap">
-                  {formatCurrency(value)}
-                </span>
-              </div>
-            );
-          }
-          // Format holderCount as Holders
-          if (key === 'holderCount' && typeof value === 'number') {
-            return (
-              <div key={key} className="flex flex-col bg-white/5 rounded p-2">
-                <span className="text-emerald-400/80 font-semibold">
-                  Holders
-                </span>
-                <span className="text-white/90 break-all whitespace-pre-wrap">
-                  {formatSupply(value)}
-                </span>
-              </div>
-            );
-          }
-          // Format priceInfo.price
-          if (
-            key === 'priceInfo' &&
-            value &&
-            typeof value === 'object' &&
-            typeof value.price === 'number'
-          ) {
-            return (
-              <div key={key} className="flex flex-col bg-white/5 rounded p-2">
-                <span className="text-emerald-400/80 font-semibold">Price</span>
-                <span className="text-white/90 break-all whitespace-pre-wrap">
-                  {formatPrice(value.price)}
-                </span>
-              </div>
-            );
-          }
-          // Pretty print objects/arrays
-          let displayValue: string;
-          if (typeof value === 'object' && value !== null) {
-            try {
-              displayValue = JSON.stringify(value, null, 2);
-            } catch {
-              displayValue = String(value);
-            }
-          } else {
-            displayValue = String(value);
-          }
-          return (
-            <div key={key} className="flex flex-col bg-white/5 rounded p-2">
-              <span className="text-emerald-400/80 font-semibold">{key}</span>
-              <span className="text-white/90 break-all whitespace-pre-wrap">
-                {displayValue}
-              </span>
-            </div>
-          );
-        })}
-        {/* Add Last Updated field at the end */}
+
+      {/* Chart Toggle Button */}
+      {lpProgramId && (
+        <button
+          type="button"
+          onClick={() => setIsChartExpanded(!isChartExpanded)}
+          className="w-full flex items-center justify-center gap-2 py-2 mb-2 text-emerald-400 hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded"
+        >
+          {isChartExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4" />
+              <span className="text-sm">Hide Chart</span>
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" />
+              <span className="text-sm">Show Chart</span>
+            </>
+          )}
+        </button>
+      )}
+
+      {/* GeckoTerminal Chart */}
+      {lpProgramId && isChartExpanded && (
+        <div className="w-full h-[500px] mb-4">
+          <iframe
+            height="100%"
+            width="100%"
+            id="geckoterminal-embed"
+            title="GeckoTerminal Embed"
+            src={`https://www.geckoterminal.com/solana/pools/${lpProgramId}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=15m`}
+            frameBorder="0"
+            allow="clipboard-write"
+            allowFullScreen={true}
+            className="rounded-lg"
+          />
+        </div>
+      )}
+
+      {/* Key Metrics Row */}
+      <div className="flex gap-2 text-xs">
+        {/* Snapshot Time */}
         {selectedToken.timestamp && (
-          <div className="flex flex-col bg-white/5 rounded p-2">
+          <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
             <span className="text-emerald-400/80 font-semibold">
-              Last Updated
+              Snapshot Taken
             </span>
             <span className="text-white/90 break-all whitespace-pre-wrap">
-              {getTimeAgo(selectedToken.timestamp)}
+              {formatTimestamp(selectedToken.timestamp)}
+            </span>
+          </div>
+        )}
+
+        {/* Supply */}
+        {typeof selectedToken.data?.supply === 'number' && (
+          <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
+            <span className="text-emerald-400/80 font-semibold">Supply</span>
+            <span className="text-white/90 break-all whitespace-pre-wrap">
+              {formatSupply(selectedToken.data.supply)}
+            </span>
+          </div>
+        )}
+
+        {/* Market Cap */}
+        {typeof selectedToken.data?.marketCap === 'number' && (
+          <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
+            <span className="text-emerald-400/80 font-semibold">MCap</span>
+            <span className="text-white/90 break-all whitespace-pre-wrap">
+              {formatCurrency(selectedToken.data.marketCap)}
+            </span>
+          </div>
+        )}
+
+        {/* Price */}
+        {typeof selectedToken.data?.priceInfo?.price === 'number' && (
+          <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
+            <span className="text-emerald-400/80 font-semibold">Price</span>
+            <span className="text-white/90 break-all whitespace-pre-wrap">
+              {formatPrice(selectedToken.data.priceInfo.price)}
+            </span>
+          </div>
+        )}
+
+        {/* Holders */}
+        {typeof selectedToken.data?.holderCount === 'number' && (
+          <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
+            <span className="text-emerald-400/80 font-semibold">Holders</span>
+            <span className="text-white/90 break-all whitespace-pre-wrap">
+              {formatSupply(selectedToken.data.holderCount)}
             </span>
           </div>
         )}

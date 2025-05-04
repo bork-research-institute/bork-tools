@@ -508,7 +508,7 @@ export function MetricsGallery() {
   };
 
   return (
-    <div className="p-4 h-[calc(100vh-theme(spacing.header)-theme(spacing.banner))] overflow-hidden">
+    <div className="py-2 px-4 h-[calc(100vh-theme(spacing.header)-theme(spacing.banner))] overflow-hidden">
       <Dialog
         open={maximizedPanel !== null}
         onOpenChange={() => setMaximizedPanel(null)}
@@ -525,7 +525,7 @@ export function MetricsGallery() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-12 gap-6 h-full relative">
+      <div className="grid grid-cols-12 gap-2 h-full relative">
         {/* Vertical divider */}
         <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/5" />
 
@@ -535,7 +535,7 @@ export function MetricsGallery() {
             defaultValue="trending"
             className="flex-1 flex flex-col min-h-0"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <Filter className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
@@ -665,7 +665,7 @@ export function MetricsGallery() {
             onValueChange={setActiveRightTab}
             className="flex-1 flex flex-col min-h-0"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-3 w-3 text-white/60" />
                 <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
@@ -679,7 +679,7 @@ export function MetricsGallery() {
                       value="tokenTweets"
                       className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                     >
-                      token tweets
+                      token
                     </TabsTrigger>
                   )}
                   <TabsTrigger

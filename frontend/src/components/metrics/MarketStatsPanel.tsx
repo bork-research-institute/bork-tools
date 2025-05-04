@@ -339,6 +339,15 @@ export function MarketStatsPanel({
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
+        {/* Token Info Section */}
+        {selectedToken && (
+          <div className="h-[50%] min-h-0 overflow-auto border-t border-emerald-400/10 mb-4 pb-4">
+            <TokenInfoPanel
+              selectedToken={selectedToken}
+              onClose={() => onTokenSelect?.(null)}
+            />
+          </div>
+        )}
         <div className="flex items-center justify-end border-b border-emerald-400/10 gap-3 px-3 mb-2">
           <div className="flex items-center gap-1">
             {(Object.entries(timeframeLabels) as [TimeFrame, string][]).map(
@@ -408,16 +417,6 @@ export function MarketStatsPanel({
             selectedToken && 'h-full', // Ensure parent takes full height when token selected
           )}
         >
-          {/* Token Info Section */}
-          {selectedToken && (
-            <div className="h-[50%] min-h-0 overflow-auto border-t border-emerald-400/10 mb-4 pb-4">
-              <TokenInfoPanel
-                selectedToken={selectedToken}
-                onClose={() => onTokenSelect?.(null)}
-              />
-            </div>
-          )}
-
           {/* Table Section */}
           <div className={cn('min-h-0', selectedToken ? 'h-[50%]' : 'h-full')}>
             <div className="h-full overflow-auto">

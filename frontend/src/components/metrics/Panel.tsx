@@ -19,7 +19,7 @@ export function Panel({
           {headerContent}
         </div>
       )}
-      <div className="px-4 pb-4">
+      <div className="px-2 pb-2">
         <style jsx={true}>{`
           div::-webkit-scrollbar {
             width: var(--scrollbar-width);

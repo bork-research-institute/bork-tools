@@ -135,8 +135,6 @@ export function TokenTweetsPanel({
   const [filteredTweets, setFilteredTweets] = useState<TweetWithAnalysis[]>([]);
   const [userYaps, setUserYaps] = useState<UserYaps>({});
 
-  console.log('TokenTweetsPanel render', tweetIds);
-
   // Use provided tweets if available, otherwise fetch by IDs
   useEffect(() => {
     if (providedTweets) {
@@ -149,7 +147,6 @@ export function TokenTweetsPanel({
       setTweets([]);
       return;
     }
-    console.log('TokenTweetsPanel: Fetching tweets for IDs:', tweetIds);
     setLoading(true);
     tweetService
       .getTweetsAndAnalysesByIds(tweetIds)
