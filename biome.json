@@ -31,9 +31,11 @@
         "noUnusedImports": "error",
         "noUnusedPrivateClassMembers": "error",
         "noUnusedVariables": "error",
-        "useArrayLiterals": "error"
+        "useArrayLiterals": "error",
+        "noNodejsModules": "off"
       },
       "style": {
+        "noNamespaceImport": "off",
         "noImplicitBoolean": "error",
         "noNegationElse": "error",
         "noParameterProperties": "error",

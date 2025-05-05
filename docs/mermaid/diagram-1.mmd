@@ -1,0 +1,57 @@
+graph TB
+    %% Main Components
+    TwitterBot[Twitter Bot Plugin]
+    TwitterService[Twitter Service]
+    
+    %% Client Components
+    AccountsClient[Accounts Client]
+    SearchClient[Search Client]
+    InteractionClient[Interaction Client]
+    DiscoveryClient[Discovery Client]
+    
+    %% Services
+    AuthService[Auth Service]
+    CacheService[Cache Service]
+    RequestService[Request Service]
+    SpamService[Spam Service]
+    ConfigService[Config Service]
+    KaitoService[Kaito Service]
+    
+    %% External Systems
+    Twitter[(Twitter API)]
+    KaitoAPI[(Kaito API)]
+    ElizaCore[Eliza Core]
+    
+    %% Relationships
+    TwitterBot --> TwitterService
+    TwitterService --> AuthService
+    TwitterService --> CacheService
+    TwitterService --> RequestService
+    TwitterService --> SpamService
+    TwitterService --> ConfigService
+    
+    TwitterBot --> AccountsClient
+    TwitterBot --> SearchClient
+    TwitterBot --> InteractionClient
+    TwitterBot --> DiscoveryClient
+    
+    AccountsClient --> TwitterService
+    SearchClient --> TwitterService
+    InteractionClient --> TwitterService
+    DiscoveryClient --> TwitterService
+    
+    RequestService --> Twitter
+    AuthService --> Twitter
+    KaitoService --> KaitoAPI
+    
+    %% Core Integration
+    TwitterBot --> ElizaCore
+    
+    %% Styling
+    classDef external fill:#f9f,stroke:#333,stroke-width:2px
+    classDef service fill:#bbf,stroke:#333,stroke-width:1px
+    classDef client fill:#bfb,stroke:#333,stroke-width:1px
+    
+    class Twitter,KaitoAPI,ElizaCore external
+    class AuthService,CacheService,RequestService,SpamService,ConfigService,KaitoService service
+    class AccountsClient,SearchClient,InteractionClient,DiscoveryClient client

@@ -1,0 +1,50 @@
+graph TB
+    subgraph Inputs
+        config[/"Static: Discovery Config
+        - Account criteria
+        - Evaluation metrics"/]
+        accounts[/"Dynamic: Current Accounts
+        - Target accounts
+        - Performance history"/]
+        interactions[/"Dynamic: Account Interactions
+        - Engagement rates
+        - Content relevance"/]
+    end
+
+    subgraph Process
+        select["Select Accounts for Analysis"]
+        discover["Discover Related Accounts
+        - Followers
+        - Similar content"]
+        evaluate["Evaluate Accounts
+        - Content quality
+        - Engagement metrics
+        - Topic alignment"]
+        update["Update Target List
+        - Add high value
+        - Remove low performers"]
+    end
+
+    subgraph Outputs
+        targets["Updated Target Accounts"]
+        scores["Account Scores
+        - Quality metrics
+        - Relevance scores"]
+        insights["Discovery Insights
+        - Network growth
+        - Quality trends"]
+    end
+
+    config --> select
+    accounts --> select
+    interactions --> discover
+    select --> discover
+    discover --> evaluate
+    evaluate --> update
+    update --> targets
+    update --> scores
+    update --> insights
+
+    style Inputs fill:#e1f3d8,stroke:#333,stroke-width:1px
+    style Process fill:#fff7de,stroke:#333,stroke-width:1px
+    style Outputs fill:#f2e1ff,stroke:#333,stroke-width:1px

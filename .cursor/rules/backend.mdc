@@ -3,11 +3,7 @@ description: Senior backend developer (eliza)
 globs: backend/**/*.ts
 alwaysApply: false
 ---
----
-description: Senior backend developer
-globs: backend/**/*.ts
----
- # Backend Development Guidelines
+# Backend Development Guidelines
 
 ## Project Overview
 This backend project uses:
@@ -59,6 +55,10 @@ backend/
 - Use try/catch blocks for error handling
 - Log errors with appropriate context
 - Return meaningful error responses
+
+### File size
+- If files get too big (over 500+ lines), split the code into smaller files
+- A file should try to contain 1 function using the SOLID principles
 
 ### API Design
 - Define request/response types in the appropriate folders

@@ -1,164 +1,247 @@
+import type {
+  DatabaseTweet,
+  TweetAnalysis as ExternalTweetAnalysis,
+  TweetWithAnalysis,
+} from '@/types/tweets-analysis';
 import { supabaseClient } from '../config/client-supabase';
 
-export interface TweetAnalysis {
-  id: string;
-  tweet_id: string;
-  content: string;
-  sentiment: 'positive' | 'negative' | 'neutral';
-  confidence: number;
-  impact_score: number;
-  content_relevance: number;
-  content_quality: number;
-  content_engagement: number;
-  content_authenticity: number;
-  content_value_add: number;
-  created_at: string;
-  permanent_url: string;
-  username: string;
-  name: string;
-  likes: number;
-  retweets: number;
-  replies: number;
-  type: string;
-  media_type?: string;
-  media_url?: string;
-  photos: string[];
-}
+export type ScoreFilter =
+  | 'aggregate'
+  | 'impact_score'
+  | 'relevance'
+  | 'clarity'
+  | 'authenticity'
+  | 'value_add'
+  | 'engagement_score';
 
 export interface TrendingTweet extends TweetAnalysis {
   aggregate_score: number;
-  is_news: boolean;
+  engagement_score: number;
+  impact_score: number;
+  permanent_url: string;
+  name: string;
+  username: string;
+  content: string;
+  photos: string[];
 }
 
-export type ScoreFilter =
-  | 'impact_score'
-  | 'content_relevance'
-  | 'content_quality'
-  | 'content_engagement'
-  | 'content_authenticity'
-  | 'content_value_add'
-  | 'aggregate';
+// Local TweetAnalysis for trending/analysis logic
+export interface TweetAnalysis {
+  id: string;
+  tweet_id: string;
+  type: string;
+  format: string;
+  sentiment: string;
+  confidence: number;
+  content_summary: string;
+  topics: string[];
+  entities: string[];
+  // Quality metrics
+  relevance: number;
+  clarity: number;
+  authenticity: number;
+  value_add: number;
+  // Engagement metrics
+  likes: number;
+  replies: number;
+  retweets: number;
+  // Timestamps and metadata
+  created_at: string;
+  analyzed_at: string;
+  author_username: string;
+  marketing_summary: string;
+  is_spam: boolean;
+  spam_score: number;
+}
 
-const calculateWeightedScore = (score: number, confidence: number) => {
-  return Math.min(Math.round(score * 100 * confidence), 100);
+// Calculate engagement score based on weighted metrics
+const calculateEngagementScore = (tweet: TweetAnalysis): number => {
+  const totalEngagement =
+    tweet.likes * 1 + // 1 point per like
+    tweet.retweets * 2 + // 2 points per retweet
+    tweet.replies * 3; // 3 points per reply
+
+  // Normalize to 0-100 scale
+  // Assuming a "perfect" tweet might get 1000 weighted engagement points
+  return Math.min(Math.round((totalEngagement / 1000) * 100), 100);
+};
+
+// Calculate aggregate score based on all metrics
+const calculateAggregateScore = (tweet: TweetAnalysis): number => {
+  const engagementScore = calculateEngagementScore(tweet);
+
+  // Convert quality metrics to 0-100 scale and average with engagement score
+  const score = Math.round(
+    (engagementScore +
+      tweet.relevance * 100 +
+      tweet.clarity * 100 +
+      tweet.authenticity * 100 +
+      tweet.value_add * 100) /
+      5,
+  );
+
+  return Math.min(score, 100);
+};
+
+const processTweet = (tweet: TweetAnalysis): TrendingTweet => {
+  const engagementScore = calculateEngagementScore(tweet);
+  const aggregateScore = calculateAggregateScore(tweet);
+
+  // Convert quality metrics to 0-100 scale
+  const processedTweet = {
+    ...tweet,
+    relevance: tweet.relevance * 100,
+    clarity: tweet.clarity * 100,
+    authenticity: tweet.authenticity * 100,
+    value_add: tweet.value_add * 100,
+    engagement_score: engagementScore,
+    aggregate_score: aggregateScore,
+    impact_score: Math.round(tweet.value_add * 100),
+    permanent_url: `https://twitter.com/${tweet.author_username}/status/${tweet.tweet_id}`,
+    name: tweet.author_username,
+    username: tweet.author_username,
+    content: tweet.content_summary,
+    photos: [], // We'll add media handling in the query
+  };
+
+  return processedTweet;
 };
 
 export const tweetService = {
-  async getTrendingTweets(
-    _timeframe = '24h',
-    scoreFilter: ScoreFilter = 'aggregate',
-    limit = 10,
-    newsOnly = false,
-  ): Promise<TrendingTweet[]> {
+  async getTrendingTweets(limit = 50): Promise<TrendingTweet[]> {
     try {
-      let query = supabaseClient
+      const { data, error } = await supabaseClient
         .from('tweet_analysis')
         .select(`
           *,
-          tweets!inner(
-            content,
-            permanent_url,
-            username,
-            name,
-            likes,
-            retweets,
-            replies,
-            media_type,
+          tweet:tweet_id (
+            text,
             media_url,
             photos
           )
         `)
-        .gte(
-          'created_at',
-          new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        );
-
-      // For news tweets, only get type='news'
-      // For non-news tweets, get everything except type='news'
-      if (newsOnly) {
-        query = query.eq('type', 'news');
-      } else {
-        query = query.neq('type', 'news');
-      }
-
-      const { data, error } = await query;
+        .eq('is_spam', false)
+        .neq('type', 'news')
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       if (error) {
-        console.error('Error fetching tweet analysis:', error.message);
+        console.error('Error fetching trending tweets:', error);
         return [];
       }
 
-      if (!data || data.length === 0) {
-        return [];
-      }
-
-      const processedTweets = data
-        .map((row) => {
-          const tweet = row.tweets;
-          const weightedScores = {
-            impact_score: calculateWeightedScore(
-              row.impact_score,
-              row.confidence,
-            ),
-            content_relevance: calculateWeightedScore(
-              row.content_relevance,
-              row.confidence,
-            ),
-            content_quality: calculateWeightedScore(
-              row.content_quality,
-              row.confidence,
-            ),
-            content_engagement: calculateWeightedScore(
-              row.content_engagement,
-              row.confidence,
-            ),
-            content_authenticity: calculateWeightedScore(
-              row.content_authenticity,
-              row.confidence,
-            ),
-            content_value_add: calculateWeightedScore(
-              row.content_value_add,
-              row.confidence,
-            ),
-          };
-
-          // Process photos array to extract URLs
-          const photos = Array.isArray(tweet.photos)
-            ? tweet.photos
-                .map((photo: { url: string }) => photo.url)
-                .filter(Boolean)
-            : [];
-
-          return {
-            ...row,
-            ...weightedScores,
-            content: tweet.content,
-            permanent_url: tweet.permanent_url,
-            username: tweet.username,
-            name: tweet.name,
-            likes: tweet.likes,
-            retweets: tweet.retweets,
-            replies: tweet.replies,
-            media_type: tweet.media_type,
-            media_url: tweet.media_url,
-            photos,
-            is_news: row.type === 'news',
-            aggregate_score: Math.round(
-              Object.values(weightedScores).reduce((a, b) => a + b, 0) / 6,
-            ),
-          };
-        })
-        .sort((a, b) => {
-          if (scoreFilter === 'aggregate') {
-            return b.aggregate_score - a.aggregate_score;
-          }
-          return b[scoreFilter] - a[scoreFilter];
-        })
-        .slice(0, limit);
-
-      return processedTweets;
+      return (data || []).map((row) => ({
+        ...processTweet(row),
+        content: row.tweet?.text || row.content_summary,
+        photos: row.tweet?.photos || [],
+      }));
     } catch (error) {
-      console.error('Unexpected error fetching trending tweets:', error);
+      console.error('Error in getTrendingTweets:', error);
+      return [];
+    }
+  },
+
+  async getNewsTweets(limit = 50): Promise<TrendingTweet[]> {
+    try {
+      const { data, error } = await supabaseClient
+        .from('tweet_analysis')
+        .select(`
+          *,
+          tweet:tweet_id (
+            text,
+            media_url,
+            photos
+          )
+        `)
+        .eq('is_spam', false)
+        .eq('type', 'news')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching news tweets:', error);
+        return [];
+      }
+
+      return (data || []).map((row) => ({
+        ...processTweet(row),
+        content: row.tweet?.text || row.content_summary,
+        photos: row.tweet?.photos || [],
+      }));
+    } catch (error) {
+      console.error('Error in getNewsTweets:', error);
+      return [];
+    }
+  },
+
+  async getTweetsByIds(tweetIds: string[]): Promise<TrendingTweet[]> {
+    if (!tweetIds || tweetIds.length === 0) {
+      return [];
+    }
+    try {
+      const { data, error } = await supabaseClient
+        .from('tweet_analysis')
+        .select('*, tweet:tweet_id (text, media_url, photos)')
+        .in('tweet_id', tweetIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching tweets by ids:', error);
+        return [];
+      }
+
+      return (data || []).map((row) => ({
+        ...processTweet(row),
+        content: row.tweet?.text || row.content_summary,
+        photos: row.tweet?.photos || [],
+      }));
+    } catch (error) {
+      console.error('Error in getTweetsByIds:', error);
+      return [];
+    }
+  },
+
+  async getTweetsAndAnalysesByIds(
+    tweetIds: string[],
+  ): Promise<TweetWithAnalysis[]> {
+    if (!tweetIds || tweetIds.length === 0) {
+      return [];
+    }
+    try {
+      // Fetch tweets
+      const { data: tweets, error: tweetsError } = await supabaseClient
+        .from('tweets')
+        .select('*')
+        .in('tweet_id', tweetIds);
+
+      if (tweetsError) {
+        console.error('Error fetching tweets:', tweetsError);
+        return [];
+      }
+
+      // Fetch analyses
+      const { data: analyses, error: analysesError } = await supabaseClient
+        .from('tweet_analysis')
+        .select('*')
+        .in('tweet_id', tweetIds);
+
+      if (analysesError) {
+        console.error('Error fetching tweet analyses:', analysesError);
+        return [];
+      }
+
+      // Merge analyses into tweets by tweet_id
+      const analysisMap = new Map<string, ExternalTweetAnalysis>();
+      for (const analysis of analyses || []) {
+        analysisMap.set(analysis.tweet_id, analysis as ExternalTweetAnalysis);
+      }
+
+      return (tweets || []).map((tweet: DatabaseTweet) => ({
+        ...tweet,
+        analysis: analysisMap.get(tweet.tweet_id),
+      }));
+    } catch (error) {
+      console.error('Error in getTweetsAndAnalysesByIds:', error);
       return [];
     }
   },

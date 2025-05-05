@@ -1,5 +1,5 @@
 'use client';
-
+import { postMessage } from '@/lib/services/post-message';
 import { Send } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
@@ -18,6 +18,7 @@ export function ChatBubble() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function ChatBubble() {
     }
   }, [isOpen, hasShownWelcome]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim()) {
       return;
     }
@@ -49,17 +50,18 @@ export function ChatBubble() {
     setMessages((prev) => [...prev, newMessage]);
     setInput('');
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
+    setIsLoading(true);
+    const response = await postMessage(input);
+    for (const message of response) {
+      const newMessage: Message = {
         id: Math.random().toString(),
-        content:
-          'Currently this live agent chat is not in service... coming soon',
+        content: message.text,
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+      setMessages((prev) => [...prev, newMessage]);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -131,6 +133,19 @@ export function ChatBubble() {
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className={'flex justify-start'}>
+                  <div className="relative h-8 w-8 rounded-full overflow-hidden mr-2 mt-1">
+                    <Image
+                      src="/assets/Borksticker.webp"
+                      alt="Bork"
+                      fill={true}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="w-20 h-10 bg-gray-600/50 animate-pulse rounded-lg" />
+                </div>
+              )}
             </div>
           </ScrollArea>
 

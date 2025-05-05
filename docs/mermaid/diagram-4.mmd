@@ -1,0 +1,49 @@
+graph TB
+    subgraph Inputs
+        config[/"Static: Search Config
+        - Search terms
+        - Result limits
+        - Update frequency"/]
+        weights[/"Static: Topic Weights
+        - Relevance scores
+        - Priority levels"/]
+        results[/"Dynamic: Search Results
+        - Tweets matching terms
+        - User metrics"/]
+    end
+
+    subgraph Process
+        init["Select Search Terms
+        (Weight-based)"]
+        search["Execute Search Queries"]
+        filter["Filter Results
+        - Spam check
+        - Relevance scoring"]
+        analyze["Analyze Content
+        - Topic matching
+        - Sentiment analysis"]
+        generate["Generate Responses"]
+    end
+
+    subgraph Outputs
+        responses["AI Generated Responses"]
+        discoveries["New Account Discoveries"]
+        analytics["Search Analytics
+        - Term performance
+        - Response metrics"]
+    end
+
+    config --> init
+    weights --> init
+    init --> search
+    results --> search
+    search --> filter
+    filter --> analyze
+    analyze --> generate
+    generate --> responses
+    generate --> discoveries
+    generate --> analytics
+
+    style Inputs fill:#e1f3d8,stroke:#333,stroke-width:1px
+    style Process fill:#fff7de,stroke:#333,stroke-width:1px
+    style Outputs fill:#f2e1ff,stroke:#333,stroke-width:1px
