@@ -17,6 +17,7 @@ const calculateTimeDecay = (timestamp: number | undefined): number => {
     hour24: HOUR * 24,
     hour48: HOUR * 48,
     hour72: HOUR * 72,
+    hour168: HOUR * 168, // 1 week
   };
 
   // No decay for first hour
@@ -53,24 +54,37 @@ const calculateTimeDecay = (timestamp: number | undefined): number => {
         (thresholds.hour72 - thresholds.hour48)
     );
   }
-  // After 72h, decay exponentially but never below 0.1
+  // Decay to 0.1 between 72h and 1 week
+  if (age <= thresholds.hour168) {
+    return (
+      0.1 +
+      (0.1 * (thresholds.hour168 - age)) /
+        (thresholds.hour168 - thresholds.hour72)
+    );
+  }
+  // After 1 week, decay exponentially with a much steeper curve
   return Math.max(
-    0.1,
-    0.2 * Math.exp(-(age - thresholds.hour72) / thresholds.hour24),
+    0.01, // Lower minimum
+    0.1 * Math.exp(-(age - thresholds.hour168) / (HOUR * 24)), // Much faster decay
   );
 };
 
 // Calculate social engagement score based on aggregated decayed metrics
 const calculateSocialScore = (tweets: TweetWithAnalysis[]): number => {
-  // Filter out spam tweets
+  // Filter out spam tweets (those without analysis)
   const validTweets = tweets.filter((tweet) => tweet.status !== 'spam');
-
-  // If no valid tweets after filtering, return 0
   if (validTweets.length === 0) {
     return 0;
   }
 
-  // Calculate decayed metrics for each valid tweet
+  // First, apply time decay to all metrics based on tweet age:
+  // - 0-1h: 100% (no decay)
+  // - 1-4h: 90-100% (linear decay)
+  // - 4-24h: 70-90% (linear decay)
+  // - 24-48h: 40-70% (linear decay)
+  // - 48-72h: 20-40% (linear decay)
+  // - 72h-1week: 10-20% (linear decay)
+  // - >1week: exponential decay starting at 10%, minimum 1%
   const decayedMetrics = validTweets.map((tweet) => {
     const timeDecay = calculateTimeDecay(tweet.timestamp);
     return {
@@ -80,16 +94,17 @@ const calculateSocialScore = (tweets: TweetWithAnalysis[]): number => {
       views: (tweet.views || 0) * timeDecay,
       quality: tweet.analysis
         ? {
-            relevance: tweet.analysis.relevance,
-            clarity: tweet.analysis.clarity,
-            authenticity: tweet.analysis.authenticity,
-            value_add: tweet.analysis.value_add,
+            relevance: tweet.analysis.relevance * timeDecay,
+            clarity: tweet.analysis.clarity * timeDecay,
+            authenticity: tweet.analysis.authenticity * timeDecay,
+            value_add: tweet.analysis.value_add * timeDecay,
           }
         : null,
+      timeDecay,
     };
   });
 
-  // Aggregate all decayed metrics
+  // Sum up all decayed metrics across all tweets
   const totalMetrics = decayedMetrics.reduce(
     (acc, metrics) => ({
       likes: acc.likes + metrics.likes,
@@ -102,38 +117,62 @@ const calculateSocialScore = (tweets: TweetWithAnalysis[]): number => {
 
   let score = 0;
 
-  // Score views (max 15 points, less weight as it's passive)
-  const viewScore = Math.min(15, Math.log10(totalMetrics.views + 1) ** 1.5 * 8);
+  // 1. Views Score (max 10 points)
+  // Two-phase scoring:
+  // Phase 1 (0-50k views): Logarithmic growth
+  // Phase 2 (50k+ views): Linear growth
+  const VIEW_THRESHOLD = 50000;
+  const viewScore = (() => {
+    const baseScore = Math.log10(totalMetrics.views + 1) * 2;
+    if (totalMetrics.views <= VIEW_THRESHOLD) {
+      return Math.min(10, baseScore);
+    }
+    const extraViews = totalMetrics.views - VIEW_THRESHOLD;
+    const extraScore = (extraViews / 100000) * 2; // Linear growth after threshold
+    return Math.min(10, baseScore + extraScore);
+  })();
   score += viewScore;
 
-  // Score active engagement (max 20 points each)
-  const likeScore = Math.min(
-    20,
-    Math.log10(totalMetrics.likes + 1) ** 1.8 * 12,
-  );
-  const replyScore = Math.min(
-    20,
-    Math.log10(totalMetrics.replies + 1) ** 1.8 * 14,
-  );
-  const retweetScore = Math.min(
-    20,
-    Math.log10(totalMetrics.retweets + 1) ** 1.8 * 14,
-  );
+  // 2. Active Engagement Scores (max 25 points each)
+  // Two-phase scoring for each metric:
+  // Phase 1 (0-1000): Logarithmic growth
+  // Phase 2 (1000+): Linear growth
+  const ENGAGEMENT_THRESHOLD = 1000;
+  const calculateEngagementScore = (value: number, multiplier: number) => {
+    const baseScore = Math.log10(value + 1) * multiplier;
+    if (value <= ENGAGEMENT_THRESHOLD) {
+      return Math.min(25, baseScore);
+    }
+    const extraEngagement = value - ENGAGEMENT_THRESHOLD;
+    const extraScore = (extraEngagement / 2000) * 5; // Linear growth after threshold
+    return Math.min(25, baseScore + extraScore);
+  };
 
-  // Bonus multiplier for balanced engagement (reduced from 1.2 to 1.1)
+  const likeScore = calculateEngagementScore(totalMetrics.likes, 6);
+  const replyScore = calculateEngagementScore(totalMetrics.replies, 7);
+  const retweetScore = calculateEngagementScore(totalMetrics.retweets, 7);
+
+  // 3. Tweet Count Impact (0-15 points)
+  // Rewards having multiple recent tweets
+  const tweetCountScore = Math.min(15, Math.log10(validTweets.length + 1) * 10);
+  score += tweetCountScore;
+
+  // 4. Balanced Engagement Bonus (15% boost)
+  // Increased from 10% to 15% to reward well-rounded engagement
   const hasAllEngagement =
     totalMetrics.likes > 0 &&
     totalMetrics.replies > 0 &&
     totalMetrics.retweets > 0;
-  const engagementMultiplier = hasAllEngagement ? 1.1 : 1;
+  const engagementMultiplier = hasAllEngagement ? 1.15 : 1;
 
   score += (likeScore + replyScore + retweetScore) * engagementMultiplier;
 
-  // Add quality score if available (max 25 points)
+  // 5. Quality Score (max 25 points)
   const qualityScores = decayedMetrics
     .map((m) => m.quality)
     .filter((q): q is NonNullable<typeof q> => q !== null);
 
+  let qualityScore = 0;
   if (qualityScores.length > 0) {
     const avgQuality = {
       relevance:
@@ -150,25 +189,29 @@ const calculateSocialScore = (tweets: TweetWithAnalysis[]): number => {
         qualityScores.length,
     };
 
-    const qualityScore =
-      (avgQuality.relevance ** 1.5 +
-        avgQuality.clarity ** 1.5 +
-        avgQuality.authenticity ** 1.5 +
-        avgQuality.value_add ** 1.5) *
-      7;
+    // Linear combination of quality metrics
+    qualityScore = Math.min(
+      25,
+      (avgQuality.relevance * 6 +
+        avgQuality.clarity * 6 +
+        avgQuality.authenticity * 6 +
+        avgQuality.value_add * 7) *
+        // Scale based on number of quality tweets
+        Math.min(1.5, Math.log10(qualityScores.length + 1)),
+    );
 
-    score += Math.min(25, qualityScore);
+    score += qualityScore;
   }
 
-  // Bonus for having multiple tweets with engagement (reduced multipliers)
-  const tweetsWithEngagement = decayedMetrics.filter(
-    (m) => m.likes > 0 || m.replies > 0 || m.retweets > 0,
-  ).length;
-
-  const volumeMultiplier =
-    tweetsWithEngagement > 3 ? 1.15 : tweetsWithEngagement > 1 ? 1.1 : 1;
-
-  return Math.min(100, score * volumeMultiplier);
+  // Final score breakdown (maximum 100 points):
+  // - Views: 0-10 points (more linear after 50k)
+  // - Likes: 0-25 points (more linear after 1k)
+  // - Replies: 0-25 points (more linear after 1k)
+  // - Retweets: 0-25 points (more linear after 1k)
+  // - Tweet Count: 0-15 points
+  // - Quality: 0-25 points (scaled by tweet count)
+  // - Balanced engagement: +15% to engagement scores
+  return Math.min(100, score);
 };
 
 export const calculateTokenScore = (

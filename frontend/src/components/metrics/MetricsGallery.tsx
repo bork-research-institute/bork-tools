@@ -1,9 +1,8 @@
 'use client';
 import { PANEL_HEIGHT } from '@/lib/config/metrics';
-import { transformSnapshots } from '@/lib/helpers/metrics';
 import { relationshipsService } from '@/lib/services/relationships';
+import { tokenMetricsService } from '@/lib/services/token-metrics-service';
 import type { TimeFrame } from '@/lib/services/token-snapshot-service';
-import { tokenSnapshotService } from '@/lib/services/token-snapshot-service';
 import { tweetService } from '@/lib/services/tweets';
 import type {
   MetricsGalleryState,
@@ -71,25 +70,27 @@ export function MetricsGallery() {
   // Add timeframe handler
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
+    tokenMetricsService.setTimeframe(newTimeframe);
   };
 
   // Initial token snapshots fetch - runs only once on mount
   useEffect(() => {
     let isMounted = true;
 
-    const fetchInitialTokenSnapshots = async () => {
+    const fetchData = async () => {
       if (!isMounted) {
         return;
       }
+
       setState((prev) => ({ ...prev, tokenSnapshotsLoading: true }));
       try {
-        tokenSnapshotService.setTimeframe(timeframe);
-        const snapshots = await tokenSnapshotService.getTokenSnapshots();
+        tokenMetricsService.setTimeframe(timeframe);
+        const snapshots =
+          await tokenMetricsService.fetchInitialTokenSnapshots();
         if (isMounted) {
-          const transformedSnapshots = transformSnapshots(snapshots);
           setState((prev) => ({
             ...prev,
-            tokenSnapshots: transformedSnapshots,
+            tokenSnapshots: snapshots,
           }));
         }
       } catch (error) {
@@ -101,23 +102,21 @@ export function MetricsGallery() {
       }
     };
 
-    fetchInitialTokenSnapshots();
+    fetchData();
 
     return () => {
       isMounted = false;
     };
-  }, [timeframe]); // Include timeframe in dependencies since we're using it
+  }, [timeframe]);
 
   // Token snapshots subscription - updates when timeframe changes
   useEffect(() => {
     const setupSubscription = async () => {
-      tokenSnapshotService.setTimeframe(timeframe);
-      const unsubscribe = await tokenSnapshotService.subscribeToTokenSnapshots(
+      const unsubscribe = await tokenMetricsService.setupSubscription(
         (snapshots) => {
-          const transformedSnapshots = transformSnapshots(snapshots);
           setState((prev) => ({
             ...prev,
-            tokenSnapshots: transformedSnapshots,
+            tokenSnapshots: snapshots,
           }));
         },
       );
@@ -126,70 +125,28 @@ export function MetricsGallery() {
 
     const cleanup = setupSubscription();
     return () => {
-      cleanup.then((unsubscribe) => unsubscribe?.());
+      cleanup.then((unsubscribe) => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      });
     };
-  }, [timeframe]);
+  }, []);
 
   // Fetch tweets and calculate engagement for tokens
   useEffect(() => {
-    const fetchTweetEngagement = async () => {
+    const fetchData = async () => {
       if (!state.tokenSnapshots) {
         return;
       }
 
-      const updatedTokens = await Promise.all(
-        state.tokenSnapshots.map(async (token) => {
-          if (!token.tweet_ids || token.tweet_ids.length === 0) {
-            return {
-              ...token,
-              engagement: {
-                likes: 0,
-                replies: 0,
-                retweets: 0,
-                views: 0,
-                tweets: [],
-              },
-            } as TokenWithEngagement;
-          }
-
-          try {
-            // Fetch tweets with analyses once
-            const tweets = await tweetService.getTweetsAndAnalysesByIds(
-              token.tweet_ids,
-            );
-
-            // Filter out spam tweets
-            const validTweets = tweets.filter(
-              (tweet) => tweet.status !== 'spam',
-            );
-
-            // Return token with both aggregated metrics and full tweet data
-            return {
-              ...token,
-              engagement: {
-                tweets: validTweets, // Include full tweet objects with analyses
-              },
-            } as TokenWithEngagement;
-          } catch (error) {
-            console.error('Error fetching tweet data:', error);
-            return {
-              ...token,
-              engagement: {
-                likes: 0,
-                replies: 0,
-                retweets: 0,
-                views: 0,
-                tweets: [],
-              },
-            } as TokenWithEngagement;
-          }
-        }),
+      const updatedTokens = await tokenMetricsService.fetchTweetEngagement(
+        state.tokenSnapshots,
       );
-
       setState((prev) => ({ ...prev, tokensWithEngagement: updatedTokens }));
     };
 
-    fetchTweetEngagement();
+    fetchData();
   }, [state.tokenSnapshots]);
 
   // Fetch trending and news tweets

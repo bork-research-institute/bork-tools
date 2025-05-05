@@ -157,8 +157,20 @@ export function MarketStatsPanel({
           break;
         }
         case 'score': {
-          aValue = calculateTokenScore(a, a.engagement?.tweets);
-          bValue = calculateTokenScore(b, b.engagement?.tweets);
+          aValue = calculateTokenScore(
+            a,
+            a.engagement?.tweets?.filter(
+              (t: TweetWithAnalysis) =>
+                t.analysis !== null && t.analysis !== undefined,
+            ),
+          );
+          bValue = calculateTokenScore(
+            b,
+            b.engagement?.tweets?.filter(
+              (t: TweetWithAnalysis) =>
+                t.analysis !== null && t.analysis !== undefined,
+            ),
+          );
           break;
         }
         default: {
@@ -189,7 +201,17 @@ export function MarketStatsPanel({
 
   // Update the table cell rendering to use ScoreBar for score field
   const renderTableCell = (snapshot: TokenWithEngagement, field: string) => {
-    const value = renderValue(snapshot, field);
+    let value: string | number | React.ReactNode;
+    if (field === 'score') {
+      const validTweets = snapshot.engagement?.tweets?.filter(
+        (t: TweetWithAnalysis) =>
+          t.analysis !== null && t.analysis !== undefined,
+      );
+      value = calculateTokenScore(snapshot, validTweets);
+    } else {
+      value = renderValue(snapshot, field);
+    }
+
     if (field === 'score' && typeof value === 'number') {
       return <ScoreBar score={value} />;
     }
