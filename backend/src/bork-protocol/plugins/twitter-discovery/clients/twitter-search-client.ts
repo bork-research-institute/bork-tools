@@ -1,25 +1,21 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import type { TweetQueueService } from '../../../../services/twitter/analysis-queue.service';
-import { TwitterConfigService } from '../../../../services/twitter/twitter-config-service';
-import type { TwitterService } from '../../../../services/twitter/twitter-service';
+import type { AnalysisQueueService } from '../services/analysis-queue.service';
+import { TwitterConfigService } from '../services/twitter-config-service';
 // TODO: Move or update utility imports if only used by this client
 
 export class TwitterSearchClient {
   private twitterConfigService: TwitterConfigService;
-  private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
-  private readonly tweetQueueService: TweetQueueService;
+  private readonly analysisQueueService: AnalysisQueueService;
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    twitterService: TwitterService,
     runtime: IAgentRuntime,
-    tweetQueueService: TweetQueueService,
+    analysisQueueService: AnalysisQueueService,
   ) {
-    this.twitterService = twitterService;
     this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
-    this.tweetQueueService = tweetQueueService;
+    this.analysisQueueService = analysisQueueService;
   }
 
   async start(): Promise<void> {
@@ -83,7 +79,7 @@ export class TwitterSearchClient {
         elizaLogger.info(
           `[TwitterSearch] Found ${searchTweets.length} tweets for term: ${selectedTopic.topic}`,
         );
-        await this.tweetQueueService.addTweets(searchTweets, 'search', 1);
+        await this.analysisQueueService.addTweets(searchTweets, 'search', 1);
         elizaLogger.info(
           `[TwitterSearch] Successfully queued search results for topic: ${selectedTopic.topic}`,
         );

@@ -1,25 +1,15 @@
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import type { TweetQueueService } from '../../../../services/twitter/tweet-queue-service';
-import { TwitterConfigService } from '../../../../services/twitter/twitter-config-service';
-import type { TwitterService } from '../../../../services/twitter/twitter-service';
-// TODO: Move or update utility imports if only used by this client
+import { TwitterConfigService } from '../services/twitter-config-service';
 
+// TODO: Move or update utility imports if only used by this client
 export class TwitterAccountsClient {
   private twitterConfigService: TwitterConfigService;
-  private twitterService: TwitterService;
   private readonly runtime: IAgentRuntime;
-  private readonly tweetQueueService: TweetQueueService;
   private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(
-    twitterService: TwitterService,
-    runtime: IAgentRuntime,
-    tweetQueueService: TweetQueueService,
-  ) {
-    this.twitterService = twitterService;
+  constructor(runtime: IAgentRuntime) {
     this.twitterConfigService = new TwitterConfigService(runtime);
     this.runtime = runtime;
-    this.tweetQueueService = tweetQueueService;
   }
 
   async start(): Promise<void> {

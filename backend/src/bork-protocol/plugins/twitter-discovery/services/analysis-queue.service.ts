@@ -5,7 +5,7 @@ import { processTweets } from '@/utils/tweet-analysis/process-tweets';
 import type { IAgentRuntime } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { getEnv } from '../../../config/env';
+import { getEnv } from 'src/config/env';
 
 interface QueuedTweet {
   tweet: Tweet;
@@ -14,8 +14,8 @@ interface QueuedTweet {
   source: 'search' | 'account' | 'discovery';
 }
 
-export class TweetQueueService {
-  private static instance: TweetQueueService | null = null;
+export class AnalysisQueueService {
+  private static instance: AnalysisQueueService | null = null;
   private tweetQueue: QueuedTweet[] = [];
   private processedTweetIds = new Set<string>();
   private isProcessing = false;
@@ -42,16 +42,16 @@ export class TweetQueueService {
     twitterService: TwitterService,
     maxQueueSize?: number,
     maxProcessedIdsSize?: number,
-  ): TweetQueueService {
-    if (!TweetQueueService.instance) {
-      TweetQueueService.instance = new TweetQueueService(
+  ): AnalysisQueueService {
+    if (!AnalysisQueueService.instance) {
+      AnalysisQueueService.instance = new AnalysisQueueService(
         runtime,
         twitterService,
         maxQueueSize,
         maxProcessedIdsSize,
       );
     }
-    return TweetQueueService.instance;
+    return AnalysisQueueService.instance;
   }
 
   /**
@@ -76,6 +76,7 @@ export class TweetQueueService {
 
   private async processTweetsLoop(): Promise<void> {
     try {
+      // TODO: Move this to the config service
       const env = getEnv();
 
       // Get topic weights once at the start
