@@ -9,20 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { TimeFrame } from '@/lib/services/token-snapshot-service';
+import { FIELD_OPTIONS, TIMEFRAME_LABELS } from '@/lib/config/market-stats';
+import { renderValue } from '@/lib/helpers/market-stats';
 import { cn } from '@/lib/utils';
-import {
-  formatCurrency,
-  formatPrice,
-  formatSupply,
-} from '@/lib/utils/format-number';
-import { getTimeAgo } from '@/lib/utils/format-time';
 import { calculateTokenScore } from '@/lib/utils/market-stats';
 import type {
-  FieldOption,
   MarketStatsPanelProps,
   SortConfig,
-  TimeframeLabels,
+  TimeFrame,
 } from '@/types/token-monitor/market-stats';
 import type { TokenWithEngagement } from '@/types/token-monitor/token';
 import type { TweetWithAnalysis } from '@/types/tweets-analysis';
@@ -30,24 +24,8 @@ import { ArrowUpDown, Clock, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Spinner } from '../ui/spinner';
 import { Panel } from './Panel';
+import { ScoreBar } from './ScoreBar';
 import { TokenInfoPanel } from './TokenInfoPanel';
-
-const timeframeLabels: TimeframeLabels = {
-  '1d': 'D',
-  '1w': 'W',
-  '1m': 'M',
-};
-
-const fieldOptions: FieldOption[] = [
-  { key: 'marketCap', label: 'Market Cap' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'lastUpdated', label: 'Last Updated' },
-  { key: 'likes', label: 'Likes' },
-  { key: 'replies', label: 'Replies' },
-  { key: 'retweets', label: 'Retweets' },
-  { key: 'views', label: 'Views' },
-  { key: 'score', label: 'Score' },
-];
 
 export function MarketStatsPanel({
   maxHeight,
@@ -209,130 +187,13 @@ export function MarketStatsPanel({
     });
   }, [tokenSnapshots, sortConfig]);
 
-  // Update the table row rendering to include engagement metrics
-  const renderValue = (
-    snapshot: TokenWithEngagement,
-    field: string,
-  ): React.ReactNode => {
-    switch (field) {
-      case 'marketCap': {
-        return snapshot.data?.marketCap
-          ? formatCurrency(snapshot.data.marketCap)
-          : 'N/A';
-      }
-      case 'volume': {
-        return snapshot.data?.liquidityMetrics?.volumeMetrics?.volume24h
-          ? formatCurrency(
-              snapshot.data.liquidityMetrics.volumeMetrics.volume24h,
-            )
-          : 'N/A';
-      }
-      case 'price': {
-        return snapshot.data?.priceInfo?.price
-          ? formatPrice(snapshot.data.priceInfo.price)
-          : 'N/A';
-      }
-      case 'holders': {
-        return snapshot.data?.holderCount
-          ? formatSupply(snapshot.data.holderCount)
-          : 'N/A';
-      }
-      case 'supply': {
-        return snapshot.data?.supply
-          ? formatSupply(snapshot.data.supply)
-          : 'N/A';
-      }
-      case 'lastUpdated': {
-        return snapshot.timestamp ? getTimeAgo(snapshot.timestamp) : 'N/A';
-      }
-      case 'likes': {
-        const nonSpamTweets =
-          snapshot.engagement?.tweets?.filter(
-            (t: TweetWithAnalysis) => t.status !== 'spam',
-          ) || [];
-        return (
-          nonSpamTweets
-            .reduce(
-              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
-              0,
-            )
-            .toLocaleString() || 'N/A'
-        );
-      }
-      case 'replies': {
-        const nonSpamTweets =
-          snapshot.engagement?.tweets?.filter(
-            (t: TweetWithAnalysis) => t.status !== 'spam',
-          ) || [];
-        return (
-          nonSpamTweets
-            .reduce(
-              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
-              0,
-            )
-            .toLocaleString() || 'N/A'
-        );
-      }
-      case 'retweets': {
-        const nonSpamTweets =
-          snapshot.engagement?.tweets?.filter(
-            (t: TweetWithAnalysis) => t.status !== 'spam',
-          ) || [];
-        return (
-          nonSpamTweets
-            .reduce(
-              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
-              0,
-            )
-            .toLocaleString() || 'N/A'
-        );
-      }
-      case 'views': {
-        const nonSpamTweets =
-          snapshot.engagement?.tweets?.filter(
-            (t: TweetWithAnalysis) => t.status !== 'spam',
-          ) || [];
-        return (
-          nonSpamTweets
-            .reduce(
-              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
-              0,
-            )
-            .toLocaleString() || 'N/A'
-        );
-      }
-      case 'score': {
-        const score = calculateTokenScore(
-          snapshot,
-          snapshot.engagement?.tweets,
-        );
-        return (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-1 bg-emerald-400/20 rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full',
-                  score >= 80
-                    ? 'bg-emerald-400'
-                    : score >= 60
-                      ? 'bg-emerald-400/80'
-                      : score >= 40
-                        ? 'bg-emerald-400/60'
-                        : score >= 20
-                          ? 'bg-emerald-400/40'
-                          : 'bg-emerald-400/20',
-                )}
-                style={{ width: `${score}%` }}
-              />
-            </div>
-            <span>{score.toFixed(1)}</span>
-          </div>
-        );
-      }
-      default: {
-        return 'N/A';
-      }
+  // Update the table cell rendering to use ScoreBar for score field
+  const renderTableCell = (snapshot: TokenWithEngagement, field: string) => {
+    const value = renderValue(snapshot, field);
+    if (field === 'score' && typeof value === 'number') {
+      return <ScoreBar score={value} />;
     }
+    return value;
   };
 
   // Always render the header row (controls)
@@ -350,7 +211,7 @@ export function MarketStatsPanel({
         )}
         <div className="flex items-center justify-end border-b border-emerald-400/10 gap-3 px-3 mb-2">
           <div className="flex items-center gap-1">
-            {(Object.entries(timeframeLabels) as [TimeFrame, string][]).map(
+            {(Object.entries(TIMEFRAME_LABELS) as [TimeFrame, string][]).map(
               ([value, label]) => (
                 <Button
                   key={value}
@@ -389,7 +250,7 @@ export function MarketStatsPanel({
                   Display Fields
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-emerald-400/20" />
-                {fieldOptions.map((field) => (
+                {FIELD_OPTIONS.map((field) => (
                   <DropdownMenuCheckboxItem
                     key={field.key}
                     className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
@@ -459,7 +320,7 @@ export function MarketStatsPanel({
                           );
                         } else {
                           label =
-                            fieldOptions.find((opt) => opt.key === field)
+                            FIELD_OPTIONS.find((opt) => opt.key === field)
                               ?.label || field;
                         }
                         return (
@@ -573,48 +434,14 @@ export function MarketStatsPanel({
                                   'lastUpdated',
                                 ].includes(f),
                             ),
-                          ].map((field) => {
-                            let value: React.ReactNode = 'N/A';
-                            if (field === 'marketCap') {
-                              value = snapshot.data?.marketCap
-                                ? formatCurrency(snapshot.data.marketCap)
-                                : 'N/A';
-                            } else if (field === 'volume') {
-                              value = snapshot.data?.liquidityMetrics
-                                ?.volumeMetrics?.volume24h
-                                ? formatCurrency(
-                                    snapshot.data.liquidityMetrics.volumeMetrics
-                                      .volume24h,
-                                  )
-                                : 'N/A';
-                            } else if (field === 'price') {
-                              value = snapshot.data?.priceInfo?.price
-                                ? formatPrice(snapshot.data.priceInfo.price)
-                                : 'N/A';
-                            } else if (field === 'holders') {
-                              value = snapshot.data?.holderCount
-                                ? formatSupply(snapshot.data.holderCount)
-                                : 'N/A';
-                            } else if (field === 'supply') {
-                              value = snapshot.data?.supply
-                                ? formatSupply(snapshot.data.supply)
-                                : 'N/A';
-                            } else if (field === 'lastUpdated') {
-                              value = snapshot.timestamp
-                                ? getTimeAgo(snapshot.timestamp)
-                                : 'N/A';
-                            } else {
-                              value = renderValue(snapshot, field);
-                            }
-                            return (
-                              <td
-                                key={field}
-                                className="px-2 py-2 border-b border-emerald-400/10 whitespace-nowrap"
-                              >
-                                {value}
-                              </td>
-                            );
-                          })}
+                          ].map((field) => (
+                            <td
+                              key={field}
+                              className="px-2 py-2 border-b border-emerald-400/10 whitespace-nowrap"
+                            >
+                              {renderTableCell(snapshot, field)}
+                            </td>
+                          ))}
                         </tr>
                       );
                     })}
