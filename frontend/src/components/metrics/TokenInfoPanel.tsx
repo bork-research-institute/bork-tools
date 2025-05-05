@@ -253,7 +253,7 @@ export function TokenInfoPanel({
         {selectedToken.timestamp && (
           <div className="flex-1 flex flex-col bg-white/5 rounded p-2">
             <span className="text-emerald-400/80 font-semibold">
-              Snapshot Taken
+              Latest Snapshot
             </span>
             <span className="text-white/90 break-all whitespace-pre-wrap">
               {formatTimestamp(selectedToken.timestamp)}

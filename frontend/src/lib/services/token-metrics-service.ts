@@ -70,10 +70,23 @@ class TokenMetricsService {
             (tweet) => tweet.analysis !== null && tweet.analysis !== undefined,
           );
 
+          // Calculate aggregated metrics
+          const aggregatedMetrics = validTweets.reduce(
+            (acc, tweet) => {
+              acc.likes += tweet.likes || 0;
+              acc.replies += tweet.replies || 0;
+              acc.retweets += tweet.retweets || 0;
+              acc.views += tweet.views || 0;
+              return acc;
+            },
+            { likes: 0, replies: 0, retweets: 0, views: 0 },
+          );
+
           // Return token with both aggregated metrics and full tweet data
           return {
             ...token,
             engagement: {
+              ...aggregatedMetrics,
               tweets: validTweets, // Include full tweet objects with analyses
             },
           } as TokenWithEngagement;

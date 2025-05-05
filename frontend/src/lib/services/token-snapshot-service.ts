@@ -42,69 +42,59 @@ export class TokenSnapshotService {
       timeframeCutoff: timeframeCutoff.toISOString(),
     });
 
-    // First, get all unique token addresses that have snapshots in the timeframe
-    const { data: uniqueTokens, error: uniqueTokensError } =
-      await supabaseClient
-        .from('token_snapshots')
-        .select('token_address')
-        .gt('timestamp', timeframeCutoff.toISOString())
-        .order('timestamp', { ascending: false });
-
-    if (uniqueTokensError) {
-      console.error('Error fetching unique tokens:', uniqueTokensError);
-      throw new Error(
-        `Failed to fetch unique tokens: ${uniqueTokensError.message}`,
-      );
-    }
-
-    // Get unique token addresses
-    const uniqueTokenAddresses = [
-      ...new Set(uniqueTokens?.map((t) => t.token_address)),
-    ];
-
-    if (uniqueTokenAddresses.length === 0) {
-      console.log('No tokens found in the timeframe');
-      return [];
-    }
-
-    // Fetch the latest snapshot for each token within the timeframe
+    // Fetch all snapshots within the timeframe
     const { data, error } = await supabaseClient
       .from('token_snapshots')
       .select('*')
-      .in('token_address', uniqueTokenAddresses)
       .gt('timestamp', timeframeCutoff.toISOString())
       .order('timestamp', { ascending: false });
-
-    console.log('Fetched token snapshots:', {
-      uniqueTokensCount: uniqueTokenAddresses.length,
-      snapshotsCount: data?.length ?? 0,
-      timeframeCutoff: timeframeCutoff.toISOString(),
-      error,
-      firstSnapshot: data?.[0],
-    });
 
     if (error) {
       console.error('Error fetching token snapshots:', error);
       throw new Error(`Failed to fetch token snapshots: ${error.message}`);
     }
 
-    // Group by token_address and get the latest snapshot for each
-    const latestSnapshots = new Map<string, TokenSnapshot>();
-    for (const snapshot of data || []) {
-      const existing = latestSnapshots.get(snapshot.token_address);
-      if (
-        !existing ||
-        new Date(snapshot.timestamp) > new Date(existing.timestamp)
-      ) {
-        latestSnapshots.set(snapshot.token_address, {
-          ...snapshot,
-        });
-      }
+    if (!data || data.length === 0) {
+      console.log('No snapshots found in the timeframe');
+      return [];
     }
 
-    const result = Array.from(latestSnapshots.values());
+    // Group snapshots by token_address
+    const groupedSnapshots = data.reduce(
+      (acc, snapshot) => {
+        if (!acc[snapshot.token_address]) {
+          acc[snapshot.token_address] = [];
+        }
+        acc[snapshot.token_address].push(snapshot);
+        return acc;
+      },
+      {} as Record<string, TokenSnapshot[]>,
+    );
+
+    // For each token, return the latest snapshot but combine tweet_ids from all snapshots
+    const result = (Object.values(groupedSnapshots) as TokenSnapshot[][]).map(
+      (tokenSnapshots) => {
+        const latestSnapshot = tokenSnapshots[0];
+        const allTweetIds = new Set<string>();
+
+        // Collect all unique tweet_ids from all snapshots
+        for (const snapshot of tokenSnapshots) {
+          if (snapshot.tweet_ids) {
+            for (const id of snapshot.tweet_ids) {
+              allTweetIds.add(id);
+            }
+          }
+        }
+
+        return {
+          ...latestSnapshot,
+          tweet_ids: Array.from(allTweetIds),
+        };
+      },
+    );
+
     console.log(
-      `Returning ${result.length} latest token snapshots with tweet IDs:`,
+      `Returning ${result.length} token snapshots with aggregated tweet IDs:`,
       result[0],
     );
     return result;
