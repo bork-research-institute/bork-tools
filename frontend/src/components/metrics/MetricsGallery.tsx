@@ -1,15 +1,15 @@
 'use client';
-import {
-  type MarketStat,
-  type TimeFrame,
-  marketStatsService,
-} from '@/lib/services/market-stats-service';
-import {
-  type UserRelationship,
-  relationshipsService,
-} from '@/lib/services/relationships';
-import { type TrendingTweet, tweetService } from '@/lib/services/tweets';
-import { Brain, Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
+import { PANEL_HEIGHT } from '@/lib/config/metrics';
+import { relationshipsService } from '@/lib/services/relationships';
+import { tokenMetricsService } from '@/lib/services/token-metrics-service';
+import type { TimeFrame } from '@/lib/services/token-snapshot-service';
+import { tweetService } from '@/lib/services/tweets';
+import type {
+  MetricsGalleryState,
+  RelationshipsPanelProps,
+} from '@/types/metrics/gallery';
+import type { TokenWithEngagement } from '@/types/token-monitor/token';
+import { Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
@@ -28,166 +28,170 @@ import { MarketStatsPanel } from './MarketStatsPanel';
 import { MindsharePanel } from './MindsharePanel';
 import { NewsPanel } from './NewsPanel';
 import { TokenHolderPanel } from './TokenHolderPanel';
+import { TokenTweetsPanel } from './TokenTweetsPanel';
 import { TrendingTweetsPanel } from './TrendingTweetsPanel';
-
-interface RelationshipsPanelProps {
-  maxHeight?: string;
-  relationships: UserRelationship[];
-  loading: boolean;
-}
 
 const RelationshipsPanel = dynamic<RelationshipsPanelProps>(
   () => import('./RelationshipsPanel').then((mod) => mod.RelationshipsPanel),
   { ssr: false },
 );
 
-const ROW_HEIGHT = 300; // Base height for single row panels
-const DOUBLE_ROW_HEIGHT = ROW_HEIGHT * 2 + 24; // Height for double row panels, including gap
-
 export function MetricsGallery() {
-  const [tokenAddress, setTokenAddress] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [maximizedPanel, setMaximizedPanel] = useState<string | null>(null);
-  const [trendingTweets, setTrendingTweets] = useState<TrendingTweet[]>([]);
-  const [newsTweets, setNewsTweets] = useState<TrendingTweet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [relationships, setRelationships] = useState<UserRelationship[]>([]);
-  const [relationshipsLoading, setRelationshipsLoading] = useState(true);
+  const [state, setState] = useState<MetricsGalleryState>({
+    tokenAddress: '',
+    isDialogOpen: false,
+    maximizedPanel: null,
+    trendingTweets: [],
+    newsTweets: [],
+    loading: true,
+    relationships: [],
+    relationshipsLoading: true,
+    tokensWithEngagement: [],
+    tokenSnapshotsLoading: true,
+    tokenSnapshots: [],
+    selectedToken: null,
+    activeRightTab: 'tweets',
+  });
 
-  // Add new states for market stats
-  const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
-  const [marketStatsLoading, setMarketStatsLoading] = useState(true);
-  const [marketStatsError, setMarketStatsError] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<TimeFrame>('1h');
+  const [timeframe, setTimeframe] = useState<TimeFrame>('1d');
 
+  // Add event listener for switchToTrending
+  useEffect(() => {
+    const handleSwitchToTrending = () => {
+      setState((prev) => ({ ...prev, activeRightTab: 'tweets' }));
+    };
+
+    window.addEventListener('switchToTrending', handleSwitchToTrending);
+    return () => {
+      window.removeEventListener('switchToTrending', handleSwitchToTrending);
+    };
+  }, []);
+
+  // Add timeframe handler
+  const handleTimeframeChange = (newTimeframe: TimeFrame) => {
+    setTimeframe(newTimeframe);
+    tokenMetricsService.setTimeframe(newTimeframe);
+  };
+
+  // Initial token snapshots fetch - runs only once on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      if (!isMounted) {
+        return;
+      }
+
+      setState((prev) => ({ ...prev, tokenSnapshotsLoading: true }));
+      try {
+        tokenMetricsService.setTimeframe(timeframe);
+        const snapshots =
+          await tokenMetricsService.fetchInitialTokenSnapshots();
+        if (isMounted) {
+          setState((prev) => ({
+            ...prev,
+            tokenSnapshots: snapshots,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching initial token snapshots:', error);
+      } finally {
+        if (isMounted) {
+          setState((prev) => ({ ...prev, tokenSnapshotsLoading: false }));
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [timeframe]);
+
+  // Token snapshots subscription - updates when timeframe changes
+  useEffect(() => {
+    const setupSubscription = async () => {
+      const unsubscribe = await tokenMetricsService.setupSubscription(
+        (snapshots) => {
+          setState((prev) => ({
+            ...prev,
+            tokenSnapshots: snapshots,
+          }));
+        },
+      );
+      return unsubscribe;
+    };
+
+    const cleanup = setupSubscription();
+    return () => {
+      cleanup.then((unsubscribe) => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      });
+    };
+  }, []);
+
+  // Fetch tweets and calculate engagement for tokens
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!state.tokenSnapshots) {
+        return;
+      }
+
+      const updatedTokens = await tokenMetricsService.fetchTweetEngagement(
+        state.tokenSnapshots,
+      );
+      setState((prev) => ({ ...prev, tokensWithEngagement: updatedTokens }));
+    };
+
+    fetchData();
+  }, [state.tokenSnapshots]);
+
+  // Fetch trending and news tweets
   useEffect(() => {
     const fetchTweets = async () => {
-      setLoading(true);
+      setState((prev) => ({ ...prev, loading: true }));
       try {
         // Fetch regular tweets
         const trendingData = await tweetService.getTrendingTweets(20);
-        setTrendingTweets(trendingData);
+        const uniqueTrendingTweets = new Map(
+          trendingData.map((tweet) => [tweet.tweet_id, tweet]),
+        );
 
         // Fetch news tweets
         const newsData = await tweetService.getNewsTweets(20);
-        setNewsTweets(newsData);
+        const uniqueNewsTweets = new Map(
+          newsData.map((tweet) => [tweet.tweet_id, tweet]),
+        );
+
+        setState((prev) => ({
+          ...prev,
+          trendingTweets: Array.from(uniqueTrendingTweets.values()),
+          newsTweets: Array.from(uniqueNewsTweets.values()),
+        }));
       } catch (error) {
         console.error('Error fetching tweets:', error);
       } finally {
-        setLoading(false);
+        setState((prev) => ({ ...prev, loading: false }));
       }
     };
 
     fetchTweets();
   }, []);
 
-  // Initialize market stats service
-  useEffect(() => {
-    console.log('Initializing market stats service...');
-    // Ensure we're using the singleton instance
-    const service = marketStatsService;
-    console.log('Market stats service initialized:', service);
-  }, []);
-
-  // Add useEffect for market stats
-  useEffect(() => {
-    let isSubscribed = true;
-
-    const fetchMarketStats = async () => {
-      try {
-        console.log('Fetching market stats with timeframe:', timeframe);
-        setMarketStatsLoading(true);
-        setMarketStatsError(null);
-        marketStatsService.setTimeframe(timeframe);
-
-        // Add more detailed logging for the Supabase query
-        const stats = await marketStatsService.getMarketStats();
-        console.log('Received market stats:', {
-          count: stats.length,
-          timeframe,
-          firstItem: stats[0],
-          stats,
-        });
-
-        if (isSubscribed) {
-          setMarketStats(stats);
-        }
-      } catch (err) {
-        console.error('Error fetching market stats:', {
-          error: err,
-          message: err instanceof Error ? err.message : 'Unknown error',
-          timeframe,
-        });
-        if (isSubscribed) {
-          setMarketStatsError(
-            err instanceof Error ? err.message : 'Failed to fetch market stats',
-          );
-        }
-      } finally {
-        if (isSubscribed) {
-          setMarketStatsLoading(false);
-        }
-      }
-    };
-
-    const setupMarketStatsSubscription = async () => {
-      try {
-        console.log(
-          'Setting up market stats subscription with timeframe:',
-          timeframe,
-        );
-        const unsubscribe = await marketStatsService.subscribeToMarketStats(
-          (stats) => {
-            console.log('Received stats from subscription:', {
-              count: stats.length,
-              timeframe,
-              firstItem: stats[0],
-              stats,
-            });
-            if (isSubscribed) {
-              setMarketStats(stats);
-            }
-          },
-        );
-        return unsubscribe;
-      } catch (err) {
-        console.error('Error setting up market stats subscription:', {
-          error: err,
-          message: err instanceof Error ? err.message : 'Unknown error',
-          timeframe,
-        });
-        return () => {};
-      }
-    };
-
-    let unsubscribe = () => {};
-
-    fetchMarketStats();
-    setupMarketStatsSubscription().then((unsub) => {
-      unsubscribe = unsub;
-    });
-
-    return () => {
-      console.log(
-        'Cleaning up market stats subscription for timeframe:',
-        timeframe,
-      );
-      isSubscribed = false;
-      unsubscribe();
-    };
-  }, [timeframe]);
-
   // Add useEffect for fetching relationships
   useEffect(() => {
     const fetchRelationships = async () => {
-      setRelationshipsLoading(true);
+      setState((prev) => ({ ...prev, relationshipsLoading: true }));
       try {
         const data = await relationshipsService.getTopUserRelationships(100);
-        setRelationships(data);
+        setState((prev) => ({ ...prev, relationships: data }));
       } catch (error) {
         console.error('Error fetching relationships:', error);
       } finally {
-        setRelationshipsLoading(false);
+        setState((prev) => ({ ...prev, relationshipsLoading: false }));
       }
     };
 
@@ -195,141 +199,187 @@ export function MetricsGallery() {
   }, []);
 
   const renderMaximizedContent = () => {
-    switch (maximizedPanel) {
+    switch (state.maximizedPanel) {
       case 'socials':
         return (
-          <Tabs defaultValue="yaps" className="h-full flex flex-col">
+          <Tabs defaultValue="mindshare" className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Network className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Network className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   socials
                 </h2>
               </div>
               <TabsList className="bg-transparent">
                 <TabsTrigger
-                  value="yaps"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  value="mindshare"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
-                  top users
+                  mindshare
+                </TabsTrigger>
+                <TabsTrigger
+                  value="yaps"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                >
+                  yaps
                 </TabsTrigger>
                 <TabsTrigger
                   value="relationships"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
                 >
-                  map
+                  links
                 </TabsTrigger>
               </TabsList>
             </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="yaps" className="h-full">
-                <KaitoLeaderboard maxHeight="calc(90vh - 120px)" />
+                <KaitoLeaderboard maxHeight={PANEL_HEIGHT} />
               </TabsContent>
               <TabsContent value="relationships" className="h-full">
                 <RelationshipsPanel
-                  maxHeight="calc(90vh - 120px)"
-                  relationships={relationships}
-                  loading={relationshipsLoading}
+                  maxHeight={PANEL_HEIGHT}
+                  relationships={state.relationships}
+                  loading={state.relationshipsLoading}
                 />
+              </TabsContent>
+              <TabsContent value="mindshare" className="h-full">
+                <MindsharePanel maxHeight={PANEL_HEIGHT} />
               </TabsContent>
             </div>
           </Tabs>
         );
       case 'mindshare':
-        return (
-          <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  mindshare
-                </h2>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MindsharePanel maxHeight="calc(90vh - 120px)" />
-            </div>
-          </div>
-        );
+        return null;
       case 'trending':
         return (
           <Tabs defaultValue="tweets" className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  trending
+                <TrendingUp className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
+                  tweets
                 </h2>
               </div>
               <TabsList className="bg-transparent">
+                {state.selectedToken && (
+                  <TabsTrigger
+                    value="tokenTweets"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    token tweets
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="tweets"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                 >
-                  tweets
+                  trending
                 </TabsTrigger>
                 <TabsTrigger
                   value="news"
-                  className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                 >
                   news
                 </TabsTrigger>
               </TabsList>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                onClick={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    maximizedPanel: 'trending',
+                  }))
+                }
+              >
+                <Maximize2 className="h-3 w-3" />
+              </Button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="tweets" className="h-full">
-                <TrendingTweetsPanel
-                  tweets={trendingTweets}
-                  loading={loading}
-                />
+              <TabsContent value="tweets" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <TrendingTweetsPanel
+                    tweets={state.trendingTweets}
+                    loading={state.loading}
+                  />
+                </div>
               </TabsContent>
               <TabsContent value="news" className="h-full">
                 <NewsPanel
-                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
-                  tweets={newsTweets}
-                  loading={loading}
+                  maxHeight={PANEL_HEIGHT}
+                  tweets={state.newsTweets}
+                  loading={state.loading}
                 />
               </TabsContent>
+              {state.selectedToken && (
+                <TabsContent
+                  value="tokenTweets"
+                  className="h-full overflow-auto"
+                >
+                  <div className="h-full overflow-auto">
+                    <TokenTweetsPanel
+                      tweetIds={state.selectedToken.tweet_ids || []}
+                      tweets={
+                        (state.selectedToken as TokenWithEngagement).engagement
+                          ?.tweets
+                      }
+                    />
+                  </div>
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         );
       case 'market':
         return (
-          <Tabs defaultValue="market" className="h-full flex flex-col">
+          <Tabs defaultValue="trending" className="h-full flex flex-col">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  market
+                <Filter className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
+                  tokens
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog
+                  open={state.isDialogOpen}
+                  onOpenChange={(open) =>
+                    setState((prev) => ({ ...prev, isDialogOpen: open }))
+                  }
+                >
                   <DialogTrigger asChild={true}>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-white/40 hover:text-white"
+                      className="h-8 w-8 p-0 text-white/40 hover:text-white"
                     >
-                      <Filter className="h-4 w-4" />
+                      <Filter className="h-3 w-3" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-black/90 border-white/10">
                     <DialogHeader>
-                      <DialogTitle className="text-white lowercase tracking-wide font-display">
+                      <DialogTitle className="text-sm text-white lowercase tracking-wide font-display">
                         set token address
                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <Input
                         placeholder="enter token address (0x...)"
-                        value={tokenAddress}
-                        onChange={(e) => setTokenAddress(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white lowercase tracking-wide"
+                        value={state.tokenAddress}
+                        onChange={(e) =>
+                          setState((prev) => ({
+                            ...prev,
+                            tokenAddress: e.target.value,
+                          }))
+                        }
+                        className="bg-white/5 border-white/10 text-xs text-white lowercase tracking-wide"
                       />
                       <Button
-                        className="w-full lowercase tracking-wide font-display"
-                        onClick={() => setIsDialogOpen(false)}
+                        className="w-full text-xs lowercase tracking-wide font-display"
+                        onClick={() =>
+                          setState((prev) => ({ ...prev, isDialogOpen: false }))
+                        }
                       >
                         apply
                       </Button>
@@ -338,38 +388,55 @@ export function MetricsGallery() {
                 </Dialog>
                 <TabsList className="bg-transparent">
                   <TabsTrigger
-                    value="market"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                    value="trending"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    technicals
+                    trending
                   </TabsTrigger>
                   <TabsTrigger
-                    value="risk"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/5 lowercase tracking-wide font-display"
+                    value="mindshare"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    risk analysis (mock data)
+                    mindshare
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="yaps"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    yaps
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="relationships"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    links
                   </TabsTrigger>
                 </TabsList>
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="market" className="h-full">
+              <TabsContent value="trending" className="h-full">
                 <MarketStatsPanel
-                  maxHeight="calc(90vh - 120px)"
-                  marketStats={marketStats}
-                  isLoading={marketStatsLoading}
-                  error={marketStatsError}
+                  tokenSnapshots={state.tokensWithEngagement}
                   timeframe={timeframe}
-                  onTimeframeChange={setTimeframe}
+                  onTimeframeChange={handleTimeframeChange}
+                  loading={state.tokenSnapshotsLoading}
+                  error={null}
+                  selectedTokenAddress={state.selectedToken?.token_address}
+                  onTokenSelect={(token) => {
+                    setState((prev) => ({
+                      ...prev,
+                      selectedToken: token,
+                      activeRightTab: token === null ? 'tweets' : 'tokenTweets',
+                    }));
+                  }}
+                  selectedToken={state.selectedToken as TokenWithEngagement}
                 />
               </TabsContent>
-              <TabsContent value="risk" className="h-full">
-                <div className="grid grid-cols-2 gap-4 h-full">
-                  <BundlerPanel
-                    maxHeight="calc(90vh - 120px)"
-                    tokenAddress={tokenAddress}
-                  />
-                  <TokenHolderPanel maxHeight="calc(90vh - 120px)" />
+              <TabsContent value="risk" className="h-full overflow-auto">
+                <div className="grid grid-cols-2 gap-4 h-full overflow-auto">
+                  <BundlerPanel tokenAddress={state.tokenAddress} />
+                  <TokenHolderPanel />
                 </div>
               </TabsContent>
             </div>
@@ -381,15 +448,19 @@ export function MetricsGallery() {
   };
 
   return (
-    <div className="p-4">
+    <div className="py-2 px-4 h-[calc(100vh-theme(spacing.header)-theme(spacing.banner))] overflow-hidden">
       <Dialog
-        open={maximizedPanel !== null}
-        onOpenChange={() => setMaximizedPanel(null)}
+        open={state.maximizedPanel !== null}
+        onOpenChange={() =>
+          setState((prev) => ({ ...prev, maximizedPanel: null }))
+        }
       >
         <DialogContent className="max-w-[80vw] w-[1200px] max-h-[80vh] h-[800px] bg-black/90 border-white/10">
           <DialogHeader className="sr-only">
             <DialogTitle>
-              {maximizedPanel ? `${maximizedPanel} panel` : 'panel view'}
+              {state.maximizedPanel
+                ? `${state.maximizedPanel} panel`
+                : 'panel view'}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-hidden p-6">
@@ -398,182 +469,62 @@ export function MetricsGallery() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-12 gap-6 h-[calc(100vh-8rem)] relative">
-        {/* Vertical dividers */}
-        <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/5" />
+      <div className="grid grid-cols-12 gap-2 h-full relative">
+        {/* Vertical divider */}
         <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/5" />
-        {/* Horizontal divider */}
-        <div
-          className="absolute left-0 right-0 top-1/2 h-px bg-white/5"
-          style={{ width: '66.666667%' }}
-        />
 
-        {/* Top Row */}
-        <div className="col-span-4" style={{ height: ROW_HEIGHT }}>
-          <Tabs defaultValue="yaps" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
+        {/* Left Column - Market (8/12 = 2/3 width) */}
+        <div className="col-span-8 flex flex-col min-h-0">
+          <Tabs
+            defaultValue="trending"
+            className="flex-1 flex flex-col min-h-0"
+          >
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <Network className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  socials
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <TabsList className="bg-transparent">
-                  <TabsTrigger
-                    value="yaps"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    top users
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="relationships"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    map
-                  </TabsTrigger>
-                </TabsList>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                  onClick={() => setMaximizedPanel('socials')}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="yaps" className="h-full">
-                <KaitoLeaderboard maxHeight={`${ROW_HEIGHT - 48}px`} />
-              </TabsContent>
-              <TabsContent value="relationships" className="h-full">
-                <RelationshipsPanel
-                  maxHeight={`${ROW_HEIGHT - 48}px`}
-                  relationships={relationships}
-                  loading={relationshipsLoading}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
-
-        <div className="col-span-4" style={{ height: ROW_HEIGHT }}>
-          <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  mindshare
-                </h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                onClick={() => setMaximizedPanel('mindshare')}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MindsharePanel maxHeight={`${ROW_HEIGHT - 48}px`} />
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="col-span-4 row-span-2"
-          style={{ height: DOUBLE_ROW_HEIGHT }}
-        >
-          <Tabs defaultValue="tweets" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
-                  trending
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <TabsList className="bg-transparent">
-                  <TabsTrigger
-                    value="tweets"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    tweets
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="news"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    news
-                  </TabsTrigger>
-                </TabsList>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                  onClick={() => setMaximizedPanel('trending')}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="tweets" className="h-full">
-                <TrendingTweetsPanel
-                  tweets={trendingTweets}
-                  loading={loading}
-                />
-              </TabsContent>
-              <TabsContent value="news" className="h-full">
-                <NewsPanel
-                  maxHeight={`${DOUBLE_ROW_HEIGHT - 48}px`}
-                  tweets={newsTweets}
-                  loading={loading}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
-
-        {/* Bottom Row */}
-        <div className="col-span-8" style={{ height: ROW_HEIGHT }}>
-          <Tabs defaultValue="market" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-white/60" />
-                <h2 className="text-lg text-white/90 lowercase tracking-wide font-display">
+                <Filter className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
                   market
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog
+                  open={state.isDialogOpen}
+                  onOpenChange={(open) =>
+                    setState((prev) => ({ ...prev, isDialogOpen: open }))
+                  }
+                >
                   <DialogTrigger asChild={true}>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 p-0 text-white/40 hover:text-white"
                     >
-                      <Filter className="h-4 w-4" />
+                      <Filter className="h-3 w-3" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-black/90 border-white/10">
                     <DialogHeader>
-                      <DialogTitle className="text-white lowercase tracking-wide font-display">
+                      <DialogTitle className="text-sm text-white lowercase tracking-wide font-display">
                         set token address
                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <Input
                         placeholder="enter token address (0x...)"
-                        value={tokenAddress}
-                        onChange={(e) => setTokenAddress(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white lowercase tracking-wide"
+                        value={state.tokenAddress}
+                        onChange={(e) =>
+                          setState((prev) => ({
+                            ...prev,
+                            tokenAddress: e.target.value,
+                          }))
+                        }
+                        className="bg-white/5 border-white/10 text-xs text-white lowercase tracking-wide"
                       />
                       <Button
-                        className="w-full lowercase tracking-wide font-display"
-                        onClick={() => setIsDialogOpen(false)}
+                        className="w-full text-xs lowercase tracking-wide font-display"
+                        onClick={() =>
+                          setState((prev) => ({ ...prev, isDialogOpen: false }))
+                        }
                       >
                         apply
                       </Button>
@@ -582,48 +533,179 @@ export function MetricsGallery() {
                 </Dialog>
                 <TabsList className="bg-transparent">
                   <TabsTrigger
-                    value="market"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    value="trending"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    technicals
+                    trending
                   </TabsTrigger>
                   <TabsTrigger
-                    value="risk"
-                    className="text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    value="mindshare"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
-                    risk analysis (mock data)
+                    mindshare
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="yaps"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    yaps
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="relationships"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    links
                   </TabsTrigger>
                 </TabsList>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 p-0 text-white/40 hover:text-white"
-                  onClick={() => setMaximizedPanel('market')}
+                  onClick={() =>
+                    setState((prev) => ({
+                      ...prev,
+                      maximizedPanel: 'market',
+                    }))
+                  }
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="market" className="h-full">
-                <MarketStatsPanel
-                  maxHeight={`${ROW_HEIGHT - 48}px`}
-                  marketStats={marketStats}
-                  isLoading={marketStatsLoading}
-                  error={marketStatsError}
-                  timeframe={timeframe}
-                  onTimeframeChange={setTimeframe}
-                />
-              </TabsContent>
-              <TabsContent value="risk" className="h-full">
-                <div className="grid grid-cols-2 gap-4 h-full">
-                  <BundlerPanel
-                    maxHeight={`${ROW_HEIGHT - 48}px`}
-                    tokenAddress={tokenAddress}
+            <div className="flex-1 min-h-0">
+              <TabsContent value="trending" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MarketStatsPanel
+                    tokenSnapshots={state.tokensWithEngagement}
+                    timeframe={timeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    loading={state.tokenSnapshotsLoading}
+                    error={null}
+                    selectedTokenAddress={state.selectedToken?.token_address}
+                    onTokenSelect={(token) => {
+                      setState((prev) => ({
+                        ...prev,
+                        selectedToken: token,
+                        activeRightTab:
+                          token === null ? 'tweets' : 'tokenTweets',
+                      }));
+                    }}
+                    selectedToken={state.selectedToken as TokenWithEngagement}
                   />
-                  <TokenHolderPanel maxHeight={`${ROW_HEIGHT - 48}px`} />
                 </div>
               </TabsContent>
+              <TabsContent value="mindshare" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MindsharePanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="yaps" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <KaitoLeaderboard />
+                </div>
+              </TabsContent>
+              <TabsContent
+                value="relationships"
+                className="h-full overflow-auto"
+              >
+                <div className="h-full overflow-auto">
+                  <RelationshipsPanel
+                    relationships={state.relationships}
+                    loading={state.relationshipsLoading}
+                  />
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+
+        {/* Right Column - Tweets (4/12 = 1/3 width) */}
+        <div className="col-span-4 flex flex-col min-h-0">
+          <Tabs
+            value={state.activeRightTab}
+            onValueChange={(value) =>
+              setState((prev) => ({ ...prev, activeRightTab: value }))
+            }
+            className="flex-1 flex flex-col min-h-0"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-3 w-3 text-white/60" />
+                <h2 className="text-sm text-white/90 lowercase tracking-wide font-display">
+                  tweets
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <TabsList className="bg-transparent">
+                  {state.selectedToken && (
+                    <TabsTrigger
+                      value="tokenTweets"
+                      className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                    >
+                      token
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger
+                    value="tweets"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    trending
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="news"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    news
+                  </TabsTrigger>
+                </TabsList>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                  onClick={() =>
+                    setState((prev) => ({
+                      ...prev,
+                      maximizedPanel: 'trending',
+                    }))
+                  }
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <TabsContent value="tweets" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <TrendingTweetsPanel
+                    tweets={state.trendingTweets}
+                    loading={state.loading}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="news" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <NewsPanel
+                    tweets={state.newsTweets}
+                    loading={state.loading}
+                  />
+                </div>
+              </TabsContent>
+              {state.selectedToken && (
+                <TabsContent
+                  value="tokenTweets"
+                  className="h-full overflow-auto"
+                >
+                  <div className="h-full overflow-auto">
+                    <TokenTweetsPanel
+                      tweetIds={state.selectedToken.tweet_ids || []}
+                      tweets={
+                        (state.selectedToken as TokenWithEngagement).engagement
+                          ?.tweets
+                      }
+                    />
+                  </div>
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         </div>

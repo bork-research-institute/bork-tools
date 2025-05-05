@@ -12,25 +12,14 @@ export function Panel({
   maxHeight,
 }: PanelProps) {
   return (
-    <div className="bg-[#020617]/80 h-full flex flex-col" style={{ maxHeight }}>
+    <div className="bg-[#020617]/80 flex flex-col" style={{ maxHeight }}>
       {(icon || headerContent) && (
-        <div className="flex items-center justify-between p-4 shrink-0">
+        <div className="flex items-center justify-between p-1 shrink-0">
           {icon && <div className="text-emerald-400/80">{icon}</div>}
           {headerContent}
         </div>
       )}
-      <div
-        className="px-4 pb-4 flex-1 min-h-0 overflow-auto"
-        style={
-          {
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.1)',
-            '--scrollbar-width': '8px',
-            '--scrollbar-track': 'rgba(255, 255, 255, 0.1)',
-            '--scrollbar-thumb': 'rgba(255, 255, 255, 0.2)',
-          } as React.CSSProperties
-        }
-      >
+      <div className="px-2 pb-2">
         <style jsx={true}>{`
           div::-webkit-scrollbar {
             width: var(--scrollbar-width);

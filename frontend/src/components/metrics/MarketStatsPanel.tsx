@@ -9,367 +9,475 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import type {
-  MarketStat,
-  TimeFrame,
-} from '@/lib/services/market-stats-service';
+import { FIELD_OPTIONS, TIMEFRAME_LABELS } from '@/lib/config/market-stats';
+import { renderValue } from '@/lib/helpers/market-stats';
 import { cn } from '@/lib/utils';
-import { Settings } from 'lucide-react';
+import { calculateTokenScore } from '@/lib/utils/market-stats';
+import type {
+  MarketStatsPanelProps,
+  SortConfig,
+  TimeFrame,
+} from '@/types/token-monitor/market-stats';
+import type { TokenWithEngagement } from '@/types/token-monitor/token';
+import type { TweetWithAnalysis } from '@/types/tweets-analysis';
+import { ArrowUpDown, Clock, Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Spinner } from '../ui/spinner';
 import { Panel } from './Panel';
-
-type SortConfig = {
-  key: keyof MarketStat;
-  direction: 'asc' | 'desc';
-};
-
-interface MarketStatsPanelProps {
-  maxHeight?: string;
-  marketStats: MarketStat[];
-  isLoading: boolean;
-  error: string | null;
-  timeframe: TimeFrame;
-  onTimeframeChange: (timeframe: TimeFrame) => void;
-}
-
-const columns: {
-  key: keyof MarketStat;
-  label: string;
-  getLabelWithTimeframe?: (timeframe: TimeFrame) => string;
-}[] = [
-  { key: 'symbol', label: 'Symbol' },
-  { key: 'price', label: 'Price' },
-  {
-    key: 'change24h',
-    label: 'Change',
-    getLabelWithTimeframe: (timeframe: TimeFrame) => {
-      switch (timeframe) {
-        case '5m':
-          return '5m Change';
-        case '1h':
-          return '1h Change';
-        case '4h':
-          return '4h Change';
-        case '1d':
-          return '24h Change';
-      }
-    },
-  },
-  { key: 'rsi', label: 'RSI' },
-  { key: 'macd', label: 'MACD' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'spreadPercentage', label: 'Spread %' },
-  { key: 'liquidity', label: 'Liquidity' },
-];
-
-const formatNumber = (value: number, decimals = 2): string => {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value);
-};
-
-const formatCurrency = (value: string | number): string => {
-  const num = typeof value === 'string' ? Number.parseFloat(value) : value;
-  if (num >= 1_000_000_000) {
-    return `$${formatNumber(num / 1_000_000_000)}B`;
-  }
-  if (num >= 1_000_000) {
-    return `$${formatNumber(num / 1_000_000)}M`;
-  }
-  if (num >= 1_000) {
-    return `$${formatNumber(num / 1_000)}K`;
-  }
-  return `$${formatNumber(num)}`;
-};
+import { ScoreBar } from './ScoreBar';
+import { TokenInfoPanel } from './TokenInfoPanel';
 
 export function MarketStatsPanel({
   maxHeight,
-  marketStats,
-  isLoading,
+  tokenSnapshots,
+  loading,
   error,
   timeframe,
   onTimeframeChange,
+  selectedTokenAddress,
+  onTokenSelect,
+  selectedToken,
 }: MarketStatsPanelProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'symbol',
-    direction: 'asc',
+    key: 'score',
+    direction: 'desc',
   });
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof MarketStat>>(
-    new Set(columns.map((col) => col.key)),
-  );
-
-  const handleSort = (columnKey: keyof MarketStat) => {
-    setSortConfig((current) => ({
-      key: columnKey,
-      direction:
-        current.key === columnKey && current.direction === 'asc'
-          ? 'desc'
-          : 'asc',
-    }));
-  };
+  const [visibleFields, setVisibleFields] = useState<string[]>([
+    'marketCap',
+    'volume',
+    'lastUpdated',
+    'likes',
+    'replies',
+    'retweets',
+    'views',
+    'score',
+  ]);
 
   const sortedData = useMemo(() => {
-    return [...marketStats].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+    if (!tokenSnapshots) {
+      return [];
+    }
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortConfig.direction === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
+    return [...tokenSnapshots].sort((a, b) => {
+      const { key, direction } = sortConfig;
+
+      let aValue: number | string | null | undefined;
+      let bValue: number | string | null | undefined;
+
+      // Add engagement metrics to sorting
+      switch (key) {
+        case 'likes': {
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.likes || 0),
+              0,
+            );
+          break;
+        }
+        case 'replies': {
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.replies || 0),
+              0,
+            );
+          break;
+        }
+        case 'retweets': {
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.retweets || 0),
+              0,
+            );
+          break;
+        }
+        case 'views': {
+          aValue = a.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
+              0,
+            );
+          bValue = b.engagement?.tweets
+            ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
+            .reduce(
+              (sum: number, t: TweetWithAnalysis) => sum + (t.views || 0),
+              0,
+            );
+          break;
+        }
+        case 'marketCap': {
+          aValue = a.data?.marketCap;
+          bValue = b.data?.marketCap;
+          break;
+        }
+        case 'volume': {
+          aValue = a.data?.liquidityMetrics?.volumeMetrics?.volume24h;
+          bValue = b.data?.liquidityMetrics?.volumeMetrics?.volume24h;
+          break;
+        }
+        case 'price': {
+          aValue = a.data?.priceInfo?.price;
+          bValue = b.data?.priceInfo?.price;
+          break;
+        }
+        case 'holders': {
+          aValue = a.data?.holderCount;
+          bValue = b.data?.holderCount;
+          break;
+        }
+        case 'supply': {
+          aValue = a.data?.supply;
+          bValue = b.data?.supply;
+          break;
+        }
+        case 'lastUpdated': {
+          aValue = a.timestamp;
+          bValue = b.timestamp;
+          break;
+        }
+        case 'score': {
+          aValue = calculateTokenScore(
+            a,
+            a.engagement?.tweets?.filter(
+              (t: TweetWithAnalysis) =>
+                t.analysis !== null && t.analysis !== undefined,
+            ),
+          );
+          bValue = calculateTokenScore(
+            b,
+            b.engagement?.tweets?.filter(
+              (t: TweetWithAnalysis) =>
+                t.analysis !== null && t.analysis !== undefined,
+            ),
+          );
+          break;
+        }
+        default: {
+          aValue = a.data?.marketCap;
+          bValue = b.data?.marketCap;
+          break;
+        }
+      }
+
+      if (aValue === bValue) {
+        return 0;
+      }
+      if (aValue == null || aValue === 'N/A') {
+        return 1;
+      }
+      if (bValue == null || bValue === 'N/A') {
+        return -1;
       }
 
       if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc'
-          ? aValue - bValue
-          : bValue - aValue;
+        return direction === 'asc' ? aValue - bValue : bValue - aValue;
       }
-
-      return 0;
+      return direction === 'asc'
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
     });
-  }, [marketStats, sortConfig]);
+  }, [tokenSnapshots, sortConfig]);
 
-  const formatValue = (
-    key: keyof MarketStat,
-    value: string | number | boolean,
-  ): string => {
-    if (typeof value === 'boolean') {
-      return value ? 'Yes' : 'No';
+  // Update the table cell rendering to use ScoreBar for score field
+  const renderTableCell = (snapshot: TokenWithEngagement, field: string) => {
+    let value: string | number | React.ReactNode;
+    if (field === 'score') {
+      const validTweets = snapshot.engagement?.tweets?.filter(
+        (t: TweetWithAnalysis) =>
+          t.analysis !== null && t.analysis !== undefined,
+      );
+      value = calculateTokenScore(snapshot, validTweets);
+    } else {
+      value = renderValue(snapshot, field);
     }
-    if (key === 'price' || key === 'volume' || key === 'liquidity') {
-      return formatCurrency(value.toString());
+
+    if (field === 'score' && typeof value === 'number') {
+      return <ScoreBar score={value} />;
     }
-    if (key === 'spreadPercentage' || key === 'change24h') {
-      return `${formatNumber(Number(value), 2)}%`;
-    }
-    if (key === 'rsi' || key === 'macd') {
-      return formatNumber(value as number, 2);
-    }
-    return value.toString();
+    return value;
   };
 
-  if (isLoading) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">Loading market stats...</span>
-        </div>
-      </Panel>
-    );
-  }
-
-  if (error) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-red-400">{error}</span>
-        </div>
-      </Panel>
-    );
-  }
-
-  if (!marketStats.length) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex items-center justify-center h-32">
-          <span className="text-emerald-400/60">No market stats available</span>
-        </div>
-      </Panel>
-    );
-  }
-
+  // Always render the header row (controls)
   return (
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between border-b border-emerald-400/10">
-          <h2 className="text-sm font-medium text-emerald-400">Market Stats</h2>
+        {/* Token Info Section */}
+        {selectedToken && (
+          <div className="h-[50%] min-h-0 overflow-auto border-t border-emerald-400/10 mb-4 pb-4">
+            <TokenInfoPanel
+              selectedToken={selectedToken}
+              onClose={() => onTokenSelect?.(null)}
+            />
+          </div>
+        )}
+        <div className="flex items-center justify-end border-b border-emerald-400/10 gap-3 px-3 mb-2">
+          <div className="flex items-center gap-1">
+            {(Object.entries(TIMEFRAME_LABELS) as [TimeFrame, string][]).map(
+              ([value, label]) => (
+                <Button
+                  key={value}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onTimeframeChange(value)}
+                  className={cn(
+                    'h-7 px-3 text-xs bg-transparent hover:bg-emerald-400/5',
+                    timeframe === value
+                      ? 'text-emerald-400 border-b-2 border-emerald-400 rounded-none'
+                      : 'text-emerald-400/60 hover:text-emerald-400',
+                  )}
+                >
+                  {label}
+                </Button>
+              ),
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
-            <Select
-              value={timeframe}
-              onValueChange={(value: TimeFrame) => onTimeframeChange(value)}
-            >
-              <SelectTrigger className="w-24 h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors">
-                <SelectValue placeholder="Timeframe" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#020617] border-emerald-400/20">
-                <SelectItem
-                  value="5m"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  5 Min
-                </SelectItem>
-                <SelectItem
-                  value="1h"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  1 Hour
-                </SelectItem>
-                <SelectItem
-                  value="4h"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  4 Hours
-                </SelectItem>
-                <SelectItem
-                  value="1d"
-                  className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                >
-                  1 Day
-                </SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu>
               <DropdownMenuTrigger asChild={true}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2 text-xs bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                  className="h-7 w-7 p-0 flex items-center justify-center bg-transparent border-emerald-400/20 text-emerald-400/60 hover:text-emerald-400 transition-colors"
                 >
                   <Settings className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                align="end"
+                align="start"
                 className="bg-[#020617] border-emerald-400/20"
               >
                 <DropdownMenuLabel className="text-xs text-emerald-400/60">
-                  Visible Columns
+                  Display Fields
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-emerald-400/20" />
-                {columns.map((column) => (
+                {FIELD_OPTIONS.map((field) => (
                   <DropdownMenuCheckboxItem
-                    key={column.key}
+                    key={field.key}
                     className="text-xs text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-400/5"
-                    checked={visibleColumns.has(column.key)}
+                    checked={visibleFields.includes(field.key)}
                     onCheckedChange={(checked) => {
-                      const newVisibleColumns = new Set(visibleColumns);
-                      if (checked) {
-                        newVisibleColumns.add(column.key);
-                      } else {
-                        newVisibleColumns.delete(column.key);
-                      }
-                      setVisibleColumns(newVisibleColumns);
+                      setVisibleFields((prev) => {
+                        if (checked) {
+                          return [...prev, field.key];
+                        }
+                        return prev.filter((f) => f !== field.key);
+                      });
                     }}
                   >
-                    {column.label}
+                    {field.label}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-        <div className="min-w-[800px]">
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr>
-                {columns.map(
-                  (column) =>
-                    visibleColumns.has(column.key) && (
-                      <th
-                        key={column.key}
-                        className="sticky top-0 z-10 bg-[#020617]/80 border-b border-emerald-400/20 px-3 py-1 text-left"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleSort(column.key)}
-                          className="flex items-center gap-1 text-xs font-medium text-emerald-400/60 hover:text-emerald-400 transition-colors"
-                        >
-                          {column.getLabelWithTimeframe?.(timeframe) ||
-                            column.label}
-                          {sortConfig.key === column.key && (
-                            <span className="text-emerald-400/60">
-                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </button>
-                      </th>
-                    ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData.map((stat) => (
-                <tr
-                  key={`${stat.symbol}-${timeframe}-${stat.timestamp}`}
-                  className="hover:bg-emerald-400/5 transition-colors group"
-                >
-                  {Array.from(visibleColumns).map((columnKey) => {
-                    const value = stat[columnKey];
-                    const formattedValue = formatValue(columnKey, value);
 
-                    return (
-                      <td
-                        key={columnKey}
-                        className={cn(
-                          'px-3 py-1 text-xs border-b border-emerald-400/10 group-hover:border-emerald-400/20',
-                          {
-                            'font-medium':
-                              columnKey === 'symbol' || columnKey === 'name',
-                            'text-right': [
-                              'price',
-                              'volume',
-                              'liquidity',
-                            ].includes(columnKey),
-                            'text-center': [
-                              'rsi',
-                              'macd',
-                              'change24h',
-                            ].includes(columnKey),
-                          },
-                        )}
-                      >
-                        {columnKey === 'change24h' ? (
-                          <span
-                            className={
-                              stat.isPositive
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
-                            }
-                          >
-                            {formattedValue}
-                          </span>
-                        ) : columnKey === 'rsi' ? (
-                          <span
+        <div
+          className={cn(
+            'flex-1 min-h-0 flex flex-col',
+            selectedToken && 'h-full', // Ensure parent takes full height when token selected
+          )}
+        >
+          {/* Table Section */}
+          <div className={cn('min-h-0', selectedToken ? 'h-[50%]' : 'h-full')}>
+            <div className="h-full overflow-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Spinner size="lg" />
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-red-400">{error}</span>
+                </div>
+              ) : tokenSnapshots && tokenSnapshots.length > 0 ? (
+                <table className="min-w-full text-xs text-white/90 border-separate border-spacing-0">
+                  <thead>
+                    <tr>
+                      <th className="sticky top-0 left-0 z-30 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left">
+                        Token
+                      </th>
+                      {/* Render default fields first */}
+                      {[
+                        'marketCap',
+                        'volume',
+                        'lastUpdated',
+                        ...visibleFields.filter(
+                          (f) =>
+                            !['marketCap', 'volume', 'lastUpdated'].includes(f),
+                        ),
+                      ].map((field) => {
+                        let label: React.ReactNode = field;
+                        if (field === 'marketCap') {
+                          label = 'MCAP';
+                        } else if (field === 'volume') {
+                          label = '24H VOL';
+                        } else if (field === 'lastUpdated') {
+                          label = (
+                            <Clock
+                              className="inline w-4 h-4 text-emerald-400/80"
+                              aria-label="Last Updated"
+                            />
+                          );
+                        } else {
+                          label =
+                            FIELD_OPTIONS.find((opt) => opt.key === field)
+                              ?.label || field;
+                        }
+                        return (
+                          <th
+                            key={field}
+                            scope="col"
                             className={cn(
-                              stat.rsi > 70
-                                ? 'text-red-400'
-                                : stat.rsi < 30
-                                  ? 'text-emerald-400'
-                                  : 'text-emerald-400/60',
+                              'sticky top-0 z-20 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10 text-emerald-400/80 font-semibold text-left whitespace-nowrap',
+                              sortConfig.key === field && 'text-emerald-400',
                             )}
-                          >
-                            {formattedValue}
-                          </span>
-                        ) : columnKey === 'macd' ? (
-                          <span
-                            className={
-                              stat.macd > 0
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
+                            aria-sort={
+                              sortConfig.key === field
+                                ? sortConfig.direction === 'asc'
+                                  ? 'ascending'
+                                  : 'descending'
+                                : 'none'
                             }
                           >
-                            {formattedValue}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-400/60">
-                            {formattedValue}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                'h-auto p-0 font-semibold hover:bg-transparent hover:text-emerald-400 flex items-center gap-1',
+                                sortConfig.key === field && 'text-emerald-400',
+                              )}
+                              onClick={() => {
+                                setSortConfig((prev) => ({
+                                  key: field,
+                                  direction:
+                                    prev.key === field &&
+                                    prev.direction === 'desc'
+                                      ? 'asc'
+                                      : 'desc',
+                                }));
+                              }}
+                            >
+                              {label}
+                              {sortConfig.key === field && (
+                                <ArrowUpDown
+                                  className={cn(
+                                    'w-3 h-3 transition-transform',
+                                    sortConfig.direction === 'asc' &&
+                                      'rotate-180',
+                                  )}
+                                />
+                              )}
+                            </Button>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedData.map((snapshot, index) => {
+                      const isSelected =
+                        selectedTokenAddress === snapshot.token_address;
+                      return (
+                        <tr
+                          key={snapshot.token_address}
+                          className={cn(
+                            'transition-colors cursor-pointer group',
+                            isSelected
+                              ? 'bg-emerald-400/10 border-l-4 border-emerald-400'
+                              : 'hover:bg-emerald-400/5',
+                          )}
+                          onClick={() => {
+                            if (isSelected) {
+                              onTokenSelect?.(null);
+                              // Emit custom event to notify gallery to switch back to trending
+                              window.dispatchEvent(
+                                new CustomEvent('switchToTrending'),
+                              );
+                            } else {
+                              onTokenSelect?.(snapshot);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              if (isSelected) {
+                                onTokenSelect?.(null);
+                                // Emit custom event to notify gallery to switch back to trending
+                                window.dispatchEvent(
+                                  new CustomEvent('switchToTrending'),
+                                );
+                              } else {
+                                onTokenSelect?.(snapshot);
+                              }
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={`Select token ${snapshot.data?.ticker || ''}`}
+                        >
+                          <td className="sticky left-0 z-10 bg-[#0f172a] px-2 py-2 border-b border-emerald-400/10">
+                            <span className="text-emerald-400/40 text-xs mr-1 font-mono">
+                              #{index + 1}
+                            </span>
+                            <span className="text-white/90 font-bold text-xs truncate">
+                              {snapshot.data?.ticker || 'N/A'}
+                            </span>
+                          </td>
+                          {/* Render default fields first, then others */}
+                          {[
+                            'marketCap',
+                            'volume',
+                            'lastUpdated',
+                            ...visibleFields.filter(
+                              (f) =>
+                                ![
+                                  'marketCap',
+                                  'volume',
+                                  'lastUpdated',
+                                ].includes(f),
+                            ),
+                          ].map((field) => (
+                            <td
+                              key={field}
+                              className="px-2 py-2 border-b border-emerald-400/10 whitespace-nowrap"
+                            >
+                              {renderTableCell(snapshot, field)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-emerald-400/60">
+                    No token data available
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </Panel>

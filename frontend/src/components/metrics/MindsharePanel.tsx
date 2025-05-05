@@ -29,7 +29,6 @@ import {
   MessageCircle,
   Quote,
   Repeat2,
-  TrendingUp,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -82,8 +81,8 @@ function MetricWithTooltip({
       <Tooltip>
         <TooltipTrigger asChild={true}>
           <div className="flex items-center gap-1.5 cursor-help">
-            <Icon className={cn('h-4 w-4', className)} />
-            <span className={cn('text-sm font-medium tabular-nums', className)}>
+            <Icon className={cn('h-3 w-3', className)} />
+            <span className={cn('text-xs font-medium tabular-nums', className)}>
               {value}
             </span>
           </div>
@@ -111,7 +110,7 @@ const engagementMetrics = {
 function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   if (!data) {
     return (
-      <div className="h-[48px] rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-sm">
+      <div className="rounded-lg bg-white/5 flex items-center justify-center text-white/60 text-xs p-3">
         Click a topic to see details
       </div>
     );
@@ -129,8 +128,6 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
   };
 
   const getBrainColor = (percentage: number) => {
-    // Map percentage (typically 0-100) to a green intensity (darker = higher percentage)
-    // Using emerald colors from Tailwind
     if (percentage >= 20) {
       return 'text-emerald-400';
     }
@@ -146,11 +143,17 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
     return 'text-emerald-800';
   };
 
+  const timeframeLabel =
+    timeFrameOptions
+      .find((opt) => opt.value === timeFrame)
+      ?.label.toLowerCase() || timeFrame;
+
   return (
-    <div className="h-[48px] rounded-lg bg-white/5 px-3 flex items-center">
-      <div className="grid grid-cols-[1fr_auto] gap-4 w-full">
-        <div className="flex items-center gap-4">
-          <h3 className="font-medium text-sm text-white/90 truncate max-w-[300px]">
+    <div className="rounded-lg bg-white/5 px-3 py-2 flex flex-col">
+      {/* Top Row - Title and Primary Metrics */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-4 min-w-0">
+          <h3 className="font-medium text-xs text-white/90 truncate">
             {data.topic}
           </h3>
           <div className="flex items-center gap-3">
@@ -167,7 +170,7 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
                     {getChangeIcon(data.percentage_change)}
                     <span
                       className={cn(
-                        'text-xs',
+                        'text-[10px]',
                         Math.abs(data.percentage_change) < 0.1
                           ? 'text-white/60'
                           : data.percentage_change > 0
@@ -185,7 +188,7 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
                   sideOffset={4}
                 >
                   <p className="text-xs text-white">
-                    {`Change in mindshare over the ${timeFrameOptions.find((opt) => opt.value === timeFrame)?.label.toLowerCase() || timeFrame}`}
+                    {`Change in mindshare over the ${timeframeLabel}`}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -195,11 +198,44 @@ function InfoArea({ data, timeFrame, onClose }: InfoAreaProps) {
         <button
           type="button"
           onClick={onClose}
-          className="text-white/40 hover:text-white/60 transition-colors"
+          className="text-white/40 hover:text-white/60 transition-colors flex-shrink-0"
           aria-label="Clear selection"
         >
           <X className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* Bottom Row - Engagement Metrics */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+        {data.engagement_metrics &&
+          Object.entries(data.engagement_metrics).map(([key, value]) => {
+            const metricInfo =
+              engagementMetrics[key as keyof typeof engagementMetrics];
+            if (!metricInfo) {
+              return null;
+            }
+
+            return (
+              <div
+                key={key}
+                className={cn(
+                  'px-2 py-1 rounded bg-white/5 flex-shrink-0',
+                  key === 'impressions' && 'bg-white/10',
+                )}
+              >
+                <MetricWithTooltip
+                  key={key}
+                  icon={metricInfo.icon}
+                  value={(value || 0).toLocaleString()}
+                  tooltip={`${metricInfo.label}: ${(value || 0).toLocaleString()}`}
+                  className={cn(
+                    'text-white/60',
+                    key === 'impressions' && 'text-white/80',
+                  )}
+                />
+              </div>
+            );
+          })}
       </div>
     </div>
   );
@@ -220,7 +256,27 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [timeFrame, setTimeFrame] = useState<string>('24h');
   const [selectedData, setSelectedData] = useState<TreemapData | null>(null);
-  const isEnlarged = !maxHeight;
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('MindsharePanel state:', {
+      loading,
+      error,
+      treemapRectsCount: treemapRects.length,
+      searchQuery,
+      debouncedSearch,
+      timeFrame,
+      selectedData: selectedData?.topic,
+    });
+  }, [
+    loading,
+    error,
+    treemapRects,
+    searchQuery,
+    debouncedSearch,
+    timeFrame,
+    selectedData,
+  ]);
 
   // Debounce search input
   useEffect(() => {
@@ -234,6 +290,7 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching mindshare data...');
         setLoading(true);
 
         // Calculate timeframe dates
@@ -241,6 +298,13 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         const start = new Date();
         const timeFrameValue = timeFrame.replace(/[^0-9]/g, '');
         const timeFrameUnit = timeFrame.replace(/[0-9]/g, '');
+
+        console.log('Timeframe params:', {
+          timeFrameValue,
+          timeFrameUnit,
+          start,
+          end,
+        });
 
         switch (timeFrameUnit) {
           case 'h':
@@ -258,6 +322,8 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           timeframe: { start, end },
         });
 
+        console.log('Raw mindshare data:', data);
+
         // Filter by search query if present
         const filteredData = debouncedSearch
           ? data.filter((item) =>
@@ -265,22 +331,29 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
             )
           : data;
 
+        console.log('Filtered data count:', filteredData.length);
+
         const totalEngagementScore = filteredData.reduce(
           (sum, item) => sum + item.engagement_score,
           0,
         );
 
+        console.log('Total engagement score:', totalEngagementScore);
+
         // Create a Map to keep only unique topics with their latest data
         const uniqueTopics = new Map();
         for (const item of filteredData) {
-          uniqueTopics.set(item.topic, item);
+          uniqueTopics.set(item.topic, {
+            ...item,
+            percentage: (item.engagement_score / totalEngagementScore) * 100,
+          });
         }
 
         const processedData = Array.from(uniqueTopics.values())
           .map((item) => ({
             topic: item.topic,
             value: item.engagement_score,
-            percentage: (item.engagement_score / totalEngagementScore) * 100,
+            percentage: item.percentage,
             percentage_change: item.percentage_change,
             engagement_score: item.engagement_score,
             engagement_metrics: item.engagement_metrics,
@@ -290,34 +363,29 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           .sort((a, b) => b.value - a.value)
           .slice(0, 25);
 
-        // Calculate total engagement score for percentage calculation
-        const totalEngagementScoreProcessed = processedData.reduce(
-          (sum, item) => sum + item.engagement_score,
-          0,
-        );
-
-        // Recalculate percentages based on total engagement score
-        for (const item of processedData) {
-          item.percentage =
-            (item.engagement_score / totalEngagementScoreProcessed) * 100;
-        }
+        console.log('Processed data:', {
+          uniqueTopicsCount: uniqueTopics.size,
+          processedDataCount: processedData.length,
+          firstItem: processedData[0],
+        });
 
         // Define container dimensions
         const container = { x0: 0, y0: 0, x1: 100, y1: 100 };
 
         // Generate treemap layout
-        const layout = squarify<TreemapData>(
-          processedData.map((item) => ({
-            ...item,
-            value: item.value,
-          })),
-          container,
-        );
+        const layout = squarify<TreemapData>(processedData, container);
+
+        console.log('Treemap layout:', {
+          layoutCount: layout.length,
+          firstRect: layout[0],
+        });
 
         setTreemapRects(layout);
       } catch (err) {
         console.error('Error fetching mindshare data:', err);
-        setError('Failed to load mindshare data');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load mindshare data',
+        );
       } finally {
         setLoading(false);
       }
@@ -327,82 +395,32 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   }, [timeFrame, debouncedSearch]);
 
   const getBackgroundColor = (percentage: number, percentageChange: number) => {
-    // Base alpha on the topic weight percentage (0.3 to 0.9)
-    const alpha = Math.min(0.9, 0.3 + percentage * 0.03);
+    // Ensure minimum alpha for visibility
+    const alpha = Math.max(0.4, Math.min(0.9, 0.4 + percentage * 0.01));
 
-    // Use red for negative change, green for positive, grey for no change
-    const hue = percentageChange > 0 ? 160 : percentageChange < 0 ? 0 : 220;
+    // Use more vibrant colors
+    const hue = percentageChange > 0 ? 145 : percentageChange < 0 ? 0 : 210;
 
-    // Intensity based on absolute percentage change (max at 100%)
-    // For zero change, use a more muted saturation
+    // Higher base saturation and lightness for better visibility
     const saturation =
       Math.abs(percentageChange) < 0.1
-        ? 10 // Grey for no change
-        : Math.min(100, 45 + Math.abs(percentageChange) * 0.55);
+        ? 30 // More visible grey for no change
+        : Math.min(100, 60 + Math.abs(percentageChange) * 0.4);
 
-    return `hsla(${hue}, ${saturation}%, 25%, ${alpha})`;
+    // Increase lightness for better visibility
+    const lightness = Math.max(25, Math.min(45, 25 + percentage * 0.2));
+
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
   };
 
-  const handleRectClick = (
-    rect: TreemapData,
-    event: React.MouseEvent<HTMLDivElement>,
-  ) => {
-    event.stopPropagation();
+  const handleRectClick = (rect: TreemapData) => {
+    console.log('Clicked rect:', rect);
     setSelectedData(rect);
   };
 
-  const renderMetrics = (data: TreemapData, showEngagement = true) => {
-    const timeframeLabel =
-      timeFrameOptions
-        .find((opt) => opt.value === timeFrame)
-        ?.label.toLowerCase() || timeFrame;
-    return (
-      <>
-        <MetricWithTooltip
-          icon={Brain}
-          value={`${data.percentage.toFixed(1)}%`}
-          tooltip="Engagement Score: Weighted sum of likes (1x), retweets (2x), and replies (3x)"
-          className="text-xs"
-        />
-        <MetricWithTooltip
-          icon={TrendingUp}
-          value={`${(data.engagement_score * 100).toFixed(0)}%`}
-          tooltip="Engagement Score: Measure of topic's influence and reach"
-        />
-        {showEngagement &&
-          data.engagement_metrics &&
-          Object.entries(data.engagement_metrics || {}).map(([key, value]) => {
-            const metricInfo =
-              engagementMetrics[key as keyof typeof engagementMetrics];
-            if (!metricInfo) {
-              return null;
-            }
-
-            return (
-              <MetricWithTooltip
-                key={key}
-                icon={metricInfo.icon}
-                value={(value || 0).toLocaleString()}
-                tooltip={`${metricInfo.label}: ${(value || 0).toLocaleString()}`}
-              />
-            );
-          })}
-        <MetricWithTooltip
-          icon={Brain}
-          value={`${data.percentage_change >= 0 ? '+' : ''}${data.percentage_change.toFixed(1)}%`}
-          tooltip={`Change in mindshare over the ${timeframeLabel}`}
-          className={cn(
-            'text-xs',
-            Math.abs(data.percentage_change) < 0.1
-              ? 'text-white/60'
-              : data.percentage_change > 0
-                ? 'text-green-400'
-                : 'text-red-400',
-          )}
-        />
-      </>
-    );
-  };
+  useEffect(() => {
+    console.log('Selected data updated:', selectedData);
+  }, [selectedData]);
 
   if (loading) {
     return (
@@ -426,8 +444,9 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
 
   return (
     <Panel maxHeight={maxHeight}>
-      <div className="grid grid-rows-[auto_auto_1fr] h-full gap-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col h-full gap-4">
+        {/* Search and timeframe controls - Fixed height */}
+        <div className="flex gap-2 h-9 flex-shrink-0">
           <Input
             placeholder="Search topics..."
             value={searchQuery}
@@ -448,14 +467,18 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           </Select>
         </div>
 
-        <InfoArea
-          data={selectedData}
-          timeFrame={timeFrame}
-          onClose={() => setSelectedData(null)}
-        />
+        {/* Info area - Fixed height */}
+        <div className="h-[72px] flex-shrink-0">
+          <InfoArea
+            data={selectedData}
+            timeFrame={timeFrame}
+            onClose={() => setSelectedData(null)}
+          />
+        </div>
 
+        {/* Treemap container - Remaining height */}
         <div
-          className="relative w-full h-full"
+          className="flex-1 min-h-[300px] relative bg-black/20 rounded-lg overflow-hidden"
           onClick={() => setSelectedData(null)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -464,53 +487,59 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           }}
           role="presentation"
         >
-          {treemapRects.map((rect, index) => (
-            <button
-              type="button"
-              key={`${rect.topic}-${index}`}
-              className={cn(
-                'absolute cursor-pointer transition-all duration-200 rounded-lg overflow-hidden hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-background text-left',
-                selectedData?.topic === rect.topic &&
-                  'ring-2 ring-ring ring-offset-2 ring-offset-background',
-              )}
-              style={{
-                left: `${rect.x0}%`,
-                top: `${rect.y0}%`,
-                width: `${rect.x1 - rect.x0}%`,
-                height: `${rect.y1 - rect.y0}%`,
-                backgroundColor: getBackgroundColor(
-                  rect.percentage,
-                  rect.percentage_change,
-                ),
-              }}
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
-                handleRectClick(
-                  rect,
-                  e as unknown as React.MouseEvent<HTMLDivElement>,
-                )
-              }
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleRectClick(
-                    rect,
-                    e as unknown as React.MouseEvent<HTMLDivElement>,
-                  );
-                }
-              }}
-            >
-              {isEnlarged && (
-                <div className="p-3 h-full flex flex-col">
-                  <div className="font-medium text-base text-white/90 truncate">
-                    {rect.topic}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    {renderMetrics(rect, false)}
-                  </div>
-                </div>
-              )}
-            </button>
-          ))}
+          <div className="absolute inset-0">
+            {treemapRects.map((rect, index) => {
+              // Calculate cell dimensions as percentages
+              const width = rect.x1 - rect.x0;
+              const height = rect.y1 - rect.y0;
+              const area = width * height;
+
+              // Much stricter thresholds
+              const isSmall = width < 15 || height < 15 || area < 225; // No percentage
+              const isTiny = width < 8 || height < 8 || area < 100; // No content at all
+
+              return (
+                <button
+                  type="button"
+                  key={`${rect.topic}-${index}`}
+                  className={cn(
+                    'absolute cursor-pointer transition-all duration-200 rounded-lg overflow-hidden hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-background text-left',
+                    !isTiny && 'p-2',
+                    selectedData?.topic === rect.topic &&
+                      'ring-2 ring-ring ring-offset-2 ring-offset-background',
+                  )}
+                  style={{
+                    left: `${rect.x0}%`,
+                    top: `${rect.y0}%`,
+                    width: `${Math.max(width, 0.1)}%`,
+                    height: `${Math.max(height, 0.1)}%`,
+                    backgroundColor: getBackgroundColor(
+                      rect.percentage,
+                      rect.percentage_change,
+                    ),
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRectClick(rect);
+                  }}
+                  title={`${rect.topic} (${rect.percentage.toFixed(1)}%)`}
+                >
+                  {!isTiny && (
+                    <div className="h-full flex flex-col justify-between">
+                      <div className="font-medium text-xs text-white/90 truncate">
+                        {rect.topic}
+                      </div>
+                      {!isSmall && (
+                        <div className="text-[10px] text-white/60 mt-1">
+                          {rect.percentage.toFixed(1)}%
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </Panel>

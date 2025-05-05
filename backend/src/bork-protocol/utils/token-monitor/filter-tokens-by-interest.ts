@@ -58,8 +58,7 @@ export function identifyIfInteresting(
     // New token with substantial liquidity
     if (
       metrics.liquidityMetrics &&
-      metrics.liquidityMetrics.totalLiquidity > 50000 &&
-      metrics.holderCount > 10
+      metrics.liquidityMetrics.totalLiquidity > 25000
     ) {
       interestReason = 'New token with substantial liquidity';
       score += 40;
@@ -68,7 +67,7 @@ export function identifyIfInteresting(
     // High holder count for a new token
     if (metrics.holderCount > 100) {
       interestReason = interestReason || 'High holder count for a new token';
-      score += 20;
+      score += 30;
     }
 
     // Recent volume spike
@@ -81,9 +80,9 @@ export function identifyIfInteresting(
     }
 
     // Substantial market cap
-    if (metrics.marketCap && metrics.marketCap > 1000000) {
+    if (metrics.marketCap && metrics.marketCap > 50000) {
       interestReason = interestReason || 'Substantial market cap';
-      score += 20;
+      score += 10;
     }
 
     // Acceptable token mint authority status

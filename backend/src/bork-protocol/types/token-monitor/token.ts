@@ -168,4 +168,5 @@ export interface TokenSnapshot {
   description?: string;
   icon?: string;
   links?: TokenLink[];
+  tweetIds?: string[];
 }

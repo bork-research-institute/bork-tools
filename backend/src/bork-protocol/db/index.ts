@@ -40,8 +40,10 @@ class DatabaseManager {
    */
   private initPool(): void {
     if (!this.pool && !this.isClosing) {
+      const env = getEnv();
+
       this.pool = new Pool({
-        connectionString: getEnv().POSTGRES_URL,
+        connectionString: env.POSTGRES_URL,
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,

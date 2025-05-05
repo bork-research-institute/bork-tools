@@ -1,15 +1,13 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
 type TimeUnit = {
   value: number;
   unit: string;
 };
 
+/**
+ * Formats a timestamp into a relative time string using the largest appropriate unit
+ * @param timestamp The timestamp to format
+ * @returns A string like "5s", "3min", "2h", "4d", "3w", "6M", or "1Y"
+ */
 export function getTimeAgo(timestamp: string | Date): string {
   const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
   const now = new Date();

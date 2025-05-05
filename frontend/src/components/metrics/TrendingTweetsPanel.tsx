@@ -2,6 +2,7 @@
 
 import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
+import type { TweetMediaItem } from '@/types/media';
 import { useEffect, useState } from 'react';
 import { Input } from '../ui/input';
 import {
@@ -120,7 +121,6 @@ export function TrendingTweetsPanel({
             </SelectContent>
           </Select>
         </div>
-
         {loading ? (
           <div className="text-white/60">Loading trending tweets...</div>
         ) : filteredTweets.length === 0 ? (
@@ -137,22 +137,22 @@ export function TrendingTweetsPanel({
                 className="bg-gray-800 rounded-lg p-4 space-y-3"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-1 min-w-0 mr-4">
                     <a
                       href={`https://twitter.com/${tweet.username}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 font-medium"
+                      className="text-blue-400 hover:text-blue-300 font-medium text-xs truncate"
                     >
                       {tweet.name}
                     </a>
-                    <span className="text-white/40 text-sm">
+                    <span className="text-white/40 text-[10px] truncate">
                       @{tweet.username}
                     </span>
                   </div>
                   <div
                     className={cn(
-                      'text-2xl font-bold',
+                      'text-xl font-bold shrink-0',
                       getScoreColor(
                         selectedFilter === 'aggregate'
                           ? tweet.aggregate_score
@@ -173,21 +173,82 @@ export function TrendingTweetsPanel({
                 </div>
 
                 {/* Original Tweet Content */}
-                <p className="text-white/90 text-base">{tweet.content}</p>
+                <p className="text-white/90 text-xs break-words whitespace-pre-wrap">
+                  {tweet.content}
+                </p>
 
                 {/* Media Display */}
                 {tweet.photos && tweet.photos.length > 0 && (
                   <div className="relative aspect-[16/9] rounded-lg overflow-hidden">
-                    <img
-                      src={tweet.photos[0]}
-                      alt="Tweet media"
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
+                    {tweet.photos.map((photo: TweetMediaItem, idx: number) => {
+                      let mediaUrl: string | undefined;
+                      let previewUrl: string | undefined;
+                      let mediaKey: string | number = idx;
+                      if (typeof photo === 'string') {
+                        mediaUrl = photo;
+                        mediaKey = photo;
+                      } else if (photo && typeof photo === 'object') {
+                        mediaUrl = photo.url;
+                        previewUrl = photo.preview || photo.url;
+                        mediaKey = photo.id || idx;
+                      }
+                      if (!mediaUrl) {
+                        // Skip rendering if URL is missing
+                        return null;
+                      }
+                      const isVideo =
+                        mediaUrl.includes('video.twimg.com') ||
+                        mediaUrl.includes('ext_tw_video');
+                      if (isVideo) {
+                        return (
+                          <div key={mediaKey} className="w-full h-full">
+                            <video
+                              controls={true}
+                              preload="none"
+                              poster={previewUrl}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              aria-label="Tweet video content"
+                              tabIndex={0}
+                              onError={(e) => {
+                                // Hide video if it fails to load
+                                (
+                                  e.currentTarget as HTMLVideoElement
+                                ).style.display = 'none';
+                              }}
+                            >
+                              <source src={mediaUrl} type="video/mp4" />
+                              <track
+                                kind="captions"
+                                src=""
+                                label="English captions"
+                                srcLang="en"
+                                default={true}
+                              />
+                              Your browser does not support the video tag.
+                            </video>
+                          </div>
+                        );
+                      }
+                      return (
+                        <img
+                          key={mediaKey}
+                          src={mediaUrl}
+                          alt="Tweet media"
+                          aria-label="Tweet image content"
+                          className="absolute inset-0 w-full h-full object-cover"
+                          onError={(e) => {
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = 'none';
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* Engagement Metrics */}
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-[10px]">
                   <div className="flex items-center gap-4 text-white/60">
                     <div className="flex items-center gap-1">
                       <span>💬</span>
@@ -206,7 +267,7 @@ export function TrendingTweetsPanel({
                     href={tweet.permanent_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300"
+                    className="text-blue-400 hover:text-blue-300 text-[10px] break-all"
                   >
                     View Tweet →
                   </a>
@@ -214,17 +275,19 @@ export function TrendingTweetsPanel({
 
                 {/* Content Analysis (Secondary) */}
                 <div className="mt-3 pt-3 border-t border-white/10">
-                  <details className="text-sm">
+                  <details className="text-[10px]">
                     <summary className="text-white/60 cursor-pointer hover:text-white/80">
                       View Analysis
                     </summary>
                     <div className="mt-2 text-white/80 space-y-2">
-                      <p>{tweet.content_summary}</p>
+                      <p className="text-[10px] break-words whitespace-pre-wrap">
+                        {tweet.content_summary}
+                      </p>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {tweet.topics.map((topic) => (
                           <span
-                            key={topic}
-                            className="px-2 py-1 bg-white/5 rounded-full text-xs"
+                            key={`${tweet.tweet_id}-${topic}`}
+                            className="px-2 py-0.5 bg-white/5 rounded-full text-[10px] break-words"
                           >
                             {topic}
                           </span>
