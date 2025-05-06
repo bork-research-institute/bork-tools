@@ -1,3 +1,8 @@
+import type {
+  TweetResponse,
+  TwitterApiResponse,
+  TwitterResponse,
+} from '@/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import {
   type QueryTweetsResponse,
@@ -5,11 +10,6 @@ import {
   SearchMode,
   type Tweet,
 } from 'agent-twitter-client';
-import type {
-  TweetResponse,
-  TwitterApiResponse,
-  TwitterResponse,
-} from '../../types/twitter';
 
 export class TwitterRequestService {
   private readonly twitterClient: Scraper;

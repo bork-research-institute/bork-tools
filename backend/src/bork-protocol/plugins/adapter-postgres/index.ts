@@ -1429,7 +1429,9 @@ export class PostgresDatabaseAdapter
           }
         }
       } catch (error) {
-        elizaLogger.error('Database connection error in setCache', error);
+        elizaLogger.error(
+          `[AdapterPostgres] Database connection error in setCache: ${error}`,
+        );
         return false;
       }
     }, 'setCache');
