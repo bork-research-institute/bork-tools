@@ -1,25 +1,26 @@
-import type {
-  Client,
-  ClientInstance,
-  IAgentRuntime,
-  Plugin,
-} from '@elizaos/core';
-
-export class TwitterDiscoveryClient implements Client {
-  name = 'TwitterDiscoveryClient';
-  async start(_runtime: IAgentRuntime): Promise<ClientInstance> {
-    // Placeholder: actual discovery logic will go here
-    return this;
-  }
-  async stop(): Promise<void> {
-    // Placeholder
-  }
-}
+import { twitterService } from '@/services/twitter-service';
+import { TwitterAccountsClient } from '@bork/plugins/twitter-discovery/clients/twitter-accounts-client';
+import { TwitterDiscoveryClient } from '@bork/plugins/twitter-discovery/clients/twitter-discovery-client';
+import { TwitterSearchClient } from '@bork/plugins/twitter-discovery/clients/twitter-search-client';
+import { analysisQueueService } from '@bork/plugins/twitter-discovery/services/analysis-queue.service';
+import { twitterAccountDiscoveryService } from '@bork/plugins/twitter-discovery/services/twitter-account-discovery-service';
+import { twitterDiscoveryConfigService } from '@bork/plugins/twitter-discovery/services/twitter-discovery-config-service';
+import type { Plugin } from '@elizaos/core';
 
 const twitterDiscoveryPlugin: Plugin = {
   name: 'plugin-twitter-discovery',
   description: 'Discovers Twitter accounts and content based on agent config.',
-  clients: [new TwitterDiscoveryClient()],
+  clients: [
+    new TwitterAccountsClient(),
+    new TwitterDiscoveryClient(),
+    new TwitterSearchClient(),
+  ],
+  services: [
+    twitterDiscoveryConfigService,
+    twitterService,
+    analysisQueueService,
+    twitterAccountDiscoveryService,
+  ],
 };
 
 export default twitterDiscoveryPlugin;

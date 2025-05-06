@@ -1,5 +1,5 @@
-import { tweetQueries } from '@/db/queries.js';
-import type { TopicWeightRow } from '@/types/topic.js';
+import { tweetQueries } from '@bork/db/queries';
+import type { TopicWeightRow } from '@bork/types/topic';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 
 export async function initializeTopicWeights(

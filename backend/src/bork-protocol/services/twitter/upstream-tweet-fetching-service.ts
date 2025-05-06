@@ -1,7 +1,7 @@
-import { tweetQueries } from '@/db/queries';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { Tweet } from '@/types/twitter';
-import type { TweetWithUpstream } from '@/types/twitter';
+import type { TwitterService } from '@/services/twitter-service';
+import { tweetQueries } from '@bork/db/queries';
+import type { Tweet } from '@bork/types/twitter';
+import type { TweetWithUpstream } from '@bork/types/twitter';
 import type { IAgentRuntime } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import { mapTweet } from '../../mappers/tweet-mapper';

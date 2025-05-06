@@ -1,36 +1,58 @@
-import { elizaLogger } from '@elizaos/core';
+import { TwitterService } from '@/services/twitter-service';
+import { TwitterDiscoveryConfigService } from '@bork/plugins/twitter-discovery/services/twitter-discovery-config-service';
+import type { AccountScore } from '@bork/plugins/twitter-discovery/types/account-score';
+import { ServiceTypeExtension } from '@bork/plugins/twitter-discovery/types/service-type-extension';
+import {
+  type IAgentRuntime,
+  Service,
+  type ServiceType,
+  elizaLogger,
+} from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import type { TwitterConfigService } from '../../../../services/twitter/twitter-config-service';
-import type { TwitterService } from '../../../../services/twitter/twitter-service';
 
-interface AccountScore {
-  username: string;
-  relevanceScore: number;
-  qualityScore: number;
-  lastUpdated: Date;
-  totalTweetsAnalyzed: number;
-  relevantTweetsCount: number;
-  topicsMatch: Record<string, number>; // Topic -> match count
-  interactionScore: number; // Based on RTs, likes, etc.
-}
-
-export class TwitterAccountDiscoveryService {
-  private readonly twitterService: TwitterService;
-  private readonly configService: TwitterConfigService;
+export class TwitterAccountDiscoveryService extends Service {
   private accountScores: Map<string, AccountScore> = new Map();
-  // TODO Should be in config?
-  // Thresholds for account management
-  private readonly MIN_RELEVANCE_SCORE = 0.6;
-  private readonly MIN_QUALITY_SCORE = 0.5;
-  private readonly SCORE_DECAY_FACTOR = 0.95; // 5% decay per check
-  private readonly MAX_ACCOUNTS = 100; // Maximum number of accounts to track
+  private twitterService: TwitterService;
+  private configService: TwitterDiscoveryConfigService;
+  private scoreDecayFactor: number;
+  private minRelevanceScore: number;
+  private minQualityScore: number;
+  private maxAccounts: number;
 
-  constructor(
-    twitterService: TwitterService,
-    configService: TwitterConfigService,
-  ) {
-    this.twitterService = twitterService;
+  static get serviceType(): ServiceType {
+    return ServiceTypeExtension.ACCOUNT_DISCOVERY as unknown as ServiceType;
+  }
+
+  async initialize(runtime: IAgentRuntime): Promise<void> {
+    elizaLogger.info(
+      '[TwitterAccountDiscoveryService] Initializing account discovery service',
+    );
+    const configService = runtime.services.get(
+      TwitterDiscoveryConfigService.serviceType,
+    ) as TwitterDiscoveryConfigService;
+    if (!configService) {
+      elizaLogger.error(
+        '[TwitterAccountDiscoveryService] Twitter config service not found',
+      );
+      return;
+    }
+    this.scoreDecayFactor = configService.getCharacterConfig().scoreDecayFactor;
+    this.minRelevanceScore =
+      configService.getCharacterConfig().minRelevanceScore;
+    this.minQualityScore = configService.getCharacterConfig().minQualityScore;
+    this.maxAccounts = configService.getCharacterConfig().maxAccounts;
     this.configService = configService;
+
+    const twitterService = runtime.services.get(
+      TwitterService.serviceType,
+    ) as TwitterService;
+    if (!twitterService) {
+      elizaLogger.error(
+        '[TwitterAccountDiscoveryService] Twitter service not found',
+      );
+      return;
+    }
+    this.twitterService = twitterService;
   }
 
   public async discoverAccountsFromTimeline(
@@ -170,8 +192,8 @@ export class TwitterAccountDiscoveryService {
     const existingScore = this.accountScores.get(username);
     if (existingScore) {
       // Apply decay to old scores
-      existingScore.relevanceScore *= this.SCORE_DECAY_FACTOR;
-      existingScore.qualityScore *= this.SCORE_DECAY_FACTOR;
+      existingScore.relevanceScore *= this.scoreDecayFactor;
+      existingScore.qualityScore *= this.scoreDecayFactor;
 
       // Update with new scores
       this.accountScores.set(username, {
@@ -199,8 +221,8 @@ export class TwitterAccountDiscoveryService {
         const score = this.accountScores.get(username);
         if (
           score &&
-          (score.relevanceScore < this.MIN_RELEVANCE_SCORE ||
-            score.qualityScore < this.MIN_QUALITY_SCORE)
+          (score.relevanceScore < this.minRelevanceScore ||
+            score.qualityScore < this.minQualityScore)
         ) {
           accountsToRemove.add(username);
         }
@@ -211,8 +233,8 @@ export class TwitterAccountDiscoveryService {
         .filter(
           ([username, score]) =>
             !currentAccounts.has(username) &&
-            score.relevanceScore >= this.MIN_RELEVANCE_SCORE &&
-            score.qualityScore >= this.MIN_QUALITY_SCORE,
+            score.relevanceScore >= this.minRelevanceScore &&
+            score.qualityScore >= this.minQualityScore,
         )
         .sort(
           (a, b) =>
@@ -223,7 +245,7 @@ export class TwitterAccountDiscoveryService {
 
       // Add top accounts up to MAX_ACCOUNTS limit
       const availableSlots =
-        this.MAX_ACCOUNTS - (currentAccounts.size - accountsToRemove.size);
+        this.maxAccounts - (currentAccounts.size - accountsToRemove.size);
 
       for (const [username] of sortedAccounts.slice(0, availableSlots)) {
         accountsToAdd.add(username);
@@ -254,3 +276,6 @@ export class TwitterAccountDiscoveryService {
     return this.accountScores;
   }
 }
+
+export const twitterAccountDiscoveryService =
+  new TwitterAccountDiscoveryService();

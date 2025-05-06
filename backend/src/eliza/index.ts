@@ -27,16 +27,13 @@ export function createAgent(
   cache: ICacheManager,
   token: string,
 ) {
-  // Use type assertion to handle plugin version mismatch
-  const plugins = [];
-
   return new AgentRuntime({
     databaseAdapter: db,
     token,
     modelProvider: character.modelProvider,
     evaluators: [],
     character,
-    plugins,
+    plugins: character.plugins,
     providers: [],
     actions: [],
     services: [],

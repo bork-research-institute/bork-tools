@@ -1,10 +1,10 @@
+import type { TwitterService } from '@/services/twitter-service';
 import {
   accountTopicQueries,
   tweetQueries,
   userMentionQueries,
-} from '@/db/queries';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { DatabaseTweet } from '@/types/twitter';
+} from '@bork/db/queries';
+import type { DatabaseTweet } from '@bork/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 
 function getMentionsFromText(text: string): string[] {

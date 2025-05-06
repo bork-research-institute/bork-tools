@@ -1,5 +1,5 @@
-import { twitterConfigQueries } from '@/db/queries';
-import type { TwitterConfig } from '@/types/twitter-config';
+import { twitterConfigQueries } from '@bork/db/queries';
+import type { TwitterConfig } from '@bork/types/config';
 import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 
 // TODO Only works for 1 account right now

@@ -1,10 +1,10 @@
-import { validateTweets } from '@/helpers/tweet-validation-helper';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import { getUpstreamTweets } from '@/services/twitter/upstream-tweet-fetching-service';
-import type { TopicWeightRow } from '@/types/topic';
-import type { Tweet } from '@/types/twitter';
+import { validateTweets } from '@/bork-protocol/helpers/tweet-validation-helper';
+import { getUpstreamTweets } from '@/bork-protocol/services/twitter/upstream-tweet-fetching-service';
+import type { TopicWeightRow } from '@/bork-protocol/types/topic';
+import type { TwitterService } from '@/services/twitter-service';
 import { elizaLogger } from '@elizaos/core';
 import type { IAgentRuntime } from '@elizaos/core';
+import type { Tweet } from 'agent-twitter-client';
 import { updateMetricsForAuthors } from '../account-metrics/update-influence-score';
 import { processSingleTweet } from '../generate-ai-object/analysis';
 

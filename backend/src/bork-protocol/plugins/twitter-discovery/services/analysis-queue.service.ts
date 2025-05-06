@@ -1,12 +1,12 @@
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { TopicWeightRow } from '@/types/topic';
-import { getAggregatedTopicWeights } from '@/utils/topic-weights/topics';
-import { processTweets } from '@/utils/tweet-analysis/process-tweets';
-import type { IAgentRuntime } from '@elizaos/core';
+import type { TopicWeightRow } from '@/bork-protocol/types/topic';
+import { getAggregatedTopicWeights } from '@/bork-protocol/utils/topic-weights/topics';
+import { processTweets } from '@/bork-protocol/utils/tweet-analysis/process-tweets';
+import { TwitterService } from '@/services/twitter-service';
+import { type IAgentRuntime, Service, type ServiceType } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { getEnv } from 'src/config/env';
-
+import { ServiceTypeExtension } from '../types/service-type-extension';
+import { TwitterDiscoveryConfigService } from './twitter-discovery-config-service';
 interface QueuedTweet {
   tweet: Tweet;
   priority: number;
@@ -14,59 +14,56 @@ interface QueuedTweet {
   source: 'search' | 'account' | 'discovery';
 }
 
-export class AnalysisQueueService {
-  private static instance: AnalysisQueueService | null = null;
+export class AnalysisQueueService extends Service {
   private tweetQueue: QueuedTweet[] = [];
   private processedTweetIds = new Set<string>();
   private isProcessing = false;
-  private readonly maxQueueSize: number;
-  private readonly maxProcessedIdsSize: number;
-  private processingTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly runtime: IAgentRuntime;
-  private readonly twitterService: TwitterService;
+  private maxQueueSize: number;
+  private maxProcessedIdsSize: number;
+  private searchTimeframeHours: number;
+  private processingTimeout: ReturnType<typeof setInterval> | null = null;
 
-  private constructor(
-    runtime: IAgentRuntime,
-    twitterService: TwitterService,
-    maxQueueSize = 1000,
-    maxProcessedIdsSize = 10000,
-  ) {
-    this.runtime = runtime;
-    this.twitterService = twitterService;
-    this.maxQueueSize = maxQueueSize;
-    this.maxProcessedIdsSize = maxProcessedIdsSize;
+  static get serviceType(): ServiceType {
+    return ServiceTypeExtension.ANALYSIS_QUEUE as unknown as ServiceType;
   }
 
-  static getInstance(
-    runtime: IAgentRuntime,
-    twitterService: TwitterService,
-    maxQueueSize?: number,
-    maxProcessedIdsSize?: number,
-  ): AnalysisQueueService {
-    if (!AnalysisQueueService.instance) {
-      AnalysisQueueService.instance = new AnalysisQueueService(
-        runtime,
-        twitterService,
-        maxQueueSize,
-        maxProcessedIdsSize,
+  async initialize(runtime: IAgentRuntime): Promise<void> {
+    elizaLogger.info(
+      '[AnalysisQueueService] Initializing tweet processing loop',
+    );
+    const configService = runtime.services.get(
+      TwitterDiscoveryConfigService.serviceType,
+    ) as TwitterDiscoveryConfigService;
+    if (!configService) {
+      elizaLogger.error(
+        '[AnalysisQueueService] Twitter config service not found',
       );
+      return;
     }
-    return AnalysisQueueService.instance;
-  }
-
-  /**
-   * Start the tweet processing loop
-   */
-  async start(): Promise<void> {
-    elizaLogger.info('[TweetQueueService] Starting tweet processing loop');
-    await this.processTweetsLoop();
+    this.maxQueueSize = configService.getCharacterConfig().maxQueueSize;
+    this.maxProcessedIdsSize =
+      configService.getCharacterConfig().maxProcessedIdsSize;
+    this.searchTimeframeHours =
+      configService.getCharacterConfig().searchTimeframeHours;
+    const twitterService = runtime.services.get(
+      TwitterService.serviceType,
+    ) as TwitterService;
+    if (!twitterService) {
+      elizaLogger.error('[AnalysisQueueService] Twitter service not found');
+      return;
+    }
+    // TODO Add timeout to config
+    this.processingTimeout = setInterval(
+      () => void this.processTweetsLoop(runtime, twitterService),
+      5000, // 5 second delay between processing cycles
+    );
   }
 
   /**
    * Stop the tweet processing loop
    */
   async stop(): Promise<void> {
-    elizaLogger.info('[TweetQueueService] Stopping tweet processing loop');
+    elizaLogger.info('[AnalysisQueueService] Stopping tweet processing loop');
     if (this.processingTimeout) {
       clearTimeout(this.processingTimeout);
       this.processingTimeout = null;
@@ -74,53 +71,52 @@ export class AnalysisQueueService {
     this.isProcessing = false;
   }
 
-  private async processTweetsLoop(): Promise<void> {
+  private async processTweetsLoop(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
+  ): Promise<void> {
     try {
-      // TODO: Move this to the config service
-      const env = getEnv();
-
       // Get topic weights once at the start
       const topicWeightRows = await getAggregatedTopicWeights(
-        env.SEARCH_TIMEFRAME_HOURS,
+        this.searchTimeframeHours,
       );
 
       // Get next batch of tweets
       const tweets = await this.getNextBatch();
       if (tweets.length > 0) {
         this.setProcessing(true);
-        await this.processBatch(tweets, topicWeightRows);
+        await this.processBatch(
+          runtime,
+          twitterService,
+          tweets,
+          topicWeightRows,
+        );
         this.setProcessing(false);
       }
     } catch (error) {
-      elizaLogger.error('[TweetQueueService] Error processing tweets:', error);
+      elizaLogger.error(
+        '[AnalysisQueueService] Error processing tweets:',
+        error,
+      );
       this.setProcessing(false);
     }
-
-    // Schedule next processing cycle
-    this.processingTimeout = setTimeout(
-      () => void this.processTweetsLoop(),
-      5000, // 5 second delay between processing cycles
-    );
   }
 
   private async processBatch(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
     tweets: Tweet[],
     topicWeights: TopicWeightRow[],
   ): Promise<void> {
     try {
-      await processTweets(
-        this.runtime,
-        this.twitterService,
-        tweets,
-        topicWeights,
-      );
+      await processTweets(runtime, twitterService, tweets, topicWeights);
 
       elizaLogger.info(
-        `[TweetQueueService] Successfully processed ${tweets.length} tweets`,
+        `[AnalysisQueueService] Successfully processed ${tweets.length} tweets`,
       );
     } catch (error) {
       elizaLogger.error(
-        '[TweetQueueService] Error in batch processing:',
+        '[AnalysisQueueService] Error in batch processing:',
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -137,7 +133,7 @@ export class AnalysisQueueService {
     const newTweets = tweets.filter((tweet) => {
       if (!tweet.id || this.processedTweetIds.has(tweet.id)) {
         elizaLogger.debug(
-          `[TweetQueueService] Skipping duplicate or invalid tweet: ${tweet.id}`,
+          `[AnalysisQueueService] Skipping duplicate or invalid tweet: ${tweet.id}`,
         );
         return false;
       }
@@ -166,12 +162,12 @@ export class AnalysisQueueService {
       const removed = this.tweetQueue.length - this.maxQueueSize;
       this.tweetQueue = this.tweetQueue.slice(0, this.maxQueueSize);
       elizaLogger.warn(
-        `[TweetQueueService] Queue exceeded max size. Removed ${removed} lowest priority tweets.`,
+        `[AnalysisQueueService] Queue exceeded max size. Removed ${removed} lowest priority tweets.`,
       );
     }
 
     elizaLogger.info(
-      `[TweetQueueService] Added ${newTweets.length} tweets from ${source} to queue. Queue size: ${this.tweetQueue.length}`,
+      `[AnalysisQueueService] Added ${newTweets.length} tweets from ${source} to queue. Queue size: ${this.tweetQueue.length}`,
     );
   }
 
@@ -181,7 +177,7 @@ export class AnalysisQueueService {
   private async getNextBatch(batchSize = 10): Promise<Tweet[]> {
     if (this.isProcessing) {
       elizaLogger.debug(
-        '[TweetQueueService] Queue is currently being processed, skipping batch',
+        '[AnalysisQueueService] Queue is currently being processed, skipping batch',
       );
       return [];
     }
@@ -203,13 +199,13 @@ export class AnalysisQueueService {
         idsArray.slice(-this.maxProcessedIdsSize),
       );
       elizaLogger.info(
-        `[TweetQueueService] Trimmed processed tweets set to ${this.maxProcessedIdsSize} entries`,
+        `[AnalysisQueueService] Trimmed processed tweets set to ${this.maxProcessedIdsSize} entries`,
       );
     }
 
     if (batch.length > 0) {
       elizaLogger.info(
-        `[TweetQueueService] Retrieved batch of ${batch.length} tweets for processing`,
+        `[AnalysisQueueService] Retrieved batch of ${batch.length} tweets for processing`,
       );
     }
 
@@ -253,7 +249,7 @@ export class AnalysisQueueService {
   private setProcessing(isProcessing: boolean): void {
     this.isProcessing = isProcessing;
     elizaLogger.debug(
-      `[TweetQueueService] Processing state set to: ${isProcessing}`,
+      `[AnalysisQueueService] Processing state set to: ${isProcessing}`,
     );
   }
 
@@ -264,6 +260,8 @@ export class AnalysisQueueService {
     this.tweetQueue = [];
     this.processedTweetIds.clear();
     this.isProcessing = false;
-    elizaLogger.info('[TweetQueueService] Queue and processed set cleared');
+    elizaLogger.info('[AnalysisQueueService] Queue and processed set cleared');
   }
 }
+
+export const analysisQueueService = new AnalysisQueueService();

@@ -78,11 +78,11 @@ export class TwitterRequestService {
         );
 
         if (!searchResults.tweets.length) {
-          elizaLogger.warn(`${context} No tweets found for query: ${query}`);
+          elizaLogger.info(`${context} No tweets found for query: ${query}`);
           return searchResults;
         }
 
-        elizaLogger.debug(
+        elizaLogger.info(
           `${context} Found ${searchResults.tweets.length} tweets`,
         );
         elizaLogger.debug('tweets:', {

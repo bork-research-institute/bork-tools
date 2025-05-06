@@ -57,7 +57,7 @@ export class KaitoService {
         `${this.baseUrl}/yaps?${queryParams.toString()}`,
       );
 
-      elizaLogger.info(
+      elizaLogger.debug(
         `[KaitoService] Successfully fetched Yaps data for ${params.username}`,
       );
 
