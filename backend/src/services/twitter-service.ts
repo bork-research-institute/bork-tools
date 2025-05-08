@@ -11,10 +11,10 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper, SearchMode, type Tweet } from 'agent-twitter-client';
-import { TwitterAuthService } from './twitter-auth.service';
-import { TwitterCacheService } from './twitter-cache.service';
-import { TwitterRequestService } from './twitter-request.service';
-import { TwitterSpamService } from './twitter-spam.service';
+import { TwitterAuthService } from '@/services/twitter-auth.service';
+import { TwitterCacheService } from '@/services/twitter-cache.service';
+import { TwitterRequestService } from '@/services/twitter-request.service';
+import { TwitterSpamService } from '@/services/twitter-spam.service';
 
 export class TwitterService extends Service {
   private authService: TwitterAuthService;
