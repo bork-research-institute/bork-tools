@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Spinner } from '../ui/spinner';
 import { Panel } from './Panel';
 import { ScoreBar } from './ScoreBar';
+import { SwapModal } from './SwapModal';
 import { TokenInfoPanel } from './TokenInfoPanel';
 
 export function MarketStatsPanel({
@@ -62,6 +63,11 @@ export function MarketStatsPanel({
     new Map(),
   );
   const [dexLoading, setDexLoading] = useState(false);
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [selectedTokenForSwap, setSelectedTokenForSwap] = useState<{
+    address: string;
+    symbol: string;
+  } | null>(null);
 
   // Fetch DexScreener data when tokenSnapshots change
   useEffect(() => {
@@ -321,7 +327,26 @@ export function MarketStatsPanel({
     }
 
     if (field === 'score' && typeof value === 'number') {
-      return <ScoreBar score={value} />;
+      return (
+        <div className="flex items-center gap-2">
+          <ScoreBar score={value} />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedTokenForSwap({
+                address: snapshot.token_address,
+                symbol: snapshot.data?.ticker || '',
+              });
+              setSwapModalOpen(true);
+            }}
+          >
+            Buy/Sell
+          </Button>
+        </div>
+      );
     }
     return value;
   };
@@ -588,6 +613,18 @@ export function MarketStatsPanel({
           </div>
         </div>
       </div>
+
+      {selectedTokenForSwap && (
+        <SwapModal
+          isOpen={swapModalOpen}
+          onClose={() => {
+            setSwapModalOpen(false);
+            setSelectedTokenForSwap(null);
+          }}
+          tokenAddress={selectedTokenForSwap.address}
+          tokenSymbol={selectedTokenForSwap.symbol}
+        />
+      )}
     </Panel>
   );
 }
