@@ -2,7 +2,7 @@ import type {
   DexScreenerPair,
   ExtendedTokenProfile,
   TokenProfile,
-} from '@/types/token-monitor/token';
+} from '@/bork-protocol/plugins/token-monitor/types/token';
 import axios from 'axios';
 import { backOff } from 'exponential-backoff';
 

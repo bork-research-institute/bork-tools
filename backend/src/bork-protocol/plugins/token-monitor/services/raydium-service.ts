@@ -1,14 +1,17 @@
-import type { SwapInfo, SwapResponse } from '@/types/token-monitor/raydium';
+import { connectionService } from '@/bork-protocol/plugins/token-monitor/services/connection-service';
+import type {
+  SwapInfo,
+  SwapResponse,
+} from '@/bork-protocol/plugins/token-monitor/types/raydium';
 import type {
   LiquidityMetrics,
   VolumeMetrics,
-} from '@/types/token-monitor/token';
+} from '@/bork-protocol/plugins/token-monitor/types/token';
 import { type ApiV3PoolInfoItem, Raydium } from '@raydium-io/raydium-sdk-v2';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import type { Connection } from '@solana/web3.js';
 import axios from 'axios';
 import { isEmpty, isNil } from 'ramda';
-import { connectionService } from './connection-service';
 
 export class RaydiumService {
   private static instance: RaydiumService;

@@ -1,5 +1,5 @@
+import { AnalysisQueueService } from '@/services/analysis-queue.service';
 import { TwitterService } from '@/services/twitter-service';
-import { AnalysisQueueService } from '@bork/plugins/twitter-discovery/services/analysis-queue.service';
 import { TwitterDiscoveryConfigService } from '@bork/plugins/twitter-discovery/services/twitter-discovery-config-service';
 import type { TwitterConfig } from '@bork/plugins/twitter-discovery/types/twitter-config';
 import type { TwitterDiscoveryConfig } from '@bork/plugins/twitter-discovery/types/twitter-discovery-config';

@@ -3,6 +3,7 @@ import type { TwitterDiscoveryCharacter } from '@bork/plugins/twitter-discovery/
 import { ModelProviderName } from '@elizaos/core';
 
 export const character: TwitterDiscoveryCharacter = {
+  id: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
   name: 'Twitter Discovery Agent',
   username: 'twitter-discovery',
   modelProvider: ModelProviderName.OPENAI,

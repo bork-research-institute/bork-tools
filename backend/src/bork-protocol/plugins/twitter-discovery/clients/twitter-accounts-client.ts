@@ -2,8 +2,8 @@ import { TwitterDiscoveryConfigService } from '@/bork-protocol/plugins/twitter-d
 import type { TwitterConfig } from '@/bork-protocol/types/config';
 import { selectTargetAccounts } from '@/bork-protocol/utils/selection/select-account';
 import { selectTweetsFromAccounts } from '@/bork-protocol/utils/selection/select-tweets-from-account';
+import { AnalysisQueueService } from '@/services/analysis-queue.service';
 import { TwitterService } from '@/services/twitter-service';
-import { AnalysisQueueService } from '@bork/plugins/twitter-discovery/services/analysis-queue.service';
 import type { TwitterDiscoveryConfig } from '@bork/plugins/twitter-discovery/types/twitter-discovery-config';
 import { initializeTargetAccounts } from '@bork/utils/initialize-db/accounts';
 import { initializeTopicWeights } from '@bork/utils/initialize-db/topics';

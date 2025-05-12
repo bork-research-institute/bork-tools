@@ -5,8 +5,8 @@ import { TwitterService } from '@/services/twitter-service';
 import { type IAgentRuntime, Service, type ServiceType } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
 import type { Tweet } from 'agent-twitter-client';
-import { ServiceTypeExtension } from '../types/service-type-extension';
-import { TwitterDiscoveryConfigService } from './twitter-discovery-config-service';
+import { TwitterDiscoveryConfigService } from '../bork-protocol/plugins/twitter-discovery/services/twitter-discovery-config-service';
+import { ServiceTypeExtension } from '../bork-protocol/plugins/twitter-discovery/types/service-type-extension';
 interface QueuedTweet {
   tweet: Tweet;
   priority: number;

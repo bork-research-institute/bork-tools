@@ -1,13 +1,14 @@
-import type { TokenMetrics } from '@/types/token-monitor/token';
+import { connectionService } from '@/bork-protocol/plugins/token-monitor/services/connection-service';
+import { DexScreenerService } from '@/bork-protocol/plugins/token-monitor/services/dexscreener-service';
+import { RaydiumService } from '@/bork-protocol/plugins/token-monitor/services/raydium-service';
+import type { TokenMetrics } from '@/bork-protocol/plugins/token-monitor/types/token';
+
 import {
   TOKEN_PROGRAM_ID,
   TokenInvalidAccountOwnerError,
   getMint,
 } from '@solana/spl-token';
 import { type Connection, PublicKey } from '@solana/web3.js';
-import { connectionService } from './connection-service';
-import { DexScreenerService } from './dexscreener-service';
-import { RaydiumService } from './raydium-service';
 
 export interface TokenAuthority {
   isMintable: boolean;
