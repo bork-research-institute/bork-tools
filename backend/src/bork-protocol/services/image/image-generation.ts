@@ -153,6 +153,7 @@ class OpenAIImageProvider implements ImageProvider {
         size: size as OpenAI.ImageGenerateParams['size'],
         quality: quality as OpenAI.ImageGenerateParams['quality'],
         style: options.style,
+        response_format: 'b64_json',
       };
 
       const result = await this.openai.images.generate(params);
