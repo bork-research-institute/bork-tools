@@ -121,13 +121,7 @@ export class TokenMonitorService extends Service {
 
           // If interesting, immediately search for and process related tweets
           if (interestingToken) {
-            this.recentlySearchedTokens = await searchTokenTweets(
-              interestingToken,
-              this.twitterService,
-              this.twitterConfigService,
-              this.analysisQueueService,
-              this.recentlySearchedTokens,
-            );
+            this.searchTokenTweets(interestingToken.tokenAddress);
           }
         } catch (err) {
           elizaLogger.error('[TokenMonitorService] Error processing token:', {
@@ -137,6 +131,16 @@ export class TokenMonitorService extends Service {
         }
       }
     }
+  }
+
+  public async searchTokenTweets(tokenAddress: string): Promise<void> {
+    this.recentlySearchedTokens = await searchTokenTweets(
+      tokenAddress,
+      this.twitterService,
+      this.twitterConfigService,
+      this.analysisQueueService,
+      this.recentlySearchedTokens,
+    );
   }
 
   private async fetchAndFilterSolanaTokens(): Promise<TokenProfile[]> {
@@ -161,7 +165,7 @@ export class TokenMonitorService extends Service {
       return [];
     }
   }
-  private async enrichToken(token: TokenProfile): Promise<EnrichedToken> {
+  public async enrichToken(token: TokenProfile): Promise<EnrichedToken> {
     try {
       const [metrics, priceInfo] = await Promise.all([
         tokenEnrichmentService.getTokenMetrics(token.tokenAddress),

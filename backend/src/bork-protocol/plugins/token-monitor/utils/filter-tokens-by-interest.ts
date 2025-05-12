@@ -1,13 +1,13 @@
-import type { TweetQueueService } from '@/services/twitter/analysis-queue.service';
-import type { TwitterConfigService } from '@/services/twitter/twitter-config-service';
-import type { TwitterService } from '@/services/twitter/twitter-service';
 import type {
   EnrichedToken,
   InterestingToken,
   TokenProfile,
-} from '@/types/token-monitor/token';
+} from '@/bork-protocol/plugins/token-monitor/types/token';
+import { searchTokenTweets } from '@/bork-protocol/plugins/token-monitor/utils/token-search';
+import type { TwitterDiscoveryConfigService } from '@/bork-protocol/plugins/twitter-discovery/services/twitter-discovery-config-service';
+import type { AnalysisQueueService } from '@/services/analysis-queue.service';
+import type { TwitterService } from '@/services/twitter-service';
 import { elizaLogger } from '@elizaos/core';
-import { searchTokenTweets } from './token-search';
 
 /**
  * Clears old interesting tokens to prevent stale data
@@ -176,8 +176,8 @@ export function getTopInterestingTokens(
 export async function checkForInterestingTokens(
   interestingTokensGetter: (limit: number) => InterestingToken[],
   twitterService: TwitterService,
-  twitterConfigService: TwitterConfigService,
-  tweetQueueService: TweetQueueService,
+  twitterConfigService: TwitterDiscoveryConfigService,
+  tweetQueueService: AnalysisQueueService,
   recentlySearchedTokens: Set<string>,
 ): Promise<Set<string>> {
   elizaLogger.info('[TokenMonitor] Checking for interesting tokens');
@@ -205,7 +205,7 @@ export async function checkForInterestingTokens(
     for (const token of interestingTokens) {
       if (!updatedRecentlySearchedTokens.has(token.tokenAddress)) {
         updatedRecentlySearchedTokens = await searchTokenTweets(
-          token,
+          token.tokenAddress,
           twitterService,
           twitterConfigService,
           tweetQueueService,

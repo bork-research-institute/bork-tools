@@ -97,6 +97,31 @@ export class DexScreenerService {
       return null;
     }
   }
+
+  /**
+   * Fetches token pairs for a given Solana token address from DexScreener and maps them to TokenProfile[]
+   * Note: Only a subset of TokenProfile fields can be filled from the API response. Fields like icon, header, description, and links are not available and will be undefined.
+   * @param tokenAddress The Solana token address
+   * @returns Array of TokenProfile objects (one per pair)
+   */
+  async getTokenPairsAsProfiles(tokenAddress: string): Promise<TokenProfile[]> {
+    // Define a minimal type for the API response
+    type TokenPairApiResponse = {
+      url: string;
+      chainId: string;
+      baseToken: { address: string; name: string; symbol: string };
+    };
+    const pairs = await this.makeRequest<TokenPairApiResponse[]>(
+      `/token-pairs/v1/solana/${tokenAddress}`,
+    );
+    return pairs.map((pair) => ({
+      url: pair.url,
+      chainId: pair.chainId,
+      tokenAddress: pair.baseToken.address,
+      name: pair.baseToken.name,
+      ticker: pair.baseToken.symbol,
+    }));
+  }
 }
 
 // Export a singleton instance
