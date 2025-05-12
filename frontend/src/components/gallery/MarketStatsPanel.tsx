@@ -11,8 +11,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { FIELD_OPTIONS, TIMEFRAME_LABELS } from '@/lib/config/market-stats';
 import { renderValue } from '@/lib/helpers/market-stats';
+import { dexscreenerService } from '@/lib/services/dexscreener-service';
 import { cn } from '@/lib/utils';
+import { formatCurrency, formatPrice } from '@/lib/utils/format-number';
 import { calculateTokenScore } from '@/lib/utils/market-stats';
+import type { DexScreenerPair } from '@/types/dexscreener';
 import type {
   MarketStatsPanelProps,
   SortConfig,
@@ -20,11 +23,12 @@ import type {
 } from '@/types/token-monitor/market-stats';
 import type { TokenWithEngagement } from '@/types/token-monitor/token';
 import type { TweetWithAnalysis } from '@/types/tweets-analysis';
-import { ArrowUpDown, Clock, Settings } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowUpDown, Settings } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Spinner } from '../ui/spinner';
 import { Panel } from './Panel';
 import { ScoreBar } from './ScoreBar';
+import { SwapModal } from './SwapModal';
 import { TokenInfoPanel } from './TokenInfoPanel';
 
 export function MarketStatsPanel({
@@ -43,6 +47,9 @@ export function MarketStatsPanel({
     direction: 'desc',
   });
   const [visibleFields, setVisibleFields] = useState<string[]>([
+    'price',
+    'holders',
+    'tweets',
     'marketCap',
     'volume',
     'lastUpdated',
@@ -52,6 +59,46 @@ export function MarketStatsPanel({
     'views',
     'score',
   ]);
+  const [dexData, setDexData] = useState<Map<string, DexScreenerPair>>(
+    new Map(),
+  );
+  const [dexLoading, setDexLoading] = useState(false);
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [selectedTokenForSwap, setSelectedTokenForSwap] = useState<{
+    address: string;
+    symbol: string;
+  } | null>(null);
+
+  // Fetch DexScreener data when tokenSnapshots change
+  useEffect(() => {
+    const fetchDexData = async () => {
+      if (!tokenSnapshots || tokenSnapshots.length === 0) {
+        return;
+      }
+
+      setDexLoading(true);
+      try {
+        const addresses = tokenSnapshots.map(
+          (snapshot) => snapshot.token_address,
+        );
+        await dexscreenerService.getTokenData(
+          'solana',
+          addresses,
+          (batchData) => {
+            setDexData((prev) => new Map([...prev, ...batchData]));
+          },
+        );
+      } catch (error) {
+        console.error('Error fetching DexScreener data:', error);
+      } finally {
+        setDexLoading(false);
+      }
+    };
+
+    // Clear existing data when tokenSnapshots change
+    setDexData(new Map());
+    fetchDexData();
+  }, [tokenSnapshots]);
 
   const sortedData = useMemo(() => {
     if (!tokenSnapshots) {
@@ -64,8 +111,29 @@ export function MarketStatsPanel({
       let aValue: number | string | null | undefined;
       let bValue: number | string | null | undefined;
 
-      // Add engagement metrics to sorting
+      // Add DexScreener data to sorting
       switch (key) {
+        case 'price': {
+          const aPair = dexData.get(a.token_address);
+          const bPair = dexData.get(b.token_address);
+          aValue = aPair ? Number.parseFloat(aPair.priceUsd) : null;
+          bValue = bPair ? Number.parseFloat(bPair.priceUsd) : null;
+          break;
+        }
+        case 'marketCap': {
+          const aPair = dexData.get(a.token_address);
+          const bPair = dexData.get(b.token_address);
+          aValue = aPair?.marketCap || null;
+          bValue = bPair?.marketCap || null;
+          break;
+        }
+        case 'volume': {
+          const aPair = dexData.get(a.token_address);
+          const bPair = dexData.get(b.token_address);
+          aValue = aPair?.volume.h24 || null;
+          bValue = bPair?.volume.h24 || null;
+          break;
+        }
         case 'likes': {
           aValue = a.engagement?.tweets
             ?.filter((t: TweetWithAnalysis) => t.status !== 'spam')
@@ -126,21 +194,6 @@ export function MarketStatsPanel({
             );
           break;
         }
-        case 'marketCap': {
-          aValue = a.data?.marketCap;
-          bValue = b.data?.marketCap;
-          break;
-        }
-        case 'volume': {
-          aValue = a.data?.liquidityMetrics?.volumeMetrics?.volume24h;
-          bValue = b.data?.liquidityMetrics?.volumeMetrics?.volume24h;
-          break;
-        }
-        case 'price': {
-          aValue = a.data?.priceInfo?.price;
-          bValue = b.data?.priceInfo?.price;
-          break;
-        }
         case 'holders': {
           aValue = a.data?.holderCount;
           bValue = b.data?.holderCount;
@@ -197,26 +250,113 @@ export function MarketStatsPanel({
         ? String(aValue).localeCompare(String(bValue))
         : String(bValue).localeCompare(String(aValue));
     });
-  }, [tokenSnapshots, sortConfig]);
+  }, [tokenSnapshots, sortConfig, dexData]);
 
-  // Update the table cell rendering to use ScoreBar for score field
+  // Update the table cell rendering to include DexScreener data
   const renderTableCell = (snapshot: TokenWithEngagement, field: string) => {
     let value: string | number | React.ReactNode;
-    if (field === 'score') {
-      const validTweets = snapshot.engagement?.tweets?.filter(
-        (t: TweetWithAnalysis) =>
-          t.analysis !== null && t.analysis !== undefined,
-      );
-      value = calculateTokenScore(snapshot, validTweets);
-    } else {
-      value = renderValue(snapshot, field);
+    const dexPair = dexData.get(snapshot.token_address.toLowerCase());
+
+    switch (field) {
+      case 'price': {
+        if (dexLoading && !dexPair) {
+          value = <Spinner size="sm" />;
+        } else {
+          value = dexPair?.priceUsd
+            ? formatPrice(Number(dexPair.priceUsd))
+            : 'N/A';
+        }
+        break;
+      }
+      case 'marketCap': {
+        if (dexLoading && !dexPair) {
+          value = <Spinner size="sm" />;
+        } else {
+          value = dexPair?.marketCap
+            ? formatCurrency(dexPair.marketCap)
+            : 'N/A';
+        }
+        break;
+      }
+      case 'volume': {
+        if (dexLoading && !dexPair) {
+          value = <Spinner size="sm" />;
+        } else {
+          value = dexPair?.volume?.h24
+            ? formatCurrency(dexPair.volume.h24)
+            : 'N/A';
+        }
+        break;
+      }
+      case 'tweets': {
+        const nonSpamTweets =
+          snapshot.engagement?.tweets?.filter(
+            (t: TweetWithAnalysis) => t.status !== 'spam',
+          ) || [];
+        const totalTweets = nonSpamTweets.length;
+        const totalLikes = nonSpamTweets.reduce(
+          (sum, t) => sum + (t.likes || 0),
+          0,
+        );
+        const totalReplies = nonSpamTweets.reduce(
+          (sum, t) => sum + (t.replies || 0),
+          0,
+        );
+        const totalRetweets = nonSpamTweets.reduce(
+          (sum, t) => sum + (t.retweets || 0),
+          0,
+        );
+        const totalViews = nonSpamTweets.reduce(
+          (sum, t) => sum + (t.views || 0),
+          0,
+        );
+        value = `${totalTweets} (${totalLikes}/${totalReplies}/${totalRetweets}/${totalViews})`;
+        break;
+      }
+      case 'score': {
+        const validTweets = snapshot.engagement?.tweets?.filter(
+          (t: TweetWithAnalysis) =>
+            t.analysis !== null && t.analysis !== undefined,
+        );
+        value = calculateTokenScore(snapshot, validTweets);
+        break;
+      }
+      default: {
+        value = renderValue(snapshot, field);
+      }
     }
 
     if (field === 'score' && typeof value === 'number') {
-      return <ScoreBar score={value} />;
+      return (
+        <div className="flex items-center gap-2">
+          <ScoreBar score={value} />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedTokenForSwap({
+                address: snapshot.token_address,
+                symbol: snapshot.data?.ticker || '',
+              });
+              setSwapModalOpen(true);
+            }}
+          >
+            Buy/Sell
+          </Button>
+        </div>
+      );
     }
     return value;
   };
+
+  // Add debug logging to see what data we're getting
+  useEffect(() => {
+    if (dexData.size > 0) {
+      console.log('DexScreener data:', Array.from(dexData.entries()));
+    }
+  }, [dexData]);
 
   // Always render the header row (controls)
   return (
@@ -320,26 +460,25 @@ export function MarketStatsPanel({
                       </th>
                       {/* Render default fields first */}
                       {[
+                        'price',
                         'marketCap',
                         'volume',
+                        'holders',
                         'lastUpdated',
-                        ...visibleFields.filter(
-                          (f) =>
-                            !['marketCap', 'volume', 'lastUpdated'].includes(f),
-                        ),
+                        'tweets',
+                        'score',
                       ].map((field) => {
                         let label: React.ReactNode = field;
-                        if (field === 'marketCap') {
-                          label = 'MCAP';
-                        } else if (field === 'volume') {
-                          label = '24H VOL';
+                        if (field === 'price') {
+                          label = 'Price';
+                        } else if (field === 'holders') {
+                          label = 'Holders';
+                        } else if (field === 'marketCap') {
+                          label = 'MCap';
                         } else if (field === 'lastUpdated') {
-                          label = (
-                            <Clock
-                              className="inline w-4 h-4 text-emerald-400/80"
-                              aria-label="Last Updated"
-                            />
-                          );
+                          label = '🕒';
+                        } else if (field === 'tweets') {
+                          label = 'Tweets (❤️/💬/🔄/👁️)';
                         } else {
                           label =
                             FIELD_OPTIONS.find((opt) => opt.key === field)
@@ -411,7 +550,6 @@ export function MarketStatsPanel({
                           onClick={() => {
                             if (isSelected) {
                               onTokenSelect?.(null);
-                              // Emit custom event to notify gallery to switch back to trending
                               window.dispatchEvent(
                                 new CustomEvent('switchToTrending'),
                               );
@@ -423,7 +561,6 @@ export function MarketStatsPanel({
                             if (e.key === 'Enter' || e.key === ' ') {
                               if (isSelected) {
                                 onTokenSelect?.(null);
-                                // Emit custom event to notify gallery to switch back to trending
                                 window.dispatchEvent(
                                   new CustomEvent('switchToTrending'),
                                 );
@@ -445,17 +582,13 @@ export function MarketStatsPanel({
                           </td>
                           {/* Render default fields first, then others */}
                           {[
+                            'price',
                             'marketCap',
                             'volume',
+                            'holders',
                             'lastUpdated',
-                            ...visibleFields.filter(
-                              (f) =>
-                                ![
-                                  'marketCap',
-                                  'volume',
-                                  'lastUpdated',
-                                ].includes(f),
-                            ),
+                            'tweets',
+                            'score',
                           ].map((field) => (
                             <td
                               key={field}
@@ -480,6 +613,18 @@ export function MarketStatsPanel({
           </div>
         </div>
       </div>
+
+      {selectedTokenForSwap && (
+        <SwapModal
+          isOpen={swapModalOpen}
+          onClose={() => {
+            setSwapModalOpen(false);
+            setSelectedTokenForSwap(null);
+          }}
+          tokenAddress={selectedTokenForSwap.address}
+          tokenSymbol={selectedTokenForSwap.symbol}
+        />
+      )}
     </Panel>
   );
 }
