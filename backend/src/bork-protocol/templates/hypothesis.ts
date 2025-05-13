@@ -23,6 +23,7 @@ interface HypothesisTemplateInput {
   recentThreads?: PostedThread[];
   topicPerformance?: TopicPerformance[];
   recentlyUsedKnowledge?: UsedKnowledge[];
+  preferredTopic?: string;
 }
 
 export function hypothesisTemplate(input: HypothesisTemplateInput) {
@@ -32,6 +33,7 @@ export function hypothesisTemplate(input: HypothesisTemplateInput) {
     recentThreads = [],
     topicPerformance = [],
     recentlyUsedKnowledge = [],
+    preferredTopic,
   } = input;
 
   // Create a summary of topic weights and performance
@@ -111,8 +113,13 @@ Metrics: ${item.source.metrics.likes} likes, ${item.source.metrics.retweets} ret
     })
     .join('\n\n');
 
+  // Add preferred topic emphasis
+  const preferredTopicEmphasis = preferredTopic
+    ? `\n\nIMPORTANT: The user has specifically requested a thread about "${preferredTopic}". While you should still consider all the data below, prioritize creating a compelling thread about this topic. If there isn't enough knowledge about ${preferredTopic}, you can combine it with related topics to create a broader but still relevant thread.`
+    : '';
+
   return {
-    context: `You are an expert social media influencer and your task is to analyze topics and knowledge to select the SINGLE most promising topic for thread creation.
+    context: `You are an expert social media influencer and your task is to analyze topics and knowledge to select the SINGLE most promising topic for thread creation.${preferredTopicEmphasis}
 
 HISTORICAL TOPIC PERFORMANCE (from previous threads):
 ${topicSummaries}
@@ -127,7 +134,7 @@ CRITICAL REQUIREMENTS:
 4. Create a NEW, highly SPECIFIC primary topic - not just one of the general topics listed
 5. Include at least 5 knowledge items (or more if relevant) in the relevantKnowledge section
 6. Avoid recently used knowledge items
-7. Consider historical topic performance when making your selection
+7. Consider historical topic performance when making your selection${preferredTopic ? `\n8. The primary topic MUST be related to "${preferredTopic}" or a specific aspect of it` : ''}
 
 Format your response as a JSON object with the following structure:
 {

@@ -179,7 +179,6 @@ export const tokenLaunchEvaluator: Evaluator = {
     'EVALUATE_TOKEN_CREATION',
     'CHECK_TOKEN_LAUNCH',
   ],
-  alwaysRun: true,
   validate: async (
     _runtime: IAgentRuntime,
     message: Memory,
@@ -188,7 +187,22 @@ export const tokenLaunchEvaluator: Evaluator = {
       return false;
     }
 
-    return message.userId !== message.agentId;
+    // Only run for messages that explicitly mention launching or creating a token
+    const text = message.content.text.toLowerCase();
+    const tokenLaunchPhrases = [
+      'launch a token',
+      'create a token',
+      'make a token',
+      'generate a token',
+      'initialize a token',
+      'start a token',
+      'new token',
+    ];
+
+    return (
+      message.userId !== message.agentId &&
+      tokenLaunchPhrases.some((phrase) => text.includes(phrase))
+    );
   },
   description:
     'Evaluates if a token should be launched based on conversation context and extracts token launch details.',
