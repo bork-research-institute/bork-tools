@@ -71,11 +71,10 @@ async function startAgent(
     return runtime;
   } catch (error) {
     elizaLogger.error(
-      `[Initialize]Error starting agent for character ${character.name}:`,
-      error,
+      `[Initialize] Error starting agent for character ${character.name}: ${error}`,
     );
     if (db) {
-      elizaLogger.info('Closing database connection due to error');
+      elizaLogger.info('[Initialize] Closing database connection due to error');
       await db.close();
     }
     throw error;
@@ -83,7 +82,6 @@ async function startAgent(
 }
 
 export const startAgents = async () => {
-  console.log('Starting agents initialization');
   elizaLogger.info('[Initialize] Starting agents initialization');
   const directClient = new ApiClient();
   configureApiRoutes(directClient.app);

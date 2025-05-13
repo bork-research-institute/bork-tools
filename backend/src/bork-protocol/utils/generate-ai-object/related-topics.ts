@@ -61,7 +61,7 @@ export async function analyzeTopicRelationships(
 
     const analysis = object as TopicRelationshipAnalysis;
 
-    elizaLogger.info('[Topic Analysis] Related topics:', {
+    elizaLogger.debug('[Topic Analysis] Related topics:', {
       relatedTopics: analysis.relatedTopics,
     });
 

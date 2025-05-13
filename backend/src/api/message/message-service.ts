@@ -11,11 +11,6 @@ import {
   generateMessageResponse,
   stringToUuid,
 } from '@elizaos/core';
-<<<<<<<< HEAD:backend/src/api/message/message-service.ts
-========
-import { messageHandlerTemplate } from '../eliza/base-templates';
-import type { MessageRequest } from '../types/message-request';
->>>>>>>> 0b44d3f (wip moved stuff to a plugin):backend/src/api/message-service.ts
 
 export class MessageService {
   private readonly agents: Map<string, IAgentRuntime>;

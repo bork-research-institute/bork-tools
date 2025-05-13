@@ -56,8 +56,8 @@ export const searchToken: Action = {
     const content = await generateObject({
       runtime,
       context: searchTokenContext,
-      modelClass: ModelClass.LARGE,
-      schema: z.string(),
+      modelClass: ModelClass.SMALL,
+      schema: z.any(),
     });
 
     const tokenAddress = content.object as string;

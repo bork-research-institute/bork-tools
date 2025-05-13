@@ -55,7 +55,10 @@ export class TwitterRequestService {
           // Add a delay between requests to respect rate limits
           await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
-          elizaLogger.error('Error processing request:', error);
+          elizaLogger.error(
+            '[TwitterRequestService] Error processing request:',
+            error,
+          );
         }
       }
     }
@@ -108,11 +111,14 @@ export class TwitterRequestService {
 
   async getTweet(tweetId: string): Promise<Tweet | null> {
     return this.enqueueRequest(async () => {
-      elizaLogger.info(`Fetching tweet: ${tweetId}`);
+      elizaLogger.info(`[TwitterRequestService] Fetching tweet: ${tweetId}`);
       try {
         return await this.twitterClient.getTweet(tweetId);
       } catch (error) {
-        elizaLogger.error('Error fetching tweet:', error);
+        elizaLogger.error(
+          '[TwitterRequestService] Error fetching tweet:',
+          error,
+        );
         return null;
       }
     }, 'getTweet');
@@ -123,7 +129,9 @@ export class TwitterRequestService {
     limit: number,
   ): Promise<QueryTweetsResponse> {
     return this.enqueueRequest(async () => {
-      elizaLogger.info(`Fetching user tweets for: ${username}`);
+      elizaLogger.info(
+        `[TwitterRequestService] Fetching user tweets for: ${username}`,
+      );
       try {
         return await this.twitterClient.fetchSearchTweets(
           `from:${username}`,
@@ -131,7 +139,10 @@ export class TwitterRequestService {
           SearchMode.Latest,
         );
       } catch (error) {
-        elizaLogger.error('Error fetching user tweets:', error);
+        elizaLogger.error(
+          '[TwitterRequestService] Error fetching user tweets:',
+          error,
+        );
         throw error;
       }
     }, 'getUserTweets');
@@ -145,7 +156,10 @@ export class TwitterRequestService {
 
   async sendTweet(text: string, inReplyToId?: string): Promise<Tweet> {
     return this.enqueueRequest(async () => {
-      elizaLogger.info('Sending tweet:', { text, inReplyToId });
+      elizaLogger.info('[TwitterRequestService] Sending tweet:', {
+        text,
+        inReplyToId,
+      });
       try {
         let response: TwitterResponse = await this.twitterClient.sendTweet(
           text,
@@ -153,7 +167,7 @@ export class TwitterRequestService {
         );
 
         // Add detailed logging of the response
-        elizaLogger.info('Tweet response details:', {
+        elizaLogger.debug('[TwitterRequestService] Tweet response details:', {
           responseType: typeof response,
           isNull: response === null,
           isUndefined: response === undefined,
@@ -163,7 +177,9 @@ export class TwitterRequestService {
         // Handle Response object
         if (response instanceof Response) {
           const responseData = (await response.json()) as TwitterApiResponse;
-          elizaLogger.info('Response data:', responseData);
+          elizaLogger.debug('[TwitterRequestService] Response data:', {
+            responseData,
+          });
 
           // Extract tweet ID from response data
           const tweetId =
@@ -175,7 +191,7 @@ export class TwitterRequestService {
             response = tweetId;
           } else {
             elizaLogger.error(
-              'Failed to extract tweet ID from response:',
+              '[TwitterRequestService] Failed to extract tweet ID from response:',
               responseData,
             );
             throw new Error('Could not find tweet ID in response');
@@ -184,7 +200,9 @@ export class TwitterRequestService {
 
         // Try up to 5 times with exponential backoff
         for (let attempt = 0; attempt < 5 && !response; attempt++) {
-          elizaLogger.info(`Attempt ${attempt + 1} to get tweet response...`);
+          elizaLogger.info(
+            `[TwitterRequestService] Attempt ${attempt + 1} to get tweet response...`,
+          );
           await this.waitWithBackoff(attempt);
           let retryResponse: TwitterResponse =
             await this.twitterClient.sendTweet(text, inReplyToId);
@@ -193,8 +211,8 @@ export class TwitterRequestService {
           if (retryResponse instanceof Response) {
             const responseData =
               (await retryResponse.json()) as TwitterApiResponse;
-            elizaLogger.info(
-              `Retry ${attempt + 1} response data:`,
+            elizaLogger.debug(
+              `[TwitterRequestService] Retry ${attempt + 1} response data:`,
               responseData,
             );
 
@@ -207,7 +225,7 @@ export class TwitterRequestService {
               retryResponse = tweetId;
             } else {
               elizaLogger.error(
-                'Failed to extract tweet ID from retry response:',
+                '[TwitterRequestService] Failed to extract tweet ID from retry response:',
                 responseData,
               );
               throw new Error('Could not find tweet ID in retry response');
@@ -229,10 +247,8 @@ export class TwitterRequestService {
         let tweetId: string;
         if (typeof response === 'string') {
           tweetId = response;
-          elizaLogger.info('Response is a string:', tweetId);
         } else if (typeof response === 'number') {
           tweetId = response.toString();
-          elizaLogger.info('Response is a number:', tweetId);
         } else if (typeof response === 'object' && response !== null) {
           const resp = response as TweetResponse;
           // Check for nested data structure
@@ -248,24 +264,19 @@ export class TwitterRequestService {
             );
           }
           tweetId = possibleId;
-
-          elizaLogger.info('Response is an object:', {
-            foundId: possibleId,
-            hadRestId: !!resp.rest_id,
-            hadLegacyId: !!resp.legacy?.id_str,
-            hadTweetId: !!resp.tweet_id,
-            hadDataId: !!resp.data?.id,
-          });
         } else {
           throw new Error(`Unexpected response type: ${typeof response}`);
         }
 
         if (!tweetId) {
-          elizaLogger.error('Failed to extract tweet ID from response:', {
-            response,
-            responseType: typeof response,
-            stringified: JSON.stringify(response, null, 2),
-          });
+          elizaLogger.error(
+            '[TwitterRequestService] Failed to extract tweet ID from response:',
+            {
+              response,
+              responseType: typeof response,
+              stringified: JSON.stringify(response, null, 2),
+            },
+          );
           throw new Error('Could not extract tweet ID from response');
         }
 
@@ -291,7 +302,7 @@ export class TwitterRequestService {
 
         return tweet;
       } catch (error) {
-        elizaLogger.error('Error sending tweet:', {
+        elizaLogger.error('[TwitterRequestService] Error sending tweet:', {
           error,
           errorType: error?.constructor?.name,
           message: error instanceof Error ? error.message : String(error),

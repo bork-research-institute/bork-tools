@@ -1,10 +1,10 @@
-import { hypothesisTemplate } from '@/templates/hypothesis';
+import { hypothesisTemplate } from '@/bork-protocol/templates/hypothesis';
 import {
   type HypothesisResponse,
   hypothesisResponseSchema,
-} from '@/types/response/hypothesis';
-import { fetchTopicKnowledge } from '@/utils/knowledge/fetch-topic-knowledge';
-import { selectTopic } from '@/utils/selection/select-topic';
+} from '@/bork-protocol/types/response/hypothesis';
+import { fetchTopicKnowledge } from '@/bork-protocol/utils/knowledge/fetch-topic-knowledge';
+import { selectTopic } from '@/bork-protocol/utils/selection/select-topic';
 import {
   type IAgentRuntime,
   ModelClass,
@@ -102,8 +102,8 @@ export async function generateHypothesis(
       );
     });
 
-    elizaLogger.info(
-      'Recent threads for hypothesis generation:',
+    elizaLogger.debug(
+      `${logPrefix} Recent threads for hypothesis generation:`,
       relevantThreads.map((t) => ({
         id: t.id,
         title: t.threadIdea,
@@ -113,7 +113,7 @@ export async function generateHypothesis(
     );
 
     // Log knowledge items for selected topics
-    elizaLogger.info(`${logPrefix} Knowledge items for selected topics:`, {
+    elizaLogger.debug(`${logPrefix} Knowledge items for selected topics:`, {
       topics: Array.from(topicKnowledgeMap.entries()).map(
         ([topic, knowledge]) => ({
           topic,
@@ -147,7 +147,7 @@ export async function generateHypothesis(
     });
 
     // Log historical performance data
-    elizaLogger.info(`${logPrefix} Historical performance data:`, {
+    elizaLogger.debug(`${logPrefix} Historical performance data:`, {
       topicPerformance: topicPerformance.map((tp) => ({
         topic: tp.topic,
         totalThreads: tp.totalThreads,

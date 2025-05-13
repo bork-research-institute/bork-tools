@@ -1,4 +1,4 @@
 export enum ServiceTypeExtension {
-  CONFIG = 'config',
+  CONFIG = 'token-monitor-config',
   TOKEN_MONITOR = 'token-monitor',
 }

@@ -1,4 +1,7 @@
-import { KNOWLEDGE_ROOM_ID, SYSTEM_USER_ID } from '@/config/knowledge';
+import {
+  KNOWLEDGE_ROOM_ID,
+  SYSTEM_USER_ID,
+} from '@/bork-protocol/config/knowledge';
 import {
   type IAgentRuntime,
   type Memory,

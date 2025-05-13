@@ -4,13 +4,6 @@ import { messageResponseSchema } from '@api/message/message-response';
 import type { MessageService } from '@api/message/message-service';
 import { elizaLogger } from '@elizaos/core';
 import { type Elysia, t } from 'elysia';
-<<<<<<<< HEAD:backend/src/api/message/message-controller.ts
-========
-import { errorResponseSchema } from '../types/error-response';
-import { messageRequestSchema } from '../types/message-request';
-import { messageResponseSchema } from '../types/message-response';
-import type { MessageService } from './message-service';
->>>>>>>> 0b44d3f (wip moved stuff to a plugin):backend/src/api/message-controller.ts
 
 export class MessageController {
   private readonly messageService: MessageService;
