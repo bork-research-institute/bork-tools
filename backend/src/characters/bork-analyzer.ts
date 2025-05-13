@@ -1,4 +1,5 @@
 import gfmPlugin from '@/plugins/gfm-plugin';
+import xThreadPlugin from '@/plugins/x-thread-plugin';
 import { type Character, ModelProviderName } from '@elizaos/core';
 
 export const character: Character = {
@@ -6,7 +7,7 @@ export const character: Character = {
   name: 'Bork Analyzer',
   username: 'bork-analyzer',
   modelProvider: ModelProviderName.OPENAI,
-  plugins: [gfmPlugin],
+  plugins: [gfmPlugin, xThreadPlugin],
   settings: {
     secrets: {},
   },

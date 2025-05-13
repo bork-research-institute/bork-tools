@@ -165,6 +165,7 @@ export async function generateHypothesis(
       recentThreads: relevantThreads,
       topicPerformance,
       recentlyUsedKnowledge,
+      preferredTopic,
     });
 
     // Generate topic suggestions using the AI
