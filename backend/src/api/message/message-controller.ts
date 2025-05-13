@@ -1,9 +1,9 @@
+import { errorResponseSchema } from '@api/error-response';
+import { messageRequestSchema } from '@api/message/message-request';
+import { messageResponseSchema } from '@api/message/message-response';
+import type { MessageService } from '@api/message/message-service';
 import { elizaLogger } from '@elizaos/core';
 import { type Elysia, t } from 'elysia';
-import { errorResponseSchema } from './error-response';
-import { messageRequestSchema } from './message-request';
-import { messageResponseSchema } from './message-response';
-import type { MessageService } from './message-service';
 
 export class MessageController {
   private readonly messageService: MessageService;

@@ -111,7 +111,7 @@ export class TwitterClient implements ClientInstance {
         // this.interactionClient.start(),
         // this.discoveryClient.start(),
         // this.informativeThreadsClient.start(),
-        this.tokenMonitorClient.start(),
+        // this.tokenMonitorClient.start(),
       ]);
 
       elizaLogger.info('[TwitterClient] Twitter client started successfully');

@@ -215,7 +215,13 @@ export const tweetService = {
         .in('tweet_id', tweetIds);
 
       if (tweetsError) {
-        console.error('Error fetching tweets:', tweetsError);
+        console.error('Error fetching tweets:', {
+          error: tweetsError,
+          message: tweetsError.message,
+          details: tweetsError.details,
+          hint: tweetsError.hint,
+          code: tweetsError.code,
+        });
         return [];
       }
 
@@ -226,7 +232,13 @@ export const tweetService = {
         .in('tweet_id', tweetIds);
 
       if (analysesError) {
-        console.error('Error fetching tweet analyses:', analysesError);
+        console.error('Error fetching tweet analyses:', {
+          error: analysesError,
+          message: analysesError.message,
+          details: analysesError.details,
+          hint: analysesError.hint,
+          code: analysesError.code,
+        });
         return [];
       }
 
@@ -241,7 +253,11 @@ export const tweetService = {
         analysis: analysisMap.get(tweet.tweet_id),
       }));
     } catch (error) {
-      console.error('Error in getTweetsAndAnalysesByIds:', error);
+      console.error('Error in getTweetsAndAnalysesByIds:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   },

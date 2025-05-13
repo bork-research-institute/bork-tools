@@ -24,7 +24,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/bork-protocol/*"],
-      "@bork/*": ["src/bork-protocol/*"]
+      "@bork/*": ["src/bork-protocol/*"],
+      "@api/*": ["src/api/*"],
+      "@eliza/*": ["src/eliza/*"]
     }
   }
 }

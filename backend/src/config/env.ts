@@ -26,6 +26,12 @@ const envSchema = z.object({
   SEARCH_PREFERRED_TOPIC: z.string().min(1).default('crypto'),
   INJECTIVE_ENABLED: z.string().transform((val) => val === 'true'),
   HELIUS_API_KEY: z.string().min(1),
+  PINATA_JWT: z.string().min(1),
+  PINATA_GATEWAY_URL: z.string().url(),
+  SOLANA_PRIVATE_KEY: z.string().min(1),
+  SOLANA_PUBLIC_KEY: z.string().min(1),
+  TEE_MODE: z.enum(['OFF', 'SOFTWARE', 'HARDWARE']).default('OFF'),
+  WALLET_SECRET_SALT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -46,6 +52,12 @@ export function getEnv(): Env {
     SEARCH_PREFERRED_TOPIC: process.env.SEARCH_PREFERRED_TOPIC,
     INJECTIVE_ENABLED: process.env.INJECTIVE_ENABLED,
     HELIUS_API_KEY: process.env.HELIUS_API_KEY,
+    PINATA_JWT: process.env.PINATA_JWT,
+    PINATA_GATEWAY_URL: process.env.PINATA_GATEWAY_URL,
+    SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY,
+    SOLANA_PUBLIC_KEY: process.env.SOLANA_PUBLIC_KEY,
+    TEE_MODE: process.env.TEE_MODE,
+    WALLET_SECRET_SALT: process.env.WALLET_SECRET_SALT,
   });
 
   if (!envParse.success) {
