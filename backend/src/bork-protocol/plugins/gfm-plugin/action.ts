@@ -1,5 +1,5 @@
-import { ImageGenerationService } from '@/services/image/image-generation';
-import { fetchTopicKnowledge } from '@/utils/knowledge/fetch-topic-knowledge';
+import { ImageGenerationService } from '@/bork-protocol/services/image/image-generation';
+import { fetchTopicKnowledge } from '@/bork-protocol/utils/knowledge/fetch-topic-knowledge';
 import {
   type Action,
   type ActionExample,

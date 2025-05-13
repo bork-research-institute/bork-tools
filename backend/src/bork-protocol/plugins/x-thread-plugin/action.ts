@@ -1,8 +1,8 @@
-import { threadQueries } from '@/db/thread-queries';
-import { TwitterService } from '@/services/twitter/twitter-service';
-import { tweetSchema } from '@/types/response/hypothesis';
-import { generateHypothesis } from '@/utils/generate-ai-object/hypothesis';
-import { generateThread } from '@/utils/generate-ai-object/informative-thread';
+import { threadQueries } from '@/bork-protocol/db/thread-queries';
+import { tweetSchema } from '@/bork-protocol/types/response/hypothesis';
+import { generateHypothesis } from '@/bork-protocol/utils/generate-ai-object/hypothesis';
+import { generateThread } from '@/bork-protocol/utils/generate-ai-object/informative-thread';
+import { TwitterService } from '@/services/twitter-service';
 import {
   type Action,
   type ActionExample,
@@ -12,7 +12,6 @@ import {
   type State,
   elizaLogger,
 } from '@elizaos/core';
-import { Scraper } from 'agent-twitter-client';
 
 export default {
   name: 'CREATE_THREAD',
@@ -23,11 +22,14 @@ export default {
     'CREATE_TWEET',
     'POST_TWEET',
   ],
-  validate: async (_runtime: IAgentRuntime, message: Memory) => {
-    elizaLogger.log(
-      'Validating thread creation request from user:',
-      message.userId,
-    );
+  validate: async (runtime: IAgentRuntime, _message: Memory) => {
+    const twitterService = runtime.services.get(
+      TwitterService.serviceType,
+    ) as TwitterService;
+    if (!twitterService) {
+      elizaLogger.error('[CreateThreadAction] Twitter service not found');
+      return false;
+    }
     return true;
   },
   description: 'Create a bullish thread about a specific topic',
@@ -38,36 +40,33 @@ export default {
     _options: { [key: string]: unknown },
     callback?: HandlerCallback,
   ): Promise<boolean> => {
-    elizaLogger.log('Starting CREATE_THREAD handler...');
+    elizaLogger.info('[CreateThreadAction] Starting handler...');
 
     let state = initialState;
     if (state) {
       state = await runtime.updateRecentMessageState(state);
-      elizaLogger.log('Updated state from initial state');
     } else {
       state = (await runtime.composeState(message)) as State;
-      elizaLogger.log('Created new state from message');
     }
 
     // Extract the topic from the message
     const topic = message.content.text.toLowerCase();
-    elizaLogger.log('Creating thread about topic:', topic);
+    elizaLogger.info(
+      '[CreateThreadAction] Creating thread about topic:',
+      topic,
+    );
 
     try {
-      // Create and initialize TwitterService
-      const twitterClient = new Scraper();
-      const twitterService = new TwitterService(twitterClient, runtime);
-      const initialized = await twitterService.initialize();
-
-      if (!initialized) {
-        throw new Error('Failed to initialize Twitter service');
-      }
-
       // Generate hypothesis for the specific topic
       const hypothesis = await generateHypothesis(runtime, 24, topic);
+      const twitterService = runtime.services.get(
+        TwitterService.serviceType,
+      ) as TwitterService;
 
       if (!hypothesis.selectedTopic) {
-        elizaLogger.warn('No suitable topic found for content generation');
+        elizaLogger.warn(
+          '[CreateThreadAction] No suitable topic found for content generation',
+        );
         if (callback) {
           callback({
             text: "Sorry, I couldn't find enough information to create a compelling thread about this topic. Please try a different topic.",
@@ -112,13 +111,16 @@ export default {
       );
 
       if (invalidTweets.length > 0) {
-        elizaLogger.error(`Found ${invalidTweets.length} invalid tweets:`, {
-          invalidTweets: invalidTweets.map((t) => ({
-            tweetNumber: t.tweetNumber,
-            text: t.text,
-            error: t.error,
-          })),
-        });
+        elizaLogger.error(
+          `[CreateThreadAction] Found ${invalidTweets.length} invalid tweets:`,
+          {
+            invalidTweets: invalidTweets.map((t) => ({
+              tweetNumber: t.tweetNumber,
+              text: t.text,
+              error: t.error,
+            })),
+          },
+        );
         if (callback) {
           callback({
             text: 'Sorry, there was an issue validating the thread content. Please try again.',
@@ -226,14 +228,7 @@ export default {
 
       return true;
     } catch (error) {
-      elizaLogger.error('Error creating thread:', error);
-      if (error instanceof Error) {
-        elizaLogger.error('Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-      }
+      elizaLogger.error('[CreateThreadAction] Error creating thread:', error);
       if (callback) {
         callback({
           text: `Issue creating the thread: ${error instanceof Error ? error.message : 'Unknown error'}`,

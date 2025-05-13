@@ -57,7 +57,7 @@ async function startAgent(
     const token = getTokenForProvider(character.modelProvider, character);
     if (!token) {
       elizaLogger.error(
-        `[Initialize]No token found for provider ${character.modelProvider}`,
+        `[Initialize] No token found for provider ${character.modelProvider}`,
       );
       throw new Error(`No token found for provider ${character.modelProvider}`);
     }
