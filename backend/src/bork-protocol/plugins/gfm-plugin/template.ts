@@ -1,5 +1,5 @@
 //TODO: update so it's formatted for launch
-
+//TODO: Should move the image description to it's own field IMO
 export const launchTemplate = `# Task: Generate Viral Token Launch
 You are an expert in cryptocurrency token launches with deep knowledge of what makes tokens go viral on social media.
 

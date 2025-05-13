@@ -1,12 +1,7 @@
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import type { FieldGuidance, LaunchContent } from './types';
 
-export function isLaunchContent(
-  _runtime: IAgentRuntime,
-  content: LaunchContent,
-) {
-  elizaLogger.log('Content for launch', content);
-
+// TODO This is not used anywhere
+export function isLaunchContent(content: LaunchContent) {
   // Check if token object exists
   if (!content.token || typeof content.token !== 'object') {
     content.missingFields = ['name', 'symbol', 'description'];

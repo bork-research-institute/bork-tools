@@ -1,7 +1,9 @@
+import { BalanceController } from '@api/balance/balance-controller';
+import { BalanceService } from '@api/balance/balance-service';
+import { MessageController } from '@api/message/message-controller';
+import { MessageService } from '@api/message/message-service';
 import { type Character, type IAgentRuntime, elizaLogger } from '@elizaos/core';
 import { Elysia } from 'elysia';
-import { MessageController } from '../eliza/message-controller';
-import { MessageService } from '../eliza/message-service';
 
 export class ApiClient {
   public app: Elysia;
@@ -14,6 +16,7 @@ export class ApiClient {
   public jsonToCharacter: ((json: unknown) => Character) | null = null;
   private isInitialized = false;
   private messageController: MessageController;
+  private balanceController: BalanceController;
 
   constructor() {
     this.agents = new Map();
@@ -28,8 +31,10 @@ export class ApiClient {
       })
       .options('*', () => new Response(null, { status: 204 }));
 
-    const messageService = new MessageService(this.agents);
-    this.messageController = new MessageController(messageService);
+    this.messageController = new MessageController(
+      new MessageService(this.agents),
+    );
+    this.balanceController = new BalanceController(new BalanceService());
     this.setupRoutes();
 
     // Set up lifecycle hooks
@@ -56,6 +61,7 @@ export class ApiClient {
 
   private setupRoutes() {
     this.messageController.setupRoutes(this.app);
+    this.balanceController.setupRoutes(this.app);
   }
 
   // agent/src/index.ts:startAgent calls this

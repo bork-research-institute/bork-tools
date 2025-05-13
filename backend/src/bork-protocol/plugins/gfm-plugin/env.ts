@@ -18,7 +18,10 @@ export const solanaEnvSchema = z
   )
   .and(
     z.object({
-      SOLANA_RPC_URL: z.string().min(1, 'RPC URL is required'),
+      SOLANA_RPC_URL: z
+        .string()
+        .url('RPC URL must be a valid URL')
+        .min(1, 'RPC URL is required'),
       HELIUS_API_KEY: z.string().min(1, 'Helius API key is required'),
     }),
   );

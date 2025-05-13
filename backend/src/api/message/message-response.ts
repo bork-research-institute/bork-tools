@@ -1,4 +1,3 @@
-import type {} from '@elizaos/core';
 import { t } from 'elysia';
 
 export const messageResponseSchema = t.Object({

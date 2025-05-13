@@ -11,8 +11,6 @@ export async function uploadImage(image: UploadInput): Promise<string> {
     // Upload file to Pinata
     const { cid } = await pinata.upload.public.file(file);
 
-    console.log('upload successful');
-
     // Get the gateway URL
     const url = await pinata.gateways.public.convert(cid);
     return url;

@@ -1,3 +1,5 @@
+import type { MessageRequest } from '@api/message/message-request';
+import { messageHandlerTemplate } from '@eliza/base-templates';
 import {
   type Content,
   type IAgentRuntime,
@@ -9,8 +11,6 @@ import {
   generateMessageResponse,
   stringToUuid,
 } from '@elizaos/core';
-import { messageHandlerTemplate } from './base-templates';
-import type { MessageRequest } from './message-request';
 
 export class MessageService {
   private readonly agents: Map<string, IAgentRuntime>;

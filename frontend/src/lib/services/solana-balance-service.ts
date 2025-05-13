@@ -1,3 +1,5 @@
+import { getClientEnv } from '../config/client-env';
+
 interface BalanceResponse {
   solBalance: number;
   tokenBalance: number | null;
@@ -13,7 +15,9 @@ export async function getBalances(
       params.append('tokenMint', tokenMint);
     }
 
-    const response = await fetch(`/api/balances?${params.toString()}`);
+    const response = await fetch(
+      `${getClientEnv().NEXT_PUBLIC_BACKEND_URL}/balance?${params.toString()}`,
+    );
 
     if (!response.ok) {
       throw new Error('Failed to fetch balances');

@@ -7,7 +7,7 @@ import {
   booleanFooter,
   composeContext,
   elizaLogger,
-  generateObjectDeprecated,
+  generateObject,
 } from '@elizaos/core';
 import type { FieldGuidance } from './types';
 
@@ -75,7 +75,6 @@ const tokenDetailsTemplate = `TASK: Extract token launch details from the conver
   \`\`\``;
 
 async function handler(runtime: IAgentRuntime, message: Memory) {
-  elizaLogger.log('Evaluating for token launch');
   const state = await runtime.composeState(message);
 
   // Check if we should process the messages for a token launch
@@ -84,7 +83,7 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
     template: shouldLaunchTemplate,
   });
 
-  const shouldLaunch = await generateObjectDeprecated({
+  const shouldLaunch = await generateObject({
     context: shouldLaunchContext,
     modelClass: ModelClass.SMALL,
     runtime,
@@ -95,20 +94,16 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
     return null;
   }
 
-  elizaLogger.log('Processing token launch details');
-
   const context = composeContext({
     state,
     template: tokenDetailsTemplate,
   });
 
-  const tokenDetails = await generateObjectDeprecated({
+  const tokenDetails = await generateObject({
     runtime,
     context,
     modelClass: ModelClass.LARGE,
   });
-
-  elizaLogger.log('Token launch details:', tokenDetails);
 
   if (!tokenDetails) {
     return {
