@@ -1,18 +1,17 @@
-import { cleanupPool } from '@/db';
-import { TweetQueueService } from '@/services/twitter/analysis-queue.service';
-import { TwitterService } from '@/services/twitter/twitter-service';
+import { AnalysisQueueService } from '@/services/analysis-queue.service';
+import { TwitterService } from '@/services/twitter-service';
+import { cleanupPool } from '@bork/db';
+import { TokenMonitorClient } from '@bork/plugins/token-monitor/clients/token-monitor-client';
+import { TwitterAccountsClient } from '@bork/plugins/twitter-discovery/clients/twitter-accounts-client';
+import { TwitterDiscoveryClient } from '@bork/plugins/twitter-discovery/clients/twitter-discovery-client';
+import { TwitterSearchClient } from '@bork/plugins/twitter-discovery/clients/twitter-search-client';
 import {
   type ClientInstance,
   type IAgentRuntime,
   elizaLogger,
 } from '@elizaos/core';
-import { Scraper } from 'agent-twitter-client';
 import { InformativeThreadsClient } from './creation/informative-threads';
 import { TwitterInteractionClient } from './creation/interactions';
-import { TwitterAccountDiscoveryClient } from './research/account-discovery';
-import { TwitterAccountsClient } from './research/accounts';
-import { TwitterSearchClient } from './research/search';
-import { TokenMonitorClient } from './research/token-monitor';
 
 export class TwitterClient implements ClientInstance {
   private readonly runtime: IAgentRuntime;
@@ -20,8 +19,8 @@ export class TwitterClient implements ClientInstance {
   private accountsClient: TwitterAccountsClient | null = null;
   private searchClient: TwitterSearchClient | null = null;
   private interactionClient: TwitterInteractionClient | null = null;
-  private discoveryClient: TwitterAccountDiscoveryClient | null = null;
-  private tweetQueueService: TweetQueueService | null = null;
+  private discoveryClient: TwitterDiscoveryClient | null = null;
+  private analysisQueueService: AnalysisQueueService | null = null;
   private informativeThreadsClient: InformativeThreadsClient | null = null;
   private tokenMonitorClient: TokenMonitorClient | null = null;
 
@@ -45,16 +44,10 @@ export class TwitterClient implements ClientInstance {
 
     try {
       elizaLogger.info('[TwitterClient] Creating Twitter client');
-      const twitterClient = new Scraper();
 
-      // Initialize the Twitter service with the unauthenticated client
-      // TwitterAuthService will handle authentication
-      this.twitterService = new TwitterService(twitterClient, this.runtime);
-      const initialized = await this.twitterService.initialize();
-
-      if (!initialized) {
-        throw new Error('Failed to initialize Twitter service');
-      }
+      // Initialize the Twitter service
+      this.twitterService = new TwitterService();
+      await this.twitterService.initialize(this.runtime);
 
       elizaLogger.info('[TwitterClient] Initialized Twitter service');
 
@@ -66,43 +59,25 @@ export class TwitterClient implements ClientInstance {
         );
       }
 
-      // Initialize tweet queue service first
-      this.tweetQueueService = TweetQueueService.getInstance(
-        this.runtime,
-        this.twitterService,
-      );
-      await this.tweetQueueService.start();
-      elizaLogger.info('[TwitterClient] Started tweet queue service');
+      // Initialize analysis queue service
+      this.analysisQueueService = AnalysisQueueService.getInstance();
+      await this.analysisQueueService.initialize(this.runtime);
+      elizaLogger.info('[TwitterClient] Started analysis queue service');
 
       elizaLogger.info('[TwitterClient] Initializing clients');
       // Initialize and start all clients
-      this.accountsClient = new TwitterAccountsClient(
-        this.twitterService,
-        this.runtime,
-        this.tweetQueueService,
-      );
-      this.searchClient = new TwitterSearchClient(
-        this.twitterService,
-        this.runtime,
-        this.tweetQueueService,
-      );
+      this.accountsClient = new TwitterAccountsClient();
+      this.searchClient = new TwitterSearchClient();
       this.interactionClient = new TwitterInteractionClient(
         this.twitterService,
         this.runtime,
       );
-      this.discoveryClient = new TwitterAccountDiscoveryClient(
-        this.runtime,
-        this.twitterService,
-      );
+      this.discoveryClient = new TwitterDiscoveryClient();
       this.informativeThreadsClient = new InformativeThreadsClient(
         this.twitterService,
         this.runtime,
       );
-      this.tokenMonitorClient = new TokenMonitorClient(
-        this.twitterService,
-        this.runtime,
-        this.tweetQueueService,
-      );
+      this.tokenMonitorClient = new TokenMonitorClient();
 
       // Start clients concurrently
       await Promise.all([
@@ -146,8 +121,8 @@ export class TwitterClient implements ClientInstance {
       if (this.accountsClient) {
         await this.accountsClient.stop();
       }
-      if (this.tweetQueueService) {
-        await this.tweetQueueService.stop();
+      if (this.analysisQueueService) {
+        await this.analysisQueueService.stop();
       }
 
       // Clean up the database pool used by the bork-extensions

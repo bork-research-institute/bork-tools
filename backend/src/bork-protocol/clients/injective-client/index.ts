@@ -3,10 +3,10 @@
  * @description Client for interacting with Injective Protocol and performing market analysis
  */
 
-import { DatabaseService } from '@/services/injective/database-service';
-import { InjectiveService } from '@/services/injective/injective-service';
-import { MarketAnalysisService } from '@/services/injective/market-analysis-service';
-import { TimeResolution } from '@/types/injective/market-history';
+import { DatabaseService } from '@bork/services/injective/database-service';
+import { InjectiveService } from '@bork/services/injective/injective-service';
+import { MarketAnalysisService } from '@bork/services/injective/market-analysis-service';
+import { TimeResolution } from '@bork/types/injective/market-history';
 import {
   type ClientInstance,
   type IAgentRuntime,

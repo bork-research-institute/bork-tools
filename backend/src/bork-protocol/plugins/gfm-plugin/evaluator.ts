@@ -11,6 +11,21 @@ import {
 } from '@elizaos/core';
 import type { FieldGuidance } from './types';
 
+interface TokenDetails {
+  token: {
+    name: string | null;
+    symbol: string | null;
+    description: string | null;
+    base64: string | null;
+    website: string | null;
+    twitter: string | null;
+    discord: string | null;
+    telegram: string | null;
+  };
+  missingFields: string[] | null;
+  fieldGuidance: FieldGuidance | null;
+}
+
 const shouldLaunchTemplate = `# Task: Evaluate if a token should be launched based on the conversation context.
 
   Look for messages that:
@@ -83,7 +98,7 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
     template: shouldLaunchTemplate,
   });
 
-  const shouldLaunch = await generateObject({
+  const { object: shouldLaunch } = await generateObject({
     context: shouldLaunchContext,
     modelClass: ModelClass.SMALL,
     runtime,
@@ -99,7 +114,7 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
     template: tokenDetailsTemplate,
   });
 
-  const tokenDetails = await generateObject({
+  const { object: tokenDetails } = await generateObject({
     runtime,
     context,
     modelClass: ModelClass.LARGE,
@@ -128,11 +143,13 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
     };
   }
 
+  const details = tokenDetails as TokenDetails;
+
   // If we have partial information, ensure we return proper guidance
   if (
-    !tokenDetails.token.name ||
-    !tokenDetails.token.symbol ||
-    !tokenDetails.token.description
+    !details.token.name ||
+    !details.token.symbol ||
+    !details.token.description
   ) {
     const missingFields: string[] = [];
     const fieldGuidance: FieldGuidance = {
@@ -141,30 +158,30 @@ async function handler(runtime: IAgentRuntime, message: Memory) {
       description: null,
     };
 
-    if (!tokenDetails.token.name) {
+    if (!details.token.name) {
       missingFields.push('name');
       fieldGuidance.name =
         'Please provide the full name of your token (e.g., "My Awesome Token")';
     }
-    if (!tokenDetails.token.symbol) {
+    if (!details.token.symbol) {
       missingFields.push('symbol');
       fieldGuidance.symbol =
         'Please provide a 2-5 character ticker symbol for your token (e.g., "MAT")';
     }
-    if (!tokenDetails.token.description) {
+    if (!details.token.description) {
       missingFields.push('description');
       fieldGuidance.description =
         "Please provide a clear description of your token's purpose and utility";
     }
 
     return {
-      token: tokenDetails.token,
+      token: details.token,
       missingFields,
       fieldGuidance,
     };
   }
 
-  return tokenDetails;
+  return details;
 }
 
 export const tokenLaunchEvaluator: Evaluator = {

@@ -1,4 +1,4 @@
-import { TimeResolution } from '@/types/injective/market-history';
+import { TimeResolution } from '@bork/types/injective/market-history';
 
 // Market Analysis Intervals (in milliseconds)
 export const MARKET_ANALYSIS_INTERVALS = {
