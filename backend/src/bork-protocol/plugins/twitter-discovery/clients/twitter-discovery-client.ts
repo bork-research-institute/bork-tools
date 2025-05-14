@@ -42,10 +42,6 @@ export class TwitterDiscoveryClient implements Client, ClientInstance {
       return;
     }
 
-    // Initial discovery and evaluation
-    await this.runDiscoveryCycle(discoveryService, config, characterConfig);
-    await this.runEvaluationCycle(discoveryService, config);
-
     // Set up periodic discovery
     this.discoveryInterval = setInterval(
       () => this.runDiscoveryCycle(discoveryService, config, characterConfig),

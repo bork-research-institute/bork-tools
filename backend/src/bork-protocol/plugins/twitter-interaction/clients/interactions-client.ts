@@ -1,4 +1,5 @@
-import type { TwitterService } from '@/services/twitter-service';
+import { TwitterDiscoveryConfigService } from '@/bork-protocol/plugins/twitter-discovery/services/twitter-discovery-config-service';
+import { TwitterService } from '@/services/twitter-service';
 import { tweetQueries } from '@bork/db/queries';
 import {
   twitterMessageHandlerTemplate,
@@ -9,6 +10,8 @@ import {
   wait,
 } from '@bork/utils/active-tweeting/tweet';
 import {
+  type Client,
+  type ClientInstance,
   type IAgentRuntime,
   type Memory,
   ModelClass,
@@ -21,35 +24,38 @@ import {
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 
-export class TwitterInteractionClient {
-  private readonly twitterService: TwitterService;
-  private readonly runtime: IAgentRuntime;
-  private interactionLoopTimeout: ReturnType<typeof setTimeout> | null = null;
+export class InteractionsClient implements Client, ClientInstance {
+  name = 'InteractionsClient';
+  private interactionLoopTimeout: ReturnType<typeof setInterval> | null = null;
 
-  constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
-    this.twitterService = twitterService;
-    this.runtime = runtime;
-  }
-
-  async start(): Promise<void> {
+  async start(runtime: IAgentRuntime): Promise<ClientInstance> {
     elizaLogger.info('[TwitterInteraction] Twitter interactions starting');
 
-    // Check if service and profile are properly initialized
-    if (!this.twitterService || !this.twitterService.getProfile()) {
+    const twitterService = runtime.services.get(
+      TwitterService.serviceType,
+    ) as TwitterService;
+    if (!twitterService) {
+      elizaLogger.error('[InteractionsClient] Twitter service not found');
+      return;
+    }
+
+    // TODO maybe should move this to a generic service vs. twitter discover config service
+    const configService = runtime.services.get(
+      TwitterDiscoveryConfigService.serviceType,
+    ) as TwitterDiscoveryConfigService;
+    if (!configService) {
       elizaLogger.error(
-        '[TwitterInteraction] Service or profile not initialized',
+        '[TwitterAccountDiscoveryService] Twitter config service not found',
       );
       return;
     }
 
-    const handleTwitterInteractionsLoop = () => {
-      void this.handleTwitterInteractions();
-      this.interactionLoopTimeout = setTimeout(
-        handleTwitterInteractionsLoop,
-        Number(this.runtime.getSetting('TWITTER_POLL_INTERVAL') || 60) * 1000,
-      );
-    };
-    handleTwitterInteractionsLoop();
+    this.interactionLoopTimeout = setInterval(
+      () => this.handleTwitterInteractions(runtime, twitterService),
+      configService.getCharacterConfig().twitterPollInterval,
+    );
+
+    return this;
   }
 
   async stop(): Promise<void> {
@@ -59,29 +65,23 @@ export class TwitterInteractionClient {
     }
   }
 
-  async handleTwitterInteractions(): Promise<void> {
+  async handleTwitterInteractions(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
+  ): Promise<void> {
     elizaLogger.info('[TwitterInteraction] Checking Twitter interactions');
-
-    // Check if service and profile are properly initialized
-    const profile = this.twitterService.getProfile();
-    if (!profile?.username) {
-      elizaLogger.error(
-        '[TwitterInteraction] Twitter profile not properly initialized',
-      );
-      return;
-    }
-
+    const profile = twitterService.getProfile();
     const twitterUsername = profile.username;
     try {
       // Fetch mentions
       const { tweets: mentionCandidates, spammedTweets } =
-        await this.twitterService.searchTweets(
+        await twitterService.searchTweets(
           `@${twitterUsername}`,
           20,
           SearchMode.Latest,
           '[TwitterInteraction]',
         );
-      elizaLogger.info(
+      elizaLogger.debug(
         `[TwitterInteraction] Found ${mentionCandidates.length} mention candidates for ${twitterUsername} (filtered ${spammedTweets} spam tweets)`,
       );
 
@@ -91,36 +91,36 @@ export class TwitterInteractionClient {
         .sort((a, b) => a.id.localeCompare(b.id))
         .filter((tweet) => tweet.userId !== profile.userId);
 
-      const lastCheckedId = await this.twitterService.getLatestCheckedTweetId(
+      const lastCheckedId = await twitterService.getLatestCheckedTweetId(
         profile.username,
       );
       for (const tweet of uniqueTweetCandidates) {
         if (!lastCheckedId || BigInt(tweet.id) > lastCheckedId) {
-          const tweetId = stringToUuid(`${tweet.id}-${this.runtime.agentId}`);
+          const tweetId = stringToUuid(`${tweet.id}-${runtime.agentId}`);
           const existingResponse =
-            await this.runtime.messageManager.getMemoryById(tweetId);
+            await runtime.messageManager.getMemoryById(tweetId);
 
           if (existingResponse) {
-            elizaLogger.info(
+            elizaLogger.debug(
               `[TwitterInteraction] Already responded to tweet ${tweet.id}, skipping`,
             );
             continue;
           }
 
-          elizaLogger.info(
+          elizaLogger.debug(
             `[TwitterInteraction] New Tweet found: ${tweet.permanentUrl}`,
           );
 
           const roomId = stringToUuid(
-            `${tweet.conversationId}-${this.runtime.agentId}`,
+            `${tweet.conversationId}-${runtime.agentId}`,
           );
           const userIdUUID = tweet.userId
             ? tweet.userId === profile.userId
-              ? this.runtime.agentId
+              ? runtime.agentId
               : stringToUuid(tweet.userId)
             : stringToUuid('unknown-user');
 
-          await this.runtime.ensureConnection(
+          await runtime.ensureConnection(
             userIdUUID,
             roomId,
             tweet.username,
@@ -128,21 +128,27 @@ export class TwitterInteractionClient {
             'twitter',
           );
 
-          const thread = await this.buildConversationThread(tweet);
+          const thread = await this.buildConversationThread(
+            runtime,
+            twitterService,
+            tweet,
+          );
           const message = {
             content: { text: tweet.text },
-            agentId: this.runtime.agentId,
+            agentId: runtime.agentId,
             userId: userIdUUID,
             roomId,
           };
 
-          await this.handleTweet({
+          await this.handleTweet(
+            runtime,
+            twitterService,
             tweet,
             message,
             thread,
-          });
+          );
 
-          await this.twitterService.updateLatestCheckedTweetId(
+          await twitterService.updateLatestCheckedTweetId(
             profile.username,
             BigInt(tweet.id),
           );
@@ -160,28 +166,26 @@ export class TwitterInteractionClient {
     }
   }
 
-  private async handleTweet({
-    tweet,
-    message,
-    thread,
-  }: {
-    tweet: Tweet;
-    message: Memory;
-    thread: Tweet[];
-  }): Promise<void> {
-    const profile = this.twitterService.getProfile();
+  private async handleTweet(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
+    tweet: Tweet,
+    message: Memory,
+    thread: Tweet[],
+  ): Promise<void> {
+    const profile = twitterService.getProfile();
     if (!profile || tweet.userId === profile.userId) {
       return;
     }
 
     if (!message.content.text) {
-      elizaLogger.info(
+      elizaLogger.debug(
         `[TwitterInteraction] Skipping Tweet with no text: ${tweet.id}`,
       );
       return;
     }
 
-    elizaLogger.info(`[TwitterInteraction] Processing Tweet: ${tweet.id}`);
+    elizaLogger.debug(`[TwitterInteraction] Processing Tweet: ${tweet.id}`);
 
     const formatTweet = (tweet: Tweet) => `ID: ${tweet.id}
 From: ${tweet.name} (@${tweet.username})
@@ -209,7 +213,7 @@ Text: ${tweet.text}`;
     );
 
     let homeTimeline: Tweet[] = [];
-    const cachedTimeline = await this.twitterService.getUserTimeline(
+    const cachedTimeline = await twitterService.getUserTimeline(
       profile.username,
       50,
     );
@@ -226,9 +230,9 @@ Text: ${tweet.text}
       )
       .join('\n');
 
-    let state = await this.runtime.composeState(message, {
-      twitterService: this.twitterService,
-      twitterUserName: this.runtime.getSetting('TWITTER_USERNAME'),
+    let state = await runtime.composeState(message, {
+      twitterService,
+      twitterUserName: runtime.getSetting('TWITTER_USERNAME'),
       currentPost,
       formattedConversation,
       timeline: formattedTimeline,
@@ -237,13 +241,13 @@ Text: ${tweet.text}
     const shouldRespondContext = composeContext({
       state,
       template:
-        this.runtime.character.templates?.twitterShouldRespondTemplate ||
-        this.runtime.character?.templates?.shouldRespondTemplate ||
+        runtime.character.templates?.twitterShouldRespondTemplate ||
+        runtime.character?.templates?.shouldRespondTemplate ||
         twitterShouldRespondTemplate,
     });
 
     const shouldRespond = await generateShouldRespond({
-      runtime: this.runtime,
+      runtime,
       context: shouldRespondContext,
       modelClass: ModelClass.SMALL,
     });
@@ -254,7 +258,7 @@ Text: ${tweet.text}
         const spamJson = shouldRespond.substring(4).trim(); // Remove 'SPAM' prefix
         const spamData = JSON.parse(spamJson);
 
-        elizaLogger.info(
+        elizaLogger.debug(
           `[TwitterInteraction] Tweet ${tweet.id} identified as spam`,
           {
             spamScore: spamData.spamScore,
@@ -288,15 +292,15 @@ Text: ${tweet.text}
     const context = composeContext({
       state,
       template:
-        this.runtime.character.templates?.twitterMessageHandlerTemplate ||
-        this.runtime.character?.templates?.messageHandlerTemplate ||
+        runtime.character.templates?.twitterMessageHandlerTemplate ||
+        runtime.character?.templates?.messageHandlerTemplate ||
         twitterMessageHandlerTemplate,
     });
 
     elizaLogger.debug(`[TwitterInteraction] Interactions prompt:\n${context}`);
 
     const response = await generateMessageResponse({
-      runtime: this.runtime,
+      runtime,
       context,
       modelClass: ModelClass.MEDIUM,
     });
@@ -307,7 +311,7 @@ Text: ${tweet.text}
     if (response.text) {
       try {
         const responseMessages = await sendTweetAndCreateMemory(
-          this.twitterService,
+          twitterService,
           response,
           message.roomId,
           message.agentId,
@@ -315,7 +319,7 @@ Text: ${tweet.text}
           tweet.id,
         );
 
-        state = (await this.runtime.updateRecentMessageState(state)) as State;
+        state = (await runtime.updateRecentMessageState(state)) as State;
 
         for (const responseMessage of responseMessages) {
           if (
@@ -325,13 +329,13 @@ Text: ${tweet.text}
           } else {
             responseMessage.content.action = 'CONTINUE';
           }
-          await this.runtime.messageManager.createMemory(responseMessage);
+          await runtime.messageManager.createMemory(responseMessage);
         }
 
-        await this.runtime.evaluate(message, state);
-        await this.runtime.processActions(message, responseMessages, state);
+        await runtime.evaluate(message, state);
+        await runtime.processActions(message, responseMessages, state);
 
-        await this.twitterService.cacheResponseInfo(
+        await twitterService.cacheResponseInfo(
           tweet.id,
           context,
           tweet,
@@ -347,6 +351,8 @@ Text: ${tweet.text}
   }
 
   private async buildConversationThread(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
     tweet: Tweet,
     maxReplies = 10,
   ): Promise<Tweet[]> {
@@ -354,7 +360,7 @@ Text: ${tweet.text}
     const visited: Set<string> = new Set();
 
     const processThread = async (currentTweet: Tweet, depth = 0) => {
-      elizaLogger.info(
+      elizaLogger.debug(
         `[TwitterInteraction] Processing tweet: ${currentTweet.id}`,
         {
           id: currentTweet.id,
@@ -371,7 +377,7 @@ Text: ${tweet.text}
       }
 
       if (depth >= maxReplies) {
-        elizaLogger.info(
+        elizaLogger.debug(
           '[TwitterInteraction] Reached maximum reply depth',
           depth,
         );
@@ -379,16 +385,16 @@ Text: ${tweet.text}
       }
 
       // Handle memory storage
-      const memory = await this.runtime.messageManager.getMemoryById(
-        stringToUuid(`${currentTweet.id}-${this.runtime.agentId}`),
+      const memory = await runtime.messageManager.getMemoryById(
+        stringToUuid(`${currentTweet.id}-${runtime.agentId}`),
       );
       if (!memory) {
         const roomId = stringToUuid(
-          `${currentTweet.conversationId}-${this.runtime.agentId}`,
+          `${currentTweet.conversationId}-${runtime.agentId}`,
         );
         const userId = stringToUuid(currentTweet.userId);
 
-        await this.runtime.ensureConnection(
+        await runtime.ensureConnection(
           userId,
           roomId,
           currentTweet.username,
@@ -397,29 +403,29 @@ Text: ${tweet.text}
         );
 
         const memory: Memory = {
-          id: stringToUuid(`${currentTweet.id}-${this.runtime.agentId}`),
-          agentId: this.runtime.agentId,
+          id: stringToUuid(`${currentTweet.id}-${runtime.agentId}`),
+          agentId: runtime.agentId,
           content: {
             text: currentTweet.text,
             source: 'twitter',
             url: currentTweet.permanentUrl,
             inReplyTo: currentTweet.inReplyToStatusId
               ? stringToUuid(
-                  `${currentTweet.inReplyToStatusId}-${this.runtime.agentId}`,
+                  `${currentTweet.inReplyToStatusId}-${runtime.agentId}`,
                 )
               : undefined,
           },
           createdAt: currentTweet.timestamp * 1000,
           roomId,
           userId:
-            currentTweet.userId === this.twitterService.getProfile()?.userId
-              ? this.runtime.agentId
+            currentTweet.userId === twitterService.getProfile()?.userId
+              ? runtime.agentId
               : stringToUuid(currentTweet.userId),
         };
 
         // Generate embedding before creating memory
-        await this.runtime.messageManager.addEmbeddingToMemory(memory);
-        await this.runtime.messageManager.createMemory(memory);
+        await runtime.messageManager.addEmbeddingToMemory(memory);
+        await runtime.messageManager.createMemory(memory);
       }
 
       if (visited.has(currentTweet.id)) {
@@ -440,17 +446,17 @@ Text: ${tweet.text}
       });
 
       if (currentTweet.inReplyToStatusId) {
-        elizaLogger.info(
+        elizaLogger.debug(
           'Fetching parent tweet:',
           currentTweet.inReplyToStatusId,
         );
         try {
-          const parentTweet = await this.twitterService.getTweet(
+          const parentTweet = await twitterService.getTweet(
             currentTweet.inReplyToStatusId,
           );
 
           if (parentTweet) {
-            elizaLogger.info('[TwitterInteraction] Found parent tweet:', {
+            elizaLogger.debug('[TwitterInteraction] Found parent tweet:', {
               id: parentTweet.id,
               text: parentTweet.text?.slice(0, 50),
             });
@@ -462,7 +468,7 @@ Text: ${tweet.text}
             );
           }
         } catch (error) {
-          elizaLogger.info(
+          elizaLogger.error(
             '[TwitterInteraction] Error fetching parent tweet:',
             {
               tweetId: currentTweet.inReplyToStatusId,
@@ -471,7 +477,7 @@ Text: ${tweet.text}
           );
         }
       } else {
-        elizaLogger.info(
+        elizaLogger.debug(
           '[TwitterInteraction] Reached end of reply chain at:',
           currentTweet.id,
         );
