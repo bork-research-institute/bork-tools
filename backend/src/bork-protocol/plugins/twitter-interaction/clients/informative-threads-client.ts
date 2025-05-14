@@ -1,41 +1,40 @@
-import type { TwitterService } from '@/services/twitter-service';
-import { CONTENT_CREATION } from '@bork/config/creation';
+import { threadQueries } from '@/bork-protocol/db/thread-queries';
+import { updateAllThreadsMetrics } from '@/bork-protocol/utils/active-tweeting';
+import { TwitterService } from '@/services/twitter-service';
+import { CONTENT_CREATION } from '@bork/plugins/twitter-interaction/config/creation';
 import { tweetSchema } from '@bork/types/response/hypothesis';
 import type { HypothesisResponse } from '@bork/utils/generate-ai-object/hypothesis';
 import { generateHypothesis } from '@bork/utils/generate-ai-object/hypothesis';
 import { generateThread } from '@bork/utils/generate-ai-object/informative-thread';
-import { type IAgentRuntime, elizaLogger } from '@elizaos/core';
-import { threadQueries } from '../../../db/thread-queries';
-import { updateAllThreadsMetrics } from '../../../utils/active-tweeting';
+import {
+  type Client,
+  type ClientInstance,
+  type IAgentRuntime,
+  elizaLogger,
+} from '@elizaos/core';
 
-interface RuntimeWithAgent extends Omit<IAgentRuntime, 'agentId'> {
-  agentId: string;
-}
-
-export class InformativeThreadsClient {
-  private readonly runtime: IAgentRuntime;
-  private monitoringTimeout: ReturnType<typeof setTimeout> | null = null;
+export class InformativeThreadsClient implements Client, ClientInstance {
+  name = 'InformativeThreadsClient';
+  private monitoringTimeout: ReturnType<typeof setInterval> | null = null;
   private currentHypothesis: HypothesisResponse | null = null;
   private lastHypothesisGeneration = 0;
-  private twitterService: TwitterService;
-
-  constructor(twitterService: TwitterService, runtime: IAgentRuntime) {
-    this.runtime = runtime;
-    this.twitterService = twitterService;
-  }
 
   /**
    * Starts monitoring for content creation opportunities
    */
-  async start(): Promise<void> {
+  async start(runtime: IAgentRuntime): Promise<ClientInstance> {
     elizaLogger.info('[InformativeThreads] Starting content monitoring');
 
-    // Initial content generation
-    await this.generateAndProcessContent();
-
+    const twitterService = runtime.services.get(
+      TwitterService.serviceType,
+    ) as TwitterService;
+    if (!twitterService) {
+      elizaLogger.error('[InformativeThreads] Twitter service not found');
+      return;
+    }
     // Set up periodic content generation
     this.monitoringTimeout = setInterval(
-      () => this.generateAndProcessContent(),
+      () => this.generateAndProcessContent(runtime, twitterService),
       CONTENT_CREATION.CONTENT_GENERATION_INTERVAL,
     );
   }
@@ -43,7 +42,7 @@ export class InformativeThreadsClient {
   /**
    * Stops monitoring for content creation opportunities
    */
-  stop(): void {
+  async stop(): Promise<void> {
     elizaLogger.info('[InformativeThreads] Stopping content monitoring');
 
     if (this.monitoringTimeout) {
@@ -52,18 +51,21 @@ export class InformativeThreadsClient {
     }
   }
 
-  private async generateAndProcessContent() {
+  private async generateAndProcessContent(
+    runtime: IAgentRuntime,
+    twitterService: TwitterService,
+  ) {
     elizaLogger.info('[InformativeThreads] Starting content generation cycle');
 
     try {
       // Update all thread metrics before generating hypothesis
-      elizaLogger.info(
+      elizaLogger.debug(
         '[InformativeThreads] Updating performance metrics for all threads',
       );
 
       // Fetch all threads and update their metrics
       const allThreads = await threadQueries.getThreadsByAgent(
-        (this.runtime as RuntimeWithAgent).agentId || 'default',
+        runtime.agentId || 'default',
       );
 
       await updateAllThreadsMetrics(
@@ -71,7 +73,7 @@ export class InformativeThreadsClient {
           id: thread.id,
           tweetIds: thread.tweetIds,
         })),
-        this.twitterService,
+        twitterService,
       );
 
       // Check if we need to generate a new hypothesis
@@ -81,9 +83,9 @@ export class InformativeThreadsClient {
         now - this.lastHypothesisGeneration >
           CONTENT_CREATION.HYPOTHESIS_REFRESH_INTERVAL
       ) {
-        elizaLogger.info('[InformativeThreads] Generating new hypothesis...');
+        elizaLogger.debug('[InformativeThreads] Generating new hypothesis...');
         this.currentHypothesis = await generateHypothesis(
-          this.runtime,
+          runtime,
           CONTENT_CREATION.TIMEFRAME_HOURS,
           CONTENT_CREATION.PREFERRED_TOPIC,
         );
@@ -100,13 +102,13 @@ export class InformativeThreadsClient {
 
       try {
         const topic = this.currentHypothesis.selectedTopic;
-        elizaLogger.info('[InformativeThreads] Processing topic:', {
+        elizaLogger.debug('[InformativeThreads] Processing topic:', {
           primaryTopic: topic.primaryTopic,
           threadIdea: topic.threadIdea,
         });
 
         // Generate thread content with integrated media
-        const thread = await generateThread(this.runtime, topic);
+        const thread = await generateThread(runtime, topic);
 
         // Validate tweets using schema
         const validationResults = await Promise.all(
@@ -158,7 +160,7 @@ export class InformativeThreadsClient {
         }[] = [];
 
         for (const tweet of thread.tweets) {
-          const postedTweet = await this.twitterService.sendTweet(
+          const postedTweet = await twitterService.sendTweet(
             tweet.text,
             previousTweetId,
           );
@@ -178,11 +180,9 @@ export class InformativeThreadsClient {
           previousTweetId = postedTweet.id;
         }
 
-        const runtimeWithAgent = this.runtime as RuntimeWithAgent;
-
         // Save the posted thread with all its data
         const postedThread = await threadQueries.savePostedThread({
-          agentId: runtimeWithAgent.agentId || 'default',
+          agentId: runtime.agentId || 'default',
           primaryTopic: topic.primaryTopic,
           relatedTopics: topic.relatedTopics || [],
           threadIdea: topic.threadIdea,
@@ -218,7 +218,8 @@ export class InformativeThreadsClient {
               })) || [],
         });
 
-        elizaLogger.info('[InformativeThreads] Successfully processed topic', {
+        elizaLogger.info('[InformativeThreads] Successfully processed topic');
+        elizaLogger.debug({
           primaryTopic: topic.primaryTopic,
           tweetCount: thread.tweets.length,
           mediaCount: thread.tweets.filter((t) => t.hasMedia).length,
@@ -235,29 +236,6 @@ export class InformativeThreadsClient {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
-    }
-  }
-
-  /**
-   * Gets the current hypothesis being used for content generation
-   */
-  getCurrentHypothesis(): HypothesisResponse | null {
-    return this.currentHypothesis;
-  }
-
-  /**
-   * Forces a refresh of the hypothesis regardless of the refresh interval
-   */
-  async refreshHypothesis(): Promise<void> {
-    try {
-      elizaLogger.info('[InformativeThreads] Forcing hypothesis refresh');
-      this.currentHypothesis = await generateHypothesis(this.runtime);
-      this.lastHypothesisGeneration = Date.now();
-    } catch (error) {
-      elizaLogger.error('[InformativeThreads] Error refreshing hypothesis:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
     }
   }
 }

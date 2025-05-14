@@ -191,7 +191,7 @@ export async function checkForInterestingTokens(
       return recentlySearchedTokens;
     }
 
-    elizaLogger.info('[TokenMonitor] Found interesting tokens:', {
+    elizaLogger.debug('[TokenMonitor] Found interesting tokens:', {
       count: interestingTokens.length,
       tokens: interestingTokens.map((t) => ({
         address: t.tokenAddress,
@@ -201,16 +201,17 @@ export async function checkForInterestingTokens(
     });
 
     // Search for tweets about each token if not recently searched
-    let updatedRecentlySearchedTokens = new Set(recentlySearchedTokens);
+    const updatedRecentlySearchedTokens = new Set(recentlySearchedTokens);
     for (const token of interestingTokens) {
       if (!updatedRecentlySearchedTokens.has(token.tokenAddress)) {
-        updatedRecentlySearchedTokens = await searchTokenTweets(
+        const searchTweets = await searchTokenTweets(
           token.tokenAddress,
           twitterService,
           twitterConfigService,
           tweetQueueService,
-          updatedRecentlySearchedTokens,
         );
+
+        // TODO: I think we should do some logic with the tweets to decide whether or not we keep a token. I think this logic should be split differently, but for now its going to be keeping the same tokens over and over again.
       }
     }
 

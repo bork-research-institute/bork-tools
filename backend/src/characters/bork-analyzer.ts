@@ -2,6 +2,7 @@ import gfmPlugin from '@/bork-protocol/plugins/gfm-plugin';
 import tokenMonitorPlugin from '@/bork-protocol/plugins/token-monitor';
 import twitterDiscoveryPlugin from '@/bork-protocol/plugins/twitter-discovery';
 import type { TwitterDiscoveryCharacter } from '@/bork-protocol/plugins/twitter-discovery/types/character-extension';
+import twitterInteractionPlugin from '@/bork-protocol/plugins/twitter-interaction';
 import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
 import { ModelProviderName } from '@elizaos/core';
 
@@ -15,6 +16,7 @@ export const character: TwitterDiscoveryCharacter = {
     xThreadPlugin,
     twitterDiscoveryPlugin,
     tokenMonitorPlugin,
+    twitterInteractionPlugin,
   ],
   settings: {
     secrets: {
