@@ -1,6 +1,6 @@
-import type { TopicRelationshipAnalysis } from '@/types/response/topic-relationship';
 import type { TopicWeight } from '@/types/topic';
 import type { TopicWeightRow } from '@/types/topic';
+import type { TopicRelationshipAnalysis } from '@bork/types/response/topic-relationship';
 
 /**
  * Maps a TopicWeightRow to a TopicWeight

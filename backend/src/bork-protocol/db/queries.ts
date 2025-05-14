@@ -1,7 +1,10 @@
-import type { TargetAccount } from '@/types/account';
 import type { TopicWeightRow } from '@/types/topic';
 import type { DatabaseTweet } from '@/types/twitter';
-import type { TwitterConfig, TwitterConfigRow } from '@/types/twitter-config';
+import type {
+  TwitterConfig,
+  TwitterConfigRow,
+} from '@bork/plugins/twitter-discovery/types/twitter-config';
+import type { TargetAccount } from '@bork/types/account';
 import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
 import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';

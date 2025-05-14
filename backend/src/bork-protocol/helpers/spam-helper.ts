@@ -1,6 +1,6 @@
-import { tweetQueries } from '@/db/queries.js';
+import { tweetQueries } from '@bork/db/queries';
+import type { SpamUser } from '@bork/types/twitter';
 import { elizaLogger } from '@elizaos/core';
-import type { SpamUser } from '../types/twitter.js';
 
 /**
  * Gets the spam data for a user

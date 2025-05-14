@@ -20,7 +20,9 @@
   "dependencies": {
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",
     "@elizaos/core": "^0.25.9",
+    "@elizaos/plugin-tee": "^0.25.6-alpha.1",
     "@elysiajs/cors": "^1.2.0",
+    "@gofundmeme/sdk": "^1.1.2",
     "@injectivelabs/networks": "^1.14.41",
     "@injectivelabs/sdk-ts": "^1.14.41",
     "@instructor-ai/instructor": "^1.7.0",
@@ -30,10 +32,13 @@
     "elysia": "latest",
     "events": "^3.3.0",
     "exponential-backoff": "^3.1.2",
+    "pinata": "^2.2.2",
+    "ramda": "^0.30.1",
     "yargs": "^17.7.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/ramda": "^0.30.2",
     "@types/yargs": "^17.0.33",
     "bun-types": "^1.2.5",
     "tsup": "^8.4.0"

@@ -1,5 +1,5 @@
-import { tweetQueries } from '@/db/queries.js';
-import { KaitoService } from '@/services/kaito/kaito-service.js';
+import { tweetQueries } from '@bork/db/queries';
+import { KaitoService } from '@bork/services/kaito/kaito-service';
 import { elizaLogger } from '@elizaos/core';
 
 const kaitoService = new KaitoService();

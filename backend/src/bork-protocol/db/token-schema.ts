@@ -1,4 +1,4 @@
-import type { TokenSnapshot } from '@/types/token-monitor/token';
+import type { TokenSnapshot } from '@bork/plugins/token-monitor/types/token';
 
 export interface TokenSnapshotRow {
   id: string;

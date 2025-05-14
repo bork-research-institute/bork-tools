@@ -1,11 +1,11 @@
-import { tweetQueries } from '@/db/queries';
-import { updateUserSpamData } from '@/helpers/spam-helper';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import { tweetAnalysisTemplate } from '@/templates/analysis';
-import type { TweetAnalysis } from '@/types/analysis';
-import { tweetAnalysisSchema } from '@/types/response/tweet-analysis';
-import type { TopicWeightRow } from '@/types/topic';
-import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
+import type { TwitterService } from '@/services/twitter-service';
+import { tweetQueries } from '@bork/db/queries';
+import { updateUserSpamData } from '@bork/helpers/spam-helper';
+import { tweetAnalysisTemplate } from '@bork/templates/analysis';
+import type { TweetAnalysis } from '@bork/types/analysis';
+import { tweetAnalysisSchema } from '@bork/types/response/tweet-analysis';
+import type { TopicWeightRow } from '@bork/types/topic';
+import type { DatabaseTweet, TweetWithUpstream } from '@bork/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,

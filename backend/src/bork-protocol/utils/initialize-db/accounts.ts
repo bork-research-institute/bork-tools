@@ -1,6 +1,6 @@
-import { accountTopicQueries, tweetQueries } from '@/db/queries';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { TwitterConfig } from '@/types/config';
+import type { TwitterService } from '@/services/twitter-service';
+import { accountTopicQueries, tweetQueries } from '@bork/db/queries';
+import type { TwitterConfig } from '@bork/types/config';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode } from 'agent-twitter-client';
 

@@ -1,10 +1,10 @@
-import { tweetQueries } from '@/db/queries.js';
+import { tweetQueries } from '@bork/db/queries';
 import type {
   QualityMetrics,
   TweetAnalysis,
-} from '@/types/response/tweet-analysis';
-import type { TopicWeightRow } from '@/types/topic.js';
-import type { DatabaseTweet } from '@/types/twitter.js';
+} from '@bork/types/response/tweet-analysis';
+import type { TopicWeightRow } from '@bork/types/topic';
+import type { DatabaseTweet } from '@bork/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 

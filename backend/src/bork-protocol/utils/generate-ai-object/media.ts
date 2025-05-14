@@ -11,13 +11,11 @@ async function analyzeMediaNeed(tweet: TweetContent): Promise<{
   style: string;
   purpose: string;
 } | null> {
-  // TODO: Implement AI-based analysis to determine if and what type of media would enhance the tweet
-  // For now, suggest media for highlight tweets that contain data or instructions
-  if (!tweet.isHighlight) {
+  if (!tweet.text) {
     return null;
   }
 
-  const content = tweet.content.toLowerCase();
+  const content = tweet.text.toLowerCase();
   if (
     content.includes('data') ||
     content.includes('stats') ||
@@ -27,7 +25,7 @@ async function analyzeMediaNeed(tweet: TweetContent): Promise<{
   ) {
     return {
       type: 'image',
-      description: `Create a visual representation for: ${tweet.content}`,
+      description: `Create a visual representation for: ${tweet.text}`,
       style: 'modern, clean, professional',
       purpose:
         'Enhance understanding and engagement through visual representation',
@@ -54,7 +52,6 @@ export async function generateMediaForTweet(
     elizaLogger.debug(`${logPrefix} Generating media for tweet`, {
       mediaType: mediaNeeded.type,
       purpose: mediaNeeded.purpose,
-      isHighlight: tweet.isHighlight,
     });
 
     if (mediaNeeded.type === 'image') {
@@ -62,25 +59,19 @@ export async function generateMediaForTweet(
       await imageService.initialize(runtime);
 
       const result = await imageService.generateImage(mediaNeeded.description, {
-        model: 'dall-e-3',
-        size: '1792x1024', // Landscape format for better visibility
-        quality: 'hd',
+        model: 'gpt-image-1',
+        size: '1024x1024', // Square format for token logo
+        quality: 'low',
         style: 'vivid',
       });
 
       return {
         type: 'image',
-        url: result.imageUrls[0],
+        url: result.base64Data,
         description: mediaNeeded.description,
         style: mediaNeeded.style,
         purpose: mediaNeeded.purpose,
       };
-    }
-
-    // TODO: Implement video generation when needed
-    if (mediaNeeded.type === 'video') {
-      elizaLogger.warn(`${logPrefix} Video generation not yet implemented`);
-      return null;
     }
 
     return null;
@@ -101,22 +92,27 @@ export async function enhanceThreadWithMedia(
   const enhancedTweets = await Promise.all(
     tweets.map(async (tweet) => {
       const media = await generateMediaForTweet(runtime, tweet, logPrefix);
-      return media
-        ? {
-            ...tweet,
-            media,
-            mediaPrompt: {
-              type: media.type,
-              description: media.description,
-              style: media.style,
-              purpose: media.purpose,
-            },
-          }
-        : tweet;
+      if (!media) {
+        return tweet;
+      }
+
+      return {
+        ...tweet,
+        media,
+        mediaPrompt: {
+          type: media.type,
+          description: media.description,
+          style: media.style,
+          purpose: media.purpose,
+        },
+      };
     }),
   );
 
-  const mediaCount = enhancedTweets.filter((t) => t.media).length;
+  const mediaCount = enhancedTweets.filter((t) => {
+    return 'media' in t;
+  }).length;
+
   elizaLogger.info(`${logPrefix} Enhanced thread with media`, {
     totalTweets: tweets.length,
     tweetsWithMedia: mediaCount,

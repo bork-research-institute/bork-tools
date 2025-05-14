@@ -1,8 +1,8 @@
-import { topicRelationshipTemplate } from '@/templates/topic-relationship';
+import { topicRelationshipTemplate } from '@bork/templates/topic-relationship';
 import {
   type TopicRelationshipAnalysis,
   topicRelationshipSchema,
-} from '@/types/response/topic-relationship';
+} from '@bork/types/response/topic-relationship';
 import {
   type IAgentRuntime,
   type Memory,
@@ -61,7 +61,7 @@ export async function analyzeTopicRelationships(
 
     const analysis = object as TopicRelationshipAnalysis;
 
-    elizaLogger.info('[Topic Analysis] Related topics:', {
+    elizaLogger.debug('[Topic Analysis] Related topics:', {
       relatedTopics: analysis.relatedTopics,
     });
 

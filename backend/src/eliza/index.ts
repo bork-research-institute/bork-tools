@@ -27,16 +27,13 @@ export function createAgent(
   cache: ICacheManager,
   token: string,
 ) {
-  // Use type assertion to handle plugin version mismatch
-  const plugins = [];
-
   return new AgentRuntime({
     databaseAdapter: db,
     token,
     modelProvider: character.modelProvider,
     evaluators: [],
     character,
-    plugins,
+    plugins: character.plugins,
     providers: [],
     actions: [],
     services: [],
@@ -60,7 +57,7 @@ async function startAgent(
     const token = getTokenForProvider(character.modelProvider, character);
     if (!token) {
       elizaLogger.error(
-        `[Initialize]No token found for provider ${character.modelProvider}`,
+        `[Initialize] No token found for provider ${character.modelProvider}`,
       );
       throw new Error(`No token found for provider ${character.modelProvider}`);
     }
@@ -74,11 +71,10 @@ async function startAgent(
     return runtime;
   } catch (error) {
     elizaLogger.error(
-      `[Initialize]Error starting agent for character ${character.name}:`,
-      error,
+      `[Initialize] Error starting agent for character ${character.name}: ${error}`,
     );
     if (db) {
-      elizaLogger.info('Closing database connection due to error');
+      elizaLogger.info('[Initialize] Closing database connection due to error');
       await db.close();
     }
     throw error;
@@ -86,7 +82,6 @@ async function startAgent(
 }
 
 export const startAgents = async () => {
-  console.log('Starting agents initialization');
   elizaLogger.info('[Initialize] Starting agents initialization');
   const directClient = new ApiClient();
   configureApiRoutes(directClient.app);

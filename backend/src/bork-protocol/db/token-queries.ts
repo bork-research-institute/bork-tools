@@ -1,5 +1,7 @@
-import type { TokenSnapshot } from '@/types/token-monitor/token';
-import type { EnrichedToken } from '@/types/token-monitor/token';
+import type {
+  EnrichedToken,
+  TokenSnapshot,
+} from '@bork/plugins/token-monitor/types/token';
 import { elizaLogger } from '@elizaos/core';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './index';

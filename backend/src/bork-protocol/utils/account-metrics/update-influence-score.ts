@@ -1,6 +1,6 @@
-import { tweetQueries } from '@/db/queries';
-import type { TargetAccount } from '@/types/account';
-import type { DatabaseTweet, TweetWithUpstream } from '@/types/twitter';
+import { tweetQueries } from '@bork/db/queries';
+import type { TargetAccount } from '@bork/types/account';
+import type { DatabaseTweet, TweetWithUpstream } from '@bork/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 
 /**

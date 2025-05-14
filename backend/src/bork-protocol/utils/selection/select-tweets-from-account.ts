@@ -1,9 +1,9 @@
-import { tweetQueries } from '@/db/queries';
-import { mapApiTweet } from '@/mappers/tweet-mapper';
-import type { TwitterService } from '@/services/twitter/twitter-service';
-import type { TargetAccount } from '@/types/account';
-import type { TwitterConfig } from '@/types/config';
-import type { TweetSelectionResult } from '@/types/twitter';
+import type { TwitterService } from '@/services/twitter-service';
+import { tweetQueries } from '@bork/db/queries';
+import { mapApiTweet } from '@bork/mappers/tweet-mapper';
+import type { TargetAccount } from '@bork/types/account';
+import type { TwitterConfig } from '@bork/types/config';
+import type { TweetSelectionResult } from '@bork/types/twitter';
 import { elizaLogger } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
 

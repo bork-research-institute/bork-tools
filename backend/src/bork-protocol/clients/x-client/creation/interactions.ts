@@ -1,10 +1,13 @@
-import { tweetQueries } from '@/db/queries';
-import type { TwitterService } from '@/services/twitter/twitter-service';
+import type { TwitterService } from '@/services/twitter-service';
+import { tweetQueries } from '@bork/db/queries';
 import {
   twitterMessageHandlerTemplate,
   twitterShouldRespondTemplate,
-} from '@/templates/interaction';
-import { sendTweetAndCreateMemory, wait } from '@/utils/active-tweeting/tweet';
+} from '@bork/templates/interaction';
+import {
+  sendTweetAndCreateMemory,
+  wait,
+} from '@bork/utils/active-tweeting/tweet';
 import {
   type IAgentRuntime,
   type Memory,

@@ -1,13 +1,13 @@
-import { accountTopicQueries, tweetQueries } from '@/db/queries';
+import { accountTopicQueries, tweetQueries } from '@bork/db/queries';
 import {
   mapTopicWeightRowToTopicWeight,
   mapTopicWeightsByRelationship,
-} from '@/mappers/topic-weights';
-import type { TargetAccount, WeightedAccount } from '@/types/account';
-import type { TwitterConfig } from '@/types/config';
+} from '@bork/mappers/topic-weights';
+import type { TwitterDiscoveryConfig } from '@bork/plugins/twitter-discovery/types/twitter-discovery-config';
+import type { TargetAccount, WeightedAccount } from '@bork/types/account';
+import type { TwitterConfig } from '@bork/types/config';
 import type { IAgentRuntime } from '@elizaos/core';
 import { elizaLogger } from '@elizaos/core';
-import { getEnv } from '../../../config/env';
 import { updateYapsData } from '../account-metrics/yaps';
 import { analyzeTopicRelationships } from '../generate-ai-object/related-topics';
 import { getAggregatedTopicWeights } from '../topic-weights/topics';
@@ -59,18 +59,16 @@ function selectAccountsWithWeights(
 export async function selectTargetAccounts(
   runtime: IAgentRuntime,
   config: TwitterConfig,
-  preferredTopic?: string,
+  discoveryConfig: TwitterDiscoveryConfig,
 ): Promise<TargetAccount[]> {
   try {
-    const env = getEnv();
-
     // Get topic weights once at the start
     const topicWeightRows = await getAggregatedTopicWeights(
-      env.SEARCH_TIMEFRAME_HOURS,
+      discoveryConfig.searchTimeframeHours,
     );
 
     // Use local variable for topic
-    let effectiveTopic = preferredTopic;
+    let effectiveTopic = discoveryConfig.preferredTopic;
     if (topicWeightRows.length === 0) {
       elizaLogger.warn(
         '[TwitterAccounts] No topic weights found, using default topic "solana"',

@@ -1,13 +1,43 @@
-import { type Character, ModelProviderName } from '@elizaos/core';
+import gfmPlugin from '@/bork-protocol/plugins/gfm-plugin';
+import tokenMonitorPlugin from '@/bork-protocol/plugins/token-monitor';
+import twitterDiscoveryPlugin from '@/bork-protocol/plugins/twitter-discovery';
+import type { TwitterDiscoveryCharacter } from '@/bork-protocol/plugins/twitter-discovery/types/character-extension';
+import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
+import { ModelProviderName } from '@elizaos/core';
 
-export const character: Character = {
+export const character: TwitterDiscoveryCharacter = {
   id: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
   name: 'Bork Analyzer',
   username: 'bork-analyzer',
   modelProvider: ModelProviderName.OPENAI,
-  plugins: [],
+  plugins: [
+    gfmPlugin,
+    xThreadPlugin,
+    twitterDiscoveryPlugin,
+    tokenMonitorPlugin,
+  ],
   settings: {
-    secrets: {},
+    secrets: {
+      twitterUsername: 'bork_agent',
+    },
+  },
+  twitterDiscovery: {
+    discoveryKeywords: ['crypto', 'web3', 'defi'],
+    twitterPollInterval: 60000, // 1 minute in ms
+    discoveryInterval: 43200000, // 12 hours in ms
+    evaluationInterval: 86400000, // 24 hours in ms
+    twitterTargetUsers: [],
+    searchTimeframeHours: 24,
+    searchPreferredTopic: [],
+    maxSearchTopics: 5,
+    preferredTopic: '',
+    accountsPerDiscovery: 5,
+    maxQueueSize: 1000,
+    maxProcessedIdsSize: 10000,
+    minRelevanceScore: 0.6,
+    minQualityScore: 0.5,
+    scoreDecayFactor: 0.95,
+    maxAccounts: 100,
   },
   system: `Roleplay as Bork Analyzer, a sophisticated social media and data analysis expert. Your primary functions are:
 1. Social Media Analytics: Track and analyze social media trends, engagement metrics, and user behavior

@@ -1,6 +1,6 @@
-import { KNOWLEDGE_ROOM_ID, SYSTEM_USER_ID } from '@/config/knowledge';
-import type { TweetAnalysis } from '@/types/analysis';
-import type { DatabaseTweet } from '@/types/twitter';
+import { KNOWLEDGE_ROOM_ID, SYSTEM_USER_ID } from '@bork/config/knowledge';
+import type { TweetAnalysis } from '@bork/types/analysis';
+import type { DatabaseTweet } from '@bork/types/twitter';
 import {
   type IAgentRuntime,
   type Memory,

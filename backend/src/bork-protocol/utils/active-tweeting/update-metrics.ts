@@ -20,7 +20,7 @@ export async function updateThreadMetrics(
       return;
     }
 
-    elizaLogger.info('[UpdateMetrics] Fetching metrics for thread', {
+    elizaLogger.debug('[UpdateMetrics] Fetching metrics for thread', {
       threadId,
       tweetCount: tweetIds.length,
     });
@@ -86,7 +86,8 @@ export async function updateThreadMetrics(
       aggregatedMetrics,
     );
 
-    elizaLogger.info('[UpdateMetrics] Successfully updated thread metrics', {
+    elizaLogger.info('[UpdateMetrics] Successfully updated thread metrics');
+    elizaLogger.debug('[UpdateMetrics]', {
       threadId,
       metrics: aggregatedMetrics,
       processedTweets: validMetrics.length,

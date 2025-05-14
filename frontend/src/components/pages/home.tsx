@@ -1,4 +1,4 @@
-import { MetricsGallery } from '../metrics/MetricsGallery';
+import { MetricsGallery } from '../gallery/MetricsGallery';
 
 export function Home() {
   return <MetricsGallery />;

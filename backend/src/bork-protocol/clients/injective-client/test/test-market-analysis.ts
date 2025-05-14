@@ -1,11 +1,11 @@
-import type { TimeResolution } from '../../../types/injective/market-history';
+import { marketAnalysisService } from '@bork/services/injective/market-analysis-service';
+import type { TimeResolution } from '@bork/types/injective/market-history';
 import type {
   DerivativesMetrics,
   LiquidityAnalysis,
   OrderBookAnalysis,
   TechnicalAnalysis,
 } from '../../../types/injective/technical-analysis';
-import { marketAnalysisService } from '../services/market-analysis-service';
 
 const MARKET_CONFIG = {
   type: 'spot' as const,
