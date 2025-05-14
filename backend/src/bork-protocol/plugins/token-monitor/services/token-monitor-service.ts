@@ -26,6 +26,7 @@ import {
   type ServiceType,
   elizaLogger,
 } from '@elizaos/core';
+import type { Tweet } from 'agent-twitter-client';
 import { filter, uniqBy } from 'ramda';
 
 export class TokenMonitorService extends Service {
@@ -109,7 +110,6 @@ export class TokenMonitorService extends Service {
               this.tokenMonitorConfigService.getJupiterCallDelay(),
             ),
           );
-
           // Enrich the token with additional data
           const enrichedToken = await this.enrichToken(token);
 
@@ -121,7 +121,14 @@ export class TokenMonitorService extends Service {
 
           // If interesting, immediately search for and process related tweets
           if (interestingToken) {
-            this.searchTokenTweets(interestingToken.tokenAddress);
+            const searchTweets =
+              await this.searchTokenTweetsIfNotRecentlySearched(
+                interestingToken.tokenAddress,
+              );
+
+            // Create snapshot with tweet IDs if enrichedToken is provided
+            const tweetIds = searchTweets.map((tweet) => tweet.id);
+            await tokenQueries.createSnapshot(enrichedToken, tweetIds);
           }
         } catch (err) {
           elizaLogger.error('[TokenMonitorService] Error processing token:', {
@@ -133,13 +140,31 @@ export class TokenMonitorService extends Service {
     }
   }
 
-  public async searchTokenTweets(tokenAddress: string): Promise<void> {
-    this.recentlySearchedTokens = await searchTokenTweets(
+  public async searchTokenTweetsIfNotRecentlySearched(
+    tokenAddress: string,
+  ): Promise<Tweet[]> {
+    // Only process tokens we haven't recently searched
+    if (this.recentlySearchedTokens.has(tokenAddress)) {
+      // FIXME not sure if we should return something or not here
+      return [];
+    }
+
+    // Add to recently searched tokens
+    this.recentlySearchedTokens.add(tokenAddress);
+
+    // Limit the size of recently searched tokens cache
+    if (this.recentlySearchedTokens.size > 100) {
+      // Remove oldest entries (just a crude approach)
+      const entries = Array.from(this.recentlySearchedTokens);
+      for (let i = 0; i < 20; i++) {
+        this.recentlySearchedTokens.delete(entries[i]);
+      }
+    }
+    return await searchTokenTweets(
       tokenAddress,
       this.twitterService,
       this.twitterConfigService,
       this.analysisQueueService,
-      this.recentlySearchedTokens,
     );
   }
 
@@ -182,9 +207,6 @@ export class TokenMonitorService extends Service {
           priceInfo: priceInfo || undefined,
         },
       };
-
-      // Store token snapshot
-      await tokenQueries.createSnapshot(enrichedToken);
 
       return enrichedToken;
     } catch (error) {

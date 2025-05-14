@@ -2,7 +2,7 @@ import type { TwitterDiscoveryConfigService } from '@/bork-protocol/plugins/twit
 import type { AnalysisQueueService } from '@/services/analysis-queue.service';
 import type { TwitterService } from '@/services/twitter-service';
 import { elizaLogger } from '@elizaos/core';
-import { SearchMode } from 'agent-twitter-client';
+import { SearchMode, type Tweet } from 'agent-twitter-client';
 
 /**
  * Searches for tweets related to a specific token
@@ -10,33 +10,14 @@ import { SearchMode } from 'agent-twitter-client';
  * @param twitterService Twitter service for searching
  * @param twitterConfigService Service to get Twitter configuration
  * @param tweetQueueService Service to queue tweets for processing
- * @param recentlySearchedTokens Set of tokens that were recently searched
- * @returns The updated set of recently searched tokens
+ * @returns The tweets found for the token
  */
 export async function searchTokenTweets(
   tokenAddress: string,
   twitterService: TwitterService,
   twitterConfigService: TwitterDiscoveryConfigService,
   tweetQueueService: AnalysisQueueService,
-  recentlySearchedTokens: Set<string>,
-): Promise<Set<string>> {
-  // Only process tokens we haven't recently searched
-  if (recentlySearchedTokens.has(tokenAddress)) {
-    return recentlySearchedTokens;
-  }
-
-  // Add to recently searched tokens
-  recentlySearchedTokens.add(tokenAddress);
-
-  // Limit the size of recently searched tokens cache
-  if (recentlySearchedTokens.size > 100) {
-    // Remove oldest entries (just a crude approach)
-    const entries = Array.from(recentlySearchedTokens);
-    for (let i = 0; i < 20; i++) {
-      recentlySearchedTokens.delete(entries[i]);
-    }
-  }
-
+): Promise<Tweet[]> {
   const config = await twitterConfigService.getConfig();
 
   try {
@@ -55,7 +36,7 @@ export async function searchTokenTweets(
       );
     }
 
-    elizaLogger.info(
+    elizaLogger.debug(
       `[TokenMonitor] Found ${searchTweets.length} tweets for term: ${tokenAddress}`,
     );
 
@@ -65,6 +46,7 @@ export async function searchTokenTweets(
     elizaLogger.info(
       `[TokenMonitor] Successfully queued search results for token: ${tokenAddress}`,
     );
+    return searchTweets;
   } catch (error) {
     elizaLogger.error(
       `[TokenMonitor] Error searching for term: ${tokenAddress}`,
@@ -74,6 +56,4 @@ export async function searchTokenTweets(
       },
     );
   }
-
-  return recentlySearchedTokens;
 }
