@@ -60,8 +60,27 @@ export interface TokenMetrics {
   ticker?: string;
 }
 
+interface BundleTransaction {
+  signature: string;
+  slot: number;
+  confirmationStatus: string;
+  error?: string;
+}
+
+interface BundleAnalysis {
+  bundleId: string;
+  transactions: BundleTransaction[];
+  netTokenMovements: {
+    [tokenAddress: string]: {
+      amount: number;
+      direction: 'in' | 'out';
+    };
+  };
+}
+
 export interface EnrichedToken extends TokenProfile {
   metrics: TokenMetrics;
+  bundleAnalysis?: BundleAnalysis[];
 }
 
 interface PriceImpactDepth {
@@ -168,5 +187,5 @@ export interface TokenSnapshot {
   description?: string;
   icon?: string;
   links?: TokenLink[];
-  tweetIds?: string[];
+  bundleAnalysis?: BundleAnalysis[];
 }

@@ -5,6 +5,7 @@ export interface TokenSnapshotRow {
   token_address: string;
   timestamp: Date;
   data: TokenSnapshot;
+  tweet_ids?: string[];
 }
 
 export interface TokenMetricsHistory {

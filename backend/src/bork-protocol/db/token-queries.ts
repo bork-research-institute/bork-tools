@@ -36,6 +36,7 @@ export const tokenQueries = {
         description: enrichedToken.description,
         icon: enrichedToken.icon,
         links: enrichedToken.links,
+        bundleAnalysis: enrichedToken.bundleAnalysis,
       };
 
       await db.query(

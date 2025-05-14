@@ -1,0 +1,2 @@
+-- No need for separate bundle columns since they're part of the snapshot data
+-- The bundle analysis data will be stored in the existing 'data' JSONB column 
