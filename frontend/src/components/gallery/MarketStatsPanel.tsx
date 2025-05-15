@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {} from '@/components/ui/tabs';
 import { FIELD_OPTIONS, TIMEFRAME_LABELS } from '@/lib/config/market-stats';
 import { renderValue } from '@/lib/helpers/market-stats';
 import { dexscreenerService } from '@/lib/services/dexscreener-service';

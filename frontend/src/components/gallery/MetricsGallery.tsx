@@ -22,12 +22,11 @@ import {
 } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { BundlerPanel } from './BundlerPanel';
 import { KaitoLeaderboard } from './KaitoLeaderboard';
+import { LaunchedTokensPanel } from './LaunchedTokensPanel';
 import { MarketStatsPanel } from './MarketStatsPanel';
 import { MindsharePanel } from './MindsharePanel';
 import { NewsPanel } from './NewsPanel';
-import { TokenHolderPanel } from './TokenHolderPanel';
 import { TokenTweetsPanel } from './TokenTweetsPanel';
 import { TrendingTweetsPanel } from './TrendingTweetsPanel';
 
@@ -276,6 +275,12 @@ export function MetricsGallery() {
                   trending
                 </TabsTrigger>
                 <TabsTrigger
+                  value="launched"
+                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                >
+                  launched
+                </TabsTrigger>
+                <TabsTrigger
                   value="news"
                   className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                 >
@@ -394,6 +399,12 @@ export function MetricsGallery() {
                     trending
                   </TabsTrigger>
                   <TabsTrigger
+                    value="launched"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    launched
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="mindshare"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
@@ -415,28 +426,51 @@ export function MetricsGallery() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="trending" className="h-full">
-                <MarketStatsPanel
-                  tokenSnapshots={state.tokensWithEngagement}
-                  timeframe={timeframe}
-                  onTimeframeChange={handleTimeframeChange}
-                  loading={state.tokenSnapshotsLoading}
-                  error={null}
-                  selectedTokenAddress={state.selectedToken?.token_address}
-                  onTokenSelect={(token) => {
-                    setState((prev) => ({
-                      ...prev,
-                      selectedToken: token,
-                      activeRightTab: token === null ? 'tweets' : 'tokenTweets',
-                    }));
-                  }}
-                  selectedToken={state.selectedToken as TokenWithEngagement}
-                />
+              <TabsContent value="trending" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MarketStatsPanel
+                    tokenSnapshots={state.tokensWithEngagement}
+                    timeframe={timeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    loading={state.tokenSnapshotsLoading}
+                    error={null}
+                    selectedTokenAddress={state.selectedToken?.token_address}
+                    onTokenSelect={(token) => {
+                      setState((prev) => ({
+                        ...prev,
+                        selectedToken: token,
+                        activeRightTab:
+                          token === null ? 'tweets' : 'tokenTweets',
+                      }));
+                    }}
+                    selectedToken={state.selectedToken as TokenWithEngagement}
+                  />
+                </div>
               </TabsContent>
-              <TabsContent value="risk" className="h-full overflow-auto">
-                <div className="grid grid-cols-2 gap-4 h-full overflow-auto">
-                  <BundlerPanel tokenAddress={state.tokenAddress} />
-                  <TokenHolderPanel />
+              <TabsContent value="launched" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <LaunchedTokensPanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="mindshare" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MindsharePanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="yaps" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <KaitoLeaderboard />
+                </div>
+              </TabsContent>
+              <TabsContent
+                value="relationships"
+                className="h-full overflow-auto"
+              >
+                <div className="h-full overflow-auto">
+                  <RelationshipsPanel
+                    relationships={state.relationships}
+                    loading={state.relationshipsLoading}
+                  />
                 </div>
               </TabsContent>
             </div>
@@ -539,6 +573,12 @@ export function MetricsGallery() {
                     trending
                   </TabsTrigger>
                   <TabsTrigger
+                    value="launched"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    launched
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="mindshare"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
@@ -592,6 +632,11 @@ export function MetricsGallery() {
                     }}
                     selectedToken={state.selectedToken as TokenWithEngagement}
                   />
+                </div>
+              </TabsContent>
+              <TabsContent value="launched" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <LaunchedTokensPanel />
                 </div>
               </TabsContent>
               <TabsContent value="mindshare" className="h-full overflow-auto">
@@ -650,6 +695,12 @@ export function MetricsGallery() {
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
                     trending
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="launched"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    launched
                   </TabsTrigger>
                   <TabsTrigger
                     value="news"
