@@ -1,16 +1,13 @@
 import { Service, type ServiceType, elizaLogger } from '@elizaos/core';
 import { ServiceTypeExtension } from '../types/service-type-extension';
-
-interface BundleTransaction {
-  signature: string;
-  slot: number;
-  confirmationStatus: string;
-  error: unknown;
-}
+import {
+  type TransactionDetails,
+  heliusTransactionService,
+} from './helius-transaction-service';
 
 interface BundleAnalysis {
   bundleId: string;
-  transactions: BundleTransaction[];
+  transactions: TransactionDetails[];
   netTokenMovements: {
     [tokenAddress: string]: {
       amount: number;
@@ -58,10 +55,21 @@ export class BundleAnalysisService extends Service {
     try {
       const response = await fetch(`${this.JITO_BUNDLE_API}/${signature}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch bundle ID: ${response.statusText}`);
+        elizaLogger.debug(
+          '[BundleAnalysisService] No bundle found for transaction',
+          { signature },
+        );
+        return null;
       }
       const data = await response.json();
-      return data[0]?.bundle_id || null;
+      if (!data[0]?.bundle_id) {
+        elizaLogger.debug(
+          '[BundleAnalysisService] No bundle_id in response for transaction',
+          { signature },
+        );
+        return null;
+      }
+      return data[0].bundle_id;
     } catch (error) {
       elizaLogger.error('[BundleAnalysisService] Error fetching bundle ID:', {
         signature,
@@ -101,15 +109,30 @@ export class BundleAnalysisService extends Service {
         return null;
       }
 
+      // Fetch detailed transaction information for each transaction in the bundle
+      const transactionDetails =
+        await heliusTransactionService.getTransactionsDetails(
+          bundleData.transactions,
+        );
+
+      // Calculate net token movements
+      const netTokenMovements: BundleAnalysis['netTokenMovements'] = {};
+      for (const tx of transactionDetails) {
+        for (const transfer of tx.tokenTransfers) {
+          if (!netTokenMovements[transfer.mint]) {
+            netTokenMovements[transfer.mint] = {
+              amount: 0,
+              direction: 'in',
+            };
+          }
+          netTokenMovements[transfer.mint].amount += transfer.tokenAmount;
+        }
+      }
+
       return {
         bundleId: bundleData.bundle_id,
-        transactions: bundleData.transactions.map((tx: string) => ({
-          signature: tx,
-          slot: bundleData.slot,
-          confirmationStatus: bundleData.confirmation_status,
-          error: bundleData.err,
-        })),
-        netTokenMovements: {}, // This would need to be populated by analyzing the transactions
+        transactions: transactionDetails,
+        netTokenMovements,
       };
     } catch (error) {
       elizaLogger.error(

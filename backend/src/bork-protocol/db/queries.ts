@@ -6,7 +6,7 @@ import type {
 } from '@bork/plugins/twitter-discovery/types/twitter-config';
 import type { TargetAccount } from '@bork/types/account';
 import { type UUID, elizaLogger, stringToUuid } from '@elizaos/core';
-import type { PoolClient } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './index';
 import type {
@@ -14,12 +14,17 @@ import type {
   AgentPrompt,
   AgentSetting,
   ConsciousnessStream,
+  DatabaseAgentPrompt,
+  DatabaseMentionRelationship,
+  DatabaseStreamSetting,
+  DatabaseStrongRelationship,
+  DatabaseTargetAccount,
+  DatabaseTopicWeightTrend,
   Log,
+  SpamUser,
   StreamSetting,
   YapsData,
 } from './schema';
-
-// FIXME: This needs to be split into multiple files
 
 /**
  * Execute a function within a transaction and automatically release the client
@@ -27,7 +32,8 @@ import type {
 async function withTransaction<T>(
   fn: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
-  const client = await db.connect();
+  const pool = await db;
+  const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const result = await fn(client);
@@ -54,12 +60,22 @@ async function withClient<T>(
   }
 
   // Get a new client and release it when done
-  const client = await db.connect();
+  const pool = await db;
+  const client = await pool.connect();
   try {
     return await fn(client);
   } finally {
     client.release();
   }
+}
+
+// Helper function to execute queries directly on the pool
+async function executeQuery<T = unknown>(
+  query: string,
+  params?: unknown[],
+): Promise<QueryResult<T>> {
+  const pool = await db;
+  return pool.query(query, params);
 }
 
 export const yapsQueries = {
@@ -95,7 +111,7 @@ export const yapsQueries = {
         last_updated = EXCLUDED.last_updated
     `;
 
-    await db.query(query, [
+    await executeQuery(query, [
       data.userId,
       data.username,
       data.yapsAll,
@@ -117,7 +133,7 @@ export const yapsQueries = {
       WHERE user_id = $1
     `;
 
-    const result = await db.query(query, [userId]);
+    const result = await executeQuery<YapsData>(query, [userId]);
     return result.rows[0] || null;
   },
 
@@ -128,7 +144,7 @@ export const yapsQueries = {
       WHERE user_id = ANY($1)
     `;
 
-    const result = await db.query(query, [userIds]);
+    const result = await executeQuery<YapsData>(query, [userIds]);
     return result.rows;
   },
 };
@@ -578,7 +594,7 @@ export const tweetQueries = {
 
   insertMarketMetrics: async (metrics: Record<string, unknown>) => {
     try {
-      await db.query(
+      await executeQuery(
         'INSERT INTO market_metrics (metrics, timestamp) VALUES ($1, NOW())',
         [JSON.stringify(metrics)],
       );
@@ -590,7 +606,7 @@ export const tweetQueries = {
 
   getSpamUser: async (userId: string) => {
     try {
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<SpamUser>(
         'SELECT * FROM spam_users WHERE user_id = $1',
         [userId],
       );
@@ -608,7 +624,7 @@ export const tweetQueries = {
   ) => {
     try {
       const now = new Date();
-      await db.query(
+      await executeQuery(
         `INSERT INTO spam_users (
           user_id, spam_score, last_tweet_date, tweet_count, violations, updated_at
         ) VALUES ($1, $2, $3, 1, $4, $5)
@@ -627,7 +643,7 @@ export const tweetQueries = {
   },
 
   getTopicWeights: async (): Promise<TopicWeightRow[]> => {
-    const result = await db.query(
+    const result = await executeQuery<TopicWeightRow>(
       'SELECT * FROM topic_weights ORDER BY weight DESC',
     );
     return result.rows;
@@ -639,7 +655,7 @@ export const tweetQueries = {
     impactScore: number,
     seedWeight: number,
   ): Promise<void> => {
-    await db.query(
+    await executeQuery(
       `INSERT INTO topic_weights (topic, weight, impact_score, last_updated, seed_weight)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
        ON CONFLICT (topic) 
@@ -672,7 +688,7 @@ export const tweetQueries = {
       WHERE is_active = true 
       ORDER BY created_at DESC
     `;
-    const result = await db.query(query);
+    const result = await executeQuery<DatabaseTargetAccount>(query);
     return result.rows.map((row) => ({
       username: row.username,
       userId: row.user_id,
@@ -765,7 +781,7 @@ export const tweetQueries = {
         source = EXCLUDED.source
     `;
 
-    await db.query(query, [
+    await executeQuery(query, [
       account.username,
       account.userId,
       account.displayName,
@@ -856,7 +872,7 @@ export const tweetQueries = {
     `;
 
     try {
-      await db.query(query, [
+      await executeQuery(query, [
         metrics.avgLikes50,
         metrics.avgRetweets50,
         metrics.avgReplies50,
@@ -899,7 +915,10 @@ export const tweetQueries = {
 
     try {
       elizaLogger.debug(`[DB] Getting tweets for username ${username}`);
-      const result = await db.query(query, [username, limit]);
+      const result = await executeQuery<DatabaseTweet>(query, [
+        username,
+        limit,
+      ]);
       return result.rows;
     } catch (error) {
       elizaLogger.error(`[DB] Error getting tweets for username ${username}:`, {
@@ -927,7 +946,7 @@ export const tweetQueries = {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
-    await db.query(query, [
+    await executeQuery(query, [
       topicWeight.id,
       topicWeight.topic,
       topicWeight.weight,
@@ -965,7 +984,7 @@ export const tweetQueries = {
       FROM recent_weights
     `;
 
-    const result = await db.query(query);
+    const result = await executeQuery<TopicWeightRow>(query);
     return result.rows.map((row) => ({
       ...row,
       engagement_metrics:
@@ -979,7 +998,7 @@ export const tweetQueries = {
    * Gets topic weight trends over time
    */
   async getTopicTrends(
-    timeframeHours = 168, // Default 1 week
+    timeframeHours = 168,
     interval = '1 hour',
   ): Promise<
     Array<{
@@ -1017,8 +1036,14 @@ export const tweetQueries = {
       ORDER BY bucket DESC, avg_weight DESC
     `;
 
-    const result = await db.query(query);
-    return result.rows;
+    const result = await executeQuery<DatabaseTopicWeightTrend>(query);
+    return result.rows.map((row) => ({
+      topic: row.topic,
+      timestamp: row.timestamp,
+      avgWeight: row.avg_weight,
+      totalEngagement: row.total_engagement,
+      mentionCount: row.mention_count,
+    }));
   },
 
   /**
@@ -1047,7 +1072,6 @@ export const tweetQueries = {
             (engagement_metrics->>'replies')::numeric
           ) as total_engagement,
           COUNT(*) as mention_count,
-          -- Calculate momentum (weight trend over time)
           COALESCE(
             REGR_SLOPE(
               weight,
@@ -1065,8 +1089,14 @@ export const tweetQueries = {
       LIMIT $1
     `;
 
-    const result = await db.query(query, [limit]);
-    return result.rows;
+    const result = await executeQuery<DatabaseTopicWeightTrend>(query, [limit]);
+    return result.rows.map((row) => ({
+      topic: row.topic,
+      avgWeight: row.avg_weight,
+      totalEngagement: row.total_engagement,
+      mentionCount: row.mention_count,
+      momentum: row.momentum || 0,
+    }));
   },
 };
 
@@ -1076,7 +1106,7 @@ export const agentSettingQueries = {
     key: string,
   ): Promise<string | undefined> => {
     try {
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<{ setting_value: string }>(
         'SELECT setting_value FROM agent_settings WHERE agent_id = $1 AND setting_key = $2 LIMIT 1',
         [agentId, key],
       );
@@ -1097,7 +1127,7 @@ export const agentSettingQueries = {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      await db.query(
+      await executeQuery(
         'INSERT INTO agent_settings (id, agent_id, setting_key, setting_value, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET setting_value = $4, updated_at = $6',
         [
           setting.id,
@@ -1125,7 +1155,7 @@ export const promptQueries = {
         version: settings.version,
         enabled: settings.enabled,
       };
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<DatabaseAgentPrompt>(
         'INSERT INTO agent_prompts (id, prompt, agent_id, version, enabled) VALUES ($1, $2, $3, $4, $5) RETURNING *',
         [
           prompt.id,
@@ -1135,7 +1165,13 @@ export const promptQueries = {
           prompt.enabled ? 'true' : 'false',
         ],
       );
-      return rows[0];
+      return {
+        id: rows[0].id,
+        prompt: rows[0].prompt,
+        agentId: rows[0].agent_id,
+        version: rows[0].version,
+        enabled: rows[0].enabled,
+      };
     } catch (error) {
       elizaLogger.error('Error saving prompt:', error);
       throw error;
@@ -1147,11 +1183,20 @@ export const promptQueries = {
     version: string,
   ): Promise<AgentPrompt | null> => {
     try {
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<DatabaseAgentPrompt>(
         'SELECT * FROM agent_prompts WHERE agent_id = $1 AND version = $2 AND enabled = true LIMIT 1',
         [agentId, version],
       );
-      return rows[0] || null;
+      if (!rows[0]) {
+        return null;
+      }
+      return {
+        id: rows[0].id,
+        prompt: rows[0].prompt,
+        agentId: rows[0].agent_id,
+        version: rows[0].version,
+        enabled: rows[0].enabled,
+      };
     } catch (error) {
       elizaLogger.error('Error getting prompt:', error);
       throw error;
@@ -1179,11 +1224,20 @@ export const promptQueries = {
         }
       }
 
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<DatabaseAgentPrompt>(
         `UPDATE agent_prompts SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $1 RETURNING *`,
         values as string[],
       );
-      return rows[0];
+      if (!rows[0]) {
+        throw new Error('No prompt found to update');
+      }
+      return {
+        id: rows[0].id,
+        prompt: rows[0].prompt,
+        agentId: rows[0].agent_id,
+        version: rows[0].version,
+        enabled: rows[0].enabled,
+      };
     } catch (error) {
       elizaLogger.error('Error updating prompt:', error);
       throw error;
@@ -1194,7 +1248,7 @@ export const promptQueries = {
 export const streamQueries = {
   getStreamSettings: async (agentId: string): Promise<StreamSetting> => {
     try {
-      const { rows } = await db.query(
+      const { rows } = await executeQuery<DatabaseStreamSetting>(
         'SELECT * FROM stream_settings WHERE agent_id = $1',
         [agentId],
       );
@@ -1211,7 +1265,13 @@ export const streamQueries = {
         return defaultSettings;
       }
 
-      return rows[0];
+      return {
+        id: rows[0].id,
+        agentId: rows[0].agent_id,
+        enabled: rows[0].enabled,
+        interval: rows[0].interval,
+        lastRun: rows[0].last_run,
+      };
     } catch (error) {
       elizaLogger.error('Error fetching stream settings:', error);
       throw error;
@@ -1220,7 +1280,7 @@ export const streamQueries = {
 
   saveStreamSettings: async (settings: StreamSetting): Promise<void> => {
     try {
-      await db.query(
+      await executeQuery(
         'INSERT INTO stream_settings (id, agent_id, enabled, interval, last_run) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET enabled = $3, interval = $4, last_run = $5',
         [
           settings.id,
@@ -1238,7 +1298,7 @@ export const streamQueries = {
 
   getRecentStreams: async (agentId: string, limit = 100) => {
     try {
-      const { rows } = await db.query(
+      const { rows } = await executeQuery(
         'SELECT * FROM consciousness_streams WHERE agent_id = $1 ORDER BY timestamp DESC LIMIT $2',
         [agentId, limit],
       );
@@ -1263,7 +1323,7 @@ export const streamQueries = {
       timestamp: new Date(),
     };
     try {
-      await db.query(
+      await executeQuery(
         'INSERT INTO consciousness_streams (id, agent_id, topic, title, content, status, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)',
         [
           stream.id,
@@ -1284,7 +1344,7 @@ export const streamQueries = {
 
 export const logQueries = {
   saveLog: async (newLog: Log) => {
-    await db.query(
+    await executeQuery(
       'INSERT INTO logs (id, user_id, body, type, room_id, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
       [
         newLog.id,
@@ -1310,7 +1370,7 @@ export const logQueries = {
       createdAt: new Date(),
       roomId: `prompt_log_${promptType}`,
     };
-    await db.query(
+    await executeQuery(
       'INSERT INTO logs (id, user_id, body, type, room_id, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
       [log.id, log.userId, log.body, log.type, log.roomId, log.createdAt],
     );
@@ -1326,7 +1386,7 @@ export const userMentionQueries = {
   ): Promise<void> => {
     try {
       // First try to update existing relationship
-      await db.query(
+      await executeQuery(
         `INSERT INTO user_mentions_relationship 
          (source_username, target_username, first_mention_at, last_mention_at, tweet_ids)
          VALUES ($1, $2, $3, $3, ARRAY[$4])
@@ -1340,7 +1400,7 @@ export const userMentionQueries = {
       );
 
       // Check if there's a reverse relationship and update mutual flag
-      const reverseResult = await db.query(
+      const reverseResult = await executeQuery(
         `SELECT id FROM user_mentions_relationship 
          WHERE source_username = $1 AND target_username = $2`,
         [targetUsername, sourceUsername],
@@ -1348,7 +1408,7 @@ export const userMentionQueries = {
 
       if (reverseResult.rows.length > 0) {
         // Update both relationships to be mutual
-        await db.query(
+        await executeQuery(
           `UPDATE user_mentions_relationship 
            SET is_mutual = true 
            WHERE (source_username = $1 AND target_username = $2)
@@ -1366,14 +1426,17 @@ export const userMentionQueries = {
     username: string,
   ): Promise<Array<{ username: string; strength: number }>> => {
     try {
-      const result = await db.query(
+      const result = await executeQuery<DatabaseMentionRelationship>(
         `SELECT target_username as username, relationship_strength as strength
          FROM user_mentions_relationship
          WHERE source_username = $1 AND is_mutual = true
          ORDER BY relationship_strength DESC`,
         [username],
       );
-      return result.rows;
+      return result.rows.map((row) => ({
+        username: row.username,
+        strength: row.strength,
+      }));
     } catch (error) {
       elizaLogger.error('Error getting mutual mentions:', error);
       throw error;
@@ -1386,14 +1449,18 @@ export const userMentionQueries = {
     Array<{ sourceUsername: string; targetUsername: string; strength: number }>
   > => {
     try {
-      const result = await db.query(
+      const result = await executeQuery<DatabaseStrongRelationship>(
         `SELECT source_username, target_username, relationship_strength as strength
          FROM user_mentions_relationship
          WHERE relationship_strength >= $1
          ORDER BY relationship_strength DESC`,
         [minStrength],
       );
-      return result.rows;
+      return result.rows.map((row) => ({
+        sourceUsername: row.source_username,
+        targetUsername: row.target_username,
+        strength: row.strength,
+      }));
     } catch (error) {
       elizaLogger.error('Error getting strong relationships:', error);
       throw error;
@@ -1403,7 +1470,7 @@ export const userMentionQueries = {
   decayRelationships: async (): Promise<void> => {
     try {
       // Decay relationships that haven't been updated in 30 days
-      await db.query(
+      await executeQuery(
         `UPDATE user_mentions_relationship
          SET relationship_strength = GREATEST(0.1, relationship_strength * 0.9)
          WHERE last_mention_at < NOW() - INTERVAL '30 days'`,
@@ -1418,26 +1485,24 @@ export const userMentionQueries = {
 export const twitterConfigQueries = {
   async getConfig(username: string): Promise<TwitterConfig | null> {
     try {
-      const result = await db.query(
+      const result = await executeQuery<TwitterConfigRow>(
         'SELECT * FROM twitter_configs WHERE username = $1',
         [username],
       );
 
       if (result.rows.length === 0) {
         // Try to get default config
-        const defaultResult = await db.query(
+        const defaultResult = await executeQuery<TwitterConfigRow>(
           'SELECT * FROM twitter_configs WHERE username = $1',
           ['default'],
         );
         if (defaultResult.rows.length === 0) {
           return null;
         }
-        const row = defaultResult.rows[0];
-        return twitterConfigQueries.mapRowToConfig(row);
+        return twitterConfigQueries.mapRowToConfig(defaultResult.rows[0]);
       }
 
-      const row = result.rows[0];
-      return twitterConfigQueries.mapRowToConfig(row);
+      return twitterConfigQueries.mapRowToConfig(result.rows[0]);
     } catch (error) {
       elizaLogger.error(
         '[TwitterConfigQueries] Error fetching config:',
@@ -1545,7 +1610,7 @@ export const twitterConfigQueries = {
         DO UPDATE SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
       `;
 
-      await db.query(query, values);
+      await executeQuery(query, values);
     } catch (error) {
       elizaLogger.error(
         '[TwitterConfigQueries] Error updating config:',
@@ -1639,7 +1704,7 @@ export const accountTopicQueries = {
     `;
 
     try {
-      const result = await db.query<AccountTopic>(query, [username]);
+      const result = await executeQuery<AccountTopic>(query, [username]);
       return result.rows;
     } catch (error) {
       elizaLogger.error('Error getting account topics:', {
@@ -1677,7 +1742,7 @@ export const accountTopicQueries = {
         },
       );
 
-      const result = await db.query<AccountTopic>(query, [topic]);
+      const result = await executeQuery<AccountTopic>(query, [topic]);
 
       elizaLogger.debug('[AccountTopicQueries] Query result:', {
         topic,

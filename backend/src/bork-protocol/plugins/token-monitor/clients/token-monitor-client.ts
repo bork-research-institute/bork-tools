@@ -40,7 +40,7 @@ export class TokenMonitorClient implements Client, ClientInstance {
     this.monitorTokens(
       tokenMonitorService,
       twitterConfigService.getCharacterConfig().twitterPollInterval,
-      configService.getRateLimitDelay(),
+      // configService.getRateLimitDelay(),
     );
     return this;
   }
@@ -58,13 +58,13 @@ export class TokenMonitorClient implements Client, ClientInstance {
   private async monitorTokens(
     tokenMonitorService: TokenMonitorService,
     twitterPollInterval: number,
-    rateLimitDelay: number,
+    // rateLimitDelay: number,
   ): Promise<void> {
     this.monitoringTimeout = setInterval(async () => {
       await tokenMonitorService.monitorTokens();
     }, twitterPollInterval);
-    this.interestingTokenMonitoringTimeout = setInterval(async () => {
-      await tokenMonitorService.checkForInterestingTokens();
-    }, rateLimitDelay);
+    // this.interestingTokenMonitoringTimeout = setInterval(async () => {
+    //   await tokenMonitorService.checkForInterestingTokens();
+    // }, rateLimitDelay);
   }
 }

@@ -38,16 +38,42 @@ class DatabaseManager {
   /**
    * Initialize the database pool
    */
-  private initPool(): void {
+  private async initPool(): Promise<void> {
     if (!this.pool && !this.isClosing) {
       const env = getEnv();
 
-      this.pool = new Pool({
-        connectionString: env.POSTGRES_URL,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      });
+      try {
+        // Try IPv6 first
+        this.pool = new Pool({
+          connectionString: env.POSTGRES_URL,
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        });
+
+        // Test the connection
+        const client = await this.pool.connect();
+        client.release();
+        elizaLogger.info('[DatabaseManager] Successfully connected using IPv6');
+      } catch (error) {
+        elizaLogger.warn(
+          '[DatabaseManager] IPv6 connection failed, falling back to IPv4:',
+          error,
+        );
+
+        // Fall back to IPv4
+        this.pool = new Pool({
+          connectionString: env.POSTGRES_URL_IPV4,
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        });
+
+        // Test the IPv4 connection
+        const client = await this.pool.connect();
+        client.release();
+        elizaLogger.info('[DatabaseManager] Successfully connected using IPv4');
+      }
 
       // Handle pool errors
       this.pool.on('error', (err) => {
@@ -81,9 +107,9 @@ class DatabaseManager {
   /**
    * Get the database pool
    */
-  public getPool(): Pool {
+  public async getPool(): Promise<Pool> {
     if (!this.pool) {
-      this.initPool();
+      await this.initPool();
     }
 
     if (!this.pool) {

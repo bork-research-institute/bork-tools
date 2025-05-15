@@ -11,6 +11,16 @@ const envSchema = z.object({
       }
       return url;
     }),
+  POSTGRES_URL_IPV4: z
+    .string()
+    .url()
+    .transform((url) => {
+      if (!url.includes('role=')) {
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}role=postgres`;
+      }
+      return url;
+    }),
   POSTGRES_ROLE: z.string().default('backend_service'),
   TWITTER_USERNAME: z.string().min(1),
   TWITTER_PASSWORD: z.string().min(1),
@@ -40,6 +50,7 @@ export function getEnv(): Env {
   // Access runtime config
   const envParse = envSchema.safeParse({
     POSTGRES_URL: process.env.POSTGRES_URL,
+    POSTGRES_URL_IPV4: process.env.POSTGRES_URL_IPV4,
     POSTGRES_ROLE: process.env.POSTGRES_ROLE,
     TWITTER_USERNAME: process.env.TWITTER_USERNAME,
     TWITTER_PASSWORD: process.env.TWITTER_PASSWORD,

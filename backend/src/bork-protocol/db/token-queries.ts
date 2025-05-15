@@ -1,4 +1,5 @@
 import type {
+  BundleAnalysis,
   EnrichedToken,
   TokenSnapshot,
 } from '@bork/plugins/token-monitor/types/token';
@@ -16,6 +17,27 @@ export const tokenQueries = {
     tweetIds?: string[],
   ): Promise<void> {
     try {
+      // Ensure bundle analysis data is properly typed and stringified
+      const bundleAnalysis = enrichedToken.bundleAnalysis?.map((bundle) => ({
+        bundleId: bundle.bundleId,
+        transactions: bundle.transactions.map((tx) => ({
+          signature: tx.signature,
+          slot: tx.slot,
+          confirmationStatus: tx.confirmationStatus,
+          error: tx.error ? String(tx.error) : undefined,
+        })),
+        netTokenMovements: Object.entries(bundle.netTokenMovements).reduce(
+          (acc, [tokenAddress, movement]) => {
+            acc[tokenAddress] = {
+              amount: Number(movement.amount),
+              direction: movement.direction,
+            };
+            return acc;
+          },
+          {} as BundleAnalysis['netTokenMovements'],
+        ),
+      }));
+
       const snapshot: TokenSnapshot = {
         tokenAddress: enrichedToken.tokenAddress,
         timestamp: new Date(),
@@ -36,10 +58,11 @@ export const tokenQueries = {
         description: enrichedToken.description,
         icon: enrichedToken.icon,
         links: enrichedToken.links,
-        bundleAnalysis: enrichedToken.bundleAnalysis,
+        bundleAnalysis,
       };
 
-      await db.query(
+      const pool = await db;
+      await pool.query(
         `INSERT INTO token_snapshots (
           id,
           token_address,
@@ -88,7 +111,8 @@ export const tokenQueries = {
         liquidity: enrichedToken.metrics.liquidityMetrics?.totalLiquidity,
       };
 
-      await db.query(
+      const pool = await db;
+      await pool.query(
         `INSERT INTO token_metrics_history (
           id,
           token_address,
@@ -126,7 +150,8 @@ export const tokenQueries = {
    */
   async getLatestSnapshot(tokenAddress: string): Promise<TokenSnapshot | null> {
     try {
-      const result = await db.query<TokenSnapshotRow>(
+      const pool = await db;
+      const result = await pool.query<TokenSnapshotRow>(
         `SELECT * FROM token_snapshots
          WHERE token_address = $1
          ORDER BY timestamp DESC
@@ -152,7 +177,8 @@ export const tokenQueries = {
     limit = 100,
   ): Promise<TokenSnapshot[]> {
     try {
-      const result = await db.query<TokenSnapshotRow>(
+      const pool = await db;
+      const result = await pool.query<TokenSnapshotRow>(
         `SELECT * FROM token_snapshots
          WHERE token_address = $1
          ORDER BY timestamp DESC
@@ -179,7 +205,8 @@ export const tokenQueries = {
     endTime: Date,
   ): Promise<TokenMetricsHistory[]> {
     try {
-      const result = await db.query<TokenMetricsHistory>(
+      const pool = await db;
+      const result = await pool.query<TokenMetricsHistory>(
         `SELECT * FROM token_metrics_history
          WHERE token_address = $1
          AND timestamp BETWEEN $2 AND $3
@@ -204,7 +231,8 @@ export const tokenQueries = {
     tokenAddresses: string[],
   ): Promise<TokenMetricsHistory[]> {
     try {
-      const result = await db.query<TokenMetricsHistory>(
+      const pool = await db;
+      const result = await pool.query<TokenMetricsHistory>(
         `WITH latest_metrics AS (
            SELECT DISTINCT ON (token_address) *
            FROM token_metrics_history

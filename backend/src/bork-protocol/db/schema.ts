@@ -239,3 +239,86 @@ export interface AccountTopic {
   firstSeenAt: Date;
   lastSeenAt: Date;
 }
+
+// Database row mapping types for db/queries.ts
+export interface DatabaseTargetAccount {
+  username: string;
+  user_id: string;
+  display_name: string;
+  description: string;
+  followers_count: number;
+  following_count: number;
+  friends_count: number;
+  media_count: number;
+  statuses_count: number;
+  likes_count: number;
+  listed_count: number;
+  tweets_count: number;
+  is_private: boolean;
+  is_verified: boolean;
+  is_blue_verified: boolean;
+  joined_at: Date;
+  location: string;
+  avatar_url: string;
+  banner_url: string;
+  website_url: string;
+  can_dm: boolean;
+  created_at: Date;
+  last_updated: Date;
+  is_active: boolean;
+  source: string;
+  avg_likes_50: number;
+  avg_retweets_50: number;
+  avg_replies_50: number;
+  avg_views_50: number;
+  engagement_rate_50: number;
+  influence_score: number;
+  last_50_tweets_updated_at: Date | null;
+}
+
+export interface DatabaseAgentPrompt {
+  id: string;
+  prompt: string;
+  agent_id: string;
+  version: string;
+  enabled: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface DatabaseStreamSetting {
+  id: string;
+  agent_id: string;
+  enabled: boolean;
+  interval: number;
+  last_run: Date;
+}
+
+export interface DatabaseMentionRelationship {
+  username: string;
+  strength: number;
+}
+
+export interface DatabaseStrongRelationship {
+  source_username: string;
+  target_username: string;
+  strength: number;
+}
+
+export interface DatabaseTopicWeightTrend {
+  topic: string;
+  timestamp: Date;
+  avg_weight: number;
+  total_engagement: number;
+  mention_count: number;
+  momentum?: number;
+}
+
+export interface SpamUser {
+  user_id: string;
+  spam_score: number;
+  last_tweet_date: Date;
+  tweet_count: number;
+  violations: string[];
+  updated_at: Date;
+}

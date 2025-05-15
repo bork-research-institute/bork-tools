@@ -67,7 +67,7 @@ interface BundleTransaction {
   error?: string;
 }
 
-interface BundleAnalysis {
+export interface BundleAnalysis {
   bundleId: string;
   transactions: BundleTransaction[];
   netTokenMovements: {
