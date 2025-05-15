@@ -1,4 +1,5 @@
 import { NETWORK } from '@gofundmeme/sdk';
+import { GFM_CONFIG } from './config';
 
 export const payload = {
   token: {
@@ -11,8 +12,8 @@ export const payload = {
     discord: 'https://discord.gg/mytoken',
     telegram: 'https://t.me/mytoken',
   },
-  amountIn: 0, // Initial SOL to seed the pool
+  amountIn: GFM_CONFIG.amountIn,
   network: NETWORK.MAINNET,
   creatorWalletAddress: '',
-  supply: 1_000_000_000, // Total supply
+  supply: GFM_CONFIG.supply,
 };
