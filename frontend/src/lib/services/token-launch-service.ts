@@ -4,7 +4,12 @@ import { supabaseClient } from '../config/client-supabase';
 export class TokenLaunchService {
   private static instance: TokenLaunchService;
 
-  private constructor() {}
+  private constructor() {
+    // Validate Supabase client is initialized
+    if (!supabaseClient) {
+      throw new Error('Supabase client not initialized');
+    }
+  }
 
   public static getInstance(): TokenLaunchService {
     if (!TokenLaunchService.instance) {
@@ -21,7 +26,12 @@ export class TokenLaunchService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw error;
+        console.error('Supabase error:', error);
+        throw new Error('Failed to fetch token launches');
+      }
+
+      if (!data) {
+        return [];
       }
 
       return data.map((launch) => ({
@@ -54,7 +64,12 @@ export class TokenLaunchService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw error;
+        console.error('Supabase error:', error);
+        throw new Error('Failed to fetch user token launches');
+      }
+
+      if (!data) {
+        return [];
       }
 
       return data.map((launch) => ({
