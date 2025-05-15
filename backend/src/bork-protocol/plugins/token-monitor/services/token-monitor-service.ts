@@ -203,6 +203,7 @@ export class TokenMonitorService extends Service {
       // Analyze bundles for recent transactions
       const bundleAnalyses = await bundleAnalysisService.analyzeTokenBundles(
         recentTransactions.map((tx) => tx.signature),
+        token.tokenAddress,
       );
 
       // Convert bundle analyses to match the expected type
@@ -211,8 +212,16 @@ export class TokenMonitorService extends Service {
         transactions: bundle.transactions.map((tx) => ({
           signature: tx.signature,
           slot: tx.slot,
+          timestamp: tx.timestamp,
           confirmationStatus: tx.confirmationStatus,
           error: tx.error ? String(tx.error) : undefined,
+          description: tx.description,
+          type: tx.type,
+          fee: tx.fee,
+          feePayer: tx.feePayer,
+          nativeTransfers: tx.nativeTransfers,
+          tokenTransfers: tx.tokenTransfers,
+          accountData: tx.accountData,
         })),
         netTokenMovements: bundle.netTokenMovements,
       }));
