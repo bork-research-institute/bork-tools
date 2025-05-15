@@ -11,10 +11,12 @@ import {
 } from '@/lib/utils/format-number';
 import type { TokenSnapshot } from '@/types/token-monitor/token';
 import {
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Copy,
+  ExternalLink,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -29,6 +31,9 @@ export function TokenInfoPanel({
   onClose,
 }: TokenInfoPanelProps) {
   const [isChartExpanded, setIsChartExpanded] = useState(false);
+  const [expandedBundles, setExpandedBundles] = useState<Set<string>>(
+    new Set(),
+  );
 
   if (!selectedToken) {
     return null;
@@ -40,6 +45,22 @@ export function TokenInfoPanel({
   const freezable = selectedToken.data?.isFreezable;
   const mintable = selectedToken.data?.isMintable;
   const lpProgramId = selectedToken.data?.liquidityMetrics?.lpProgramId;
+  const supply = selectedToken.data?.supply || 0;
+  const bundleAnalysis = selectedToken.data?.bundleAnalysis || [];
+
+  // Calculate total bundled tokens
+  const totalBundledTokens = bundleAnalysis.reduce((total, bundle) => {
+    const tokenMovements =
+      bundle.netTokenMovements[selectedToken.token_address];
+    if (tokenMovements) {
+      return total + tokenMovements.amount;
+    }
+    return total;
+  }, 0);
+
+  // Calculate bundled percentage
+  const bundledPercentage = (totalBundledTokens / supply) * 100;
+  const isHighConcentration = bundledPercentage > 10;
 
   // Format the timestamp to human readable format
   const formatTimestamp = (timestamp: string) => {
@@ -53,6 +74,49 @@ export function TokenInfoPanel({
     }).format(date);
   };
 
+  const toggleBundle = (bundleId: string) => {
+    setExpandedBundles((prev) => {
+      const next = new Set(prev);
+      if (next.has(bundleId)) {
+        next.delete(bundleId);
+      } else {
+        next.add(bundleId);
+      }
+      return next;
+    });
+  };
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-6)}`;
+  };
+
+  const formatAmount = (amount: number, decimals: number) => {
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const formatSolAmount = (amount: number) => {
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: 8,
+      maximumFractionDigits: 8,
+    });
+  };
+
+  const openSolscan = (address: string, isTransaction = false) => {
+    const baseUrl = 'https://solscan.io';
+    const path = isTransaction ? '/tx' : '/account';
+    window.open(`${baseUrl}${path}/${address}`, '_blank');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent, callback: () => void) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      callback();
+    }
+  };
+
   return (
     <div className="relative mt-4 p-4 bg-[#0f172a] rounded-lg border border-emerald-400/10">
       {onClose && (
@@ -62,12 +126,7 @@ export function TokenInfoPanel({
           aria-label="Close info panel"
           tabIndex={0}
           onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onClose();
-            }
-          }}
+          onKeyDown={(e) => handleKeyPress(e, onClose)}
         >
           <XCircle className="w-5 h-5" />
         </button>
@@ -141,6 +200,33 @@ export function TokenInfoPanel({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild={true}>
+                <div className="flex items-center gap-1 text-xs">
+                  {isHighConcentration ? (
+                    <AlertTriangle
+                      className="w-4 h-4 text-yellow-400"
+                      aria-label="High Concentration"
+                    />
+                  ) : (
+                    <CheckCircle2
+                      className="w-4 h-4 text-green-400"
+                      aria-label="Low Concentration"
+                    />
+                  )}
+                  <span>Bundle &lt;10%</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>
+                  {isHighConcentration
+                    ? `High concentration: ${bundledPercentage.toFixed(2)}% of supply is bundled`
+                    : `Low concentration: ${bundledPercentage.toFixed(2)}% of supply is bundled`}
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
       {/* Description */}
@@ -163,6 +249,11 @@ export function TokenInfoPanel({
             navigator.clipboard.writeText(selectedToken.token_address);
           }}
           aria-label="Copy token address"
+          onKeyDown={(e) =>
+            handleKeyPress(e, () => {
+              navigator.clipboard.writeText(selectedToken.token_address);
+            })
+          }
         >
           <Copy className="w-4 h-4" />
         </button>
@@ -185,6 +276,11 @@ export function TokenInfoPanel({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 underline text-xs hover:text-emerald-300"
+                  onKeyDown={(e) =>
+                    handleKeyPress(e, () => {
+                      navigator.clipboard.writeText(link);
+                    })
+                  }
                 >
                   {link}
                 </a>
@@ -198,6 +294,13 @@ export function TokenInfoPanel({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 underline text-xs hover:text-emerald-300"
+                  onKeyDown={(e) =>
+                    handleKeyPress(e, () => {
+                      navigator.clipboard.writeText(
+                        (link as { url: string }).url,
+                      );
+                    })
+                  }
                 >
                   {(link as { label?: string; url: string }).label ||
                     (link as { url: string }).url}
@@ -215,6 +318,9 @@ export function TokenInfoPanel({
           type="button"
           onClick={() => setIsChartExpanded(!isChartExpanded)}
           className="w-full flex items-center justify-center gap-2 py-2 mb-2 text-emerald-400 hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded"
+          onKeyDown={(e) =>
+            handleKeyPress(e, () => setIsChartExpanded(!isChartExpanded))
+          }
         >
           {isChartExpanded ? (
             <>
@@ -244,6 +350,227 @@ export function TokenInfoPanel({
             allowFullScreen={true}
             className="rounded-lg"
           />
+        </div>
+      )}
+
+      {/* Bundle Analysis Section */}
+      {bundleAnalysis.length > 0 && (
+        <div className="mt-4 p-3 bg-white/5 rounded">
+          <h3 className="text-sm font-semibold text-emerald-400 mb-2">
+            Bundle Analysis
+          </h3>
+          <div className="space-y-2">
+            {bundleAnalysis.map((bundle) => (
+              <div
+                key={bundle.bundleId}
+                className="text-xs border border-white/10 rounded p-2"
+              >
+                <button
+                  type="button"
+                  className="w-full flex justify-between items-center cursor-pointer text-left"
+                  onClick={() => toggleBundle(bundle.bundleId)}
+                  onKeyDown={(e) =>
+                    handleKeyPress(e, () => toggleBundle(bundle.bundleId))
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono">
+                      {formatAddress(bundle.bundleId)}
+                    </span>
+                    <span className="text-white/60">
+                      ({bundle.transactions.length} tx)
+                    </span>
+                  </div>
+                  {expandedBundles.has(bundle.bundleId) ? (
+                    <ChevronUp className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-emerald-400" />
+                  )}
+                </button>
+
+                {expandedBundles.has(bundle.bundleId) && (
+                  <div className="mt-2 space-y-4">
+                    {bundle.transactions.map((tx) => (
+                      <div
+                        key={tx.signature}
+                        className="pl-2 border-l-2 border-emerald-400/20"
+                      >
+                        <div className="mb-2">
+                          <div className="flex items-center gap-2 text-emerald-400">
+                            <a
+                              href={`https://solscan.io/tx/${tx.signature}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono cursor-pointer hover:underline"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                openSolscan(tx.signature, true);
+                              }}
+                            >
+                              {formatAddress(tx.signature)}
+                            </a>
+                            <ExternalLink className="w-3 h-3" />
+                          </div>
+                        </div>
+
+                        {/* Token Transfers */}
+                        {(tx.tokenTransfers || []).length > 0 && (
+                          <div className="mb-2">
+                            <h4 className="text-emerald-400/80 mb-1">
+                              Token Transfers:
+                            </h4>
+                            {(tx.tokenTransfers || []).map((transfer) => (
+                              <div
+                                key={`${transfer.fromUserAccount}-${transfer.toUserAccount}-${transfer.mint}`}
+                                className="pl-2 mb-1"
+                              >
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={`https://solscan.io/account/${transfer.fromUserAccount}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      openSolscan(transfer.fromUserAccount);
+                                    }}
+                                  >
+                                    {formatAddress(transfer.fromUserAccount)}
+                                  </a>
+                                  <span>transferred to</span>
+                                  <a
+                                    href={`https://solscan.io/account/${transfer.toUserAccount}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      openSolscan(transfer.toUserAccount);
+                                    }}
+                                  >
+                                    {formatAddress(transfer.toUserAccount)}
+                                  </a>
+                                </div>
+                                <div className="pl-4 text-emerald-400">
+                                  {formatAmount(transfer.tokenAmount, 8)} tokens
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Native Transfers */}
+                        {(tx.nativeTransfers || []).length > 0 && (
+                          <div className="mb-2">
+                            <h4 className="text-emerald-400/80 mb-1">
+                              SOL Transfers:
+                            </h4>
+                            {(tx.nativeTransfers || []).map((transfer) => (
+                              <div
+                                key={`${transfer.fromUserAccount}-${transfer.toUserAccount}`}
+                                className="pl-2 mb-1"
+                              >
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={`https://solscan.io/account/${transfer.fromUserAccount}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      openSolscan(transfer.fromUserAccount);
+                                    }}
+                                  >
+                                    {formatAddress(transfer.fromUserAccount)}
+                                  </a>
+                                  <span>transferred to</span>
+                                  <a
+                                    href={`https://solscan.io/account/${transfer.toUserAccount}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      openSolscan(transfer.toUserAccount);
+                                    }}
+                                  >
+                                    {formatAddress(transfer.toUserAccount)}
+                                  </a>
+                                </div>
+                                <div className="pl-4 text-emerald-400">
+                                  {formatSolAmount(transfer.amount)} SOL
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Account Changes */}
+                        {(tx.accountData || []).length > 0 && (
+                          <div>
+                            <h4 className="text-emerald-400/80 mb-1">
+                              Account Changes:
+                            </h4>
+                            {(tx.accountData || []).map((account) => (
+                              <div key={account.account} className="pl-2 mb-2">
+                                <a
+                                  href={`https://solscan.io/account/${account.account}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-mono cursor-pointer hover:underline"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    openSolscan(account.account);
+                                  }}
+                                >
+                                  {account.account}
+                                </a>
+                                <div className="pl-4">
+                                  <div>
+                                    Change:{' '}
+                                    {formatSolAmount(
+                                      account.nativeBalanceChange,
+                                    )}{' '}
+                                    SOL
+                                  </div>
+                                  {(account.tokenBalanceChanges || []).map(
+                                    (change) => (
+                                      <div
+                                        key={`${change.mint}-${change.tokenAccount}`}
+                                        className="pl-2"
+                                      >
+                                        <a
+                                          href={`https://solscan.io/account/${change.mint}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="font-mono cursor-pointer hover:underline"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            openSolscan(change.mint);
+                                          }}
+                                        >
+                                          {formatAddress(change.mint)}
+                                        </a>
+                                        <div className="pl-2">
+                                          Change:{' '}
+                                          {change.rawTokenAmount.tokenAmount}{' '}
+                                          tokens
+                                        </div>
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

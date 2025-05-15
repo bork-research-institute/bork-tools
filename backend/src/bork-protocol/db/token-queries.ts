@@ -23,8 +23,39 @@ export const tokenQueries = {
         transactions: bundle.transactions.map((tx) => ({
           signature: tx.signature,
           slot: tx.slot,
+          timestamp: tx.timestamp,
           confirmationStatus: tx.confirmationStatus,
           error: tx.error ? String(tx.error) : undefined,
+          description: tx.description,
+          type: tx.type,
+          fee: tx.fee,
+          feePayer: tx.feePayer,
+          nativeTransfers: tx.nativeTransfers.map((transfer) => ({
+            fromUserAccount: transfer.fromUserAccount,
+            toUserAccount: transfer.toUserAccount,
+            amount: Number(transfer.amount),
+          })),
+          tokenTransfers: tx.tokenTransfers.map((transfer) => ({
+            fromUserAccount: transfer.fromUserAccount,
+            toUserAccount: transfer.toUserAccount,
+            fromTokenAccount: transfer.fromTokenAccount,
+            toTokenAccount: transfer.toTokenAccount,
+            tokenAmount: Number(transfer.tokenAmount),
+            mint: transfer.mint,
+          })),
+          accountData: tx.accountData.map((account) => ({
+            account: account.account,
+            nativeBalanceChange: Number(account.nativeBalanceChange),
+            tokenBalanceChanges: account.tokenBalanceChanges.map((change) => ({
+              userAccount: change.userAccount,
+              tokenAccount: change.tokenAccount,
+              mint: change.mint,
+              rawTokenAmount: {
+                tokenAmount: change.rawTokenAmount.tokenAmount,
+                decimals: change.rawTokenAmount.decimals,
+              },
+            })),
+          })),
         })),
         netTokenMovements: Object.entries(bundle.netTokenMovements).reduce(
           (acc, [tokenAddress, movement]) => {
@@ -82,7 +113,7 @@ export const tokenQueries = {
       // Also store key metrics in the history table for time-series analysis
       await tokenQueries.recordMetricsHistory(enrichedToken);
 
-      elizaLogger.debug(
+      elizaLogger.info(
         `[TokenQueries] Created snapshot for token ${snapshot.tokenAddress}`,
       );
     } catch (error) {

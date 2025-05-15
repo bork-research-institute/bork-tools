@@ -63,8 +63,39 @@ export interface TokenMetrics {
 interface BundleTransaction {
   signature: string;
   slot: number;
+  timestamp: number;
   confirmationStatus: string;
   error?: string;
+  description: string;
+  type: string;
+  fee: number;
+  feePayer: string;
+  nativeTransfers: {
+    fromUserAccount: string;
+    toUserAccount: string;
+    amount: number;
+  }[];
+  tokenTransfers: {
+    fromUserAccount: string;
+    toUserAccount: string;
+    fromTokenAccount: string;
+    toTokenAccount: string;
+    tokenAmount: number;
+    mint: string;
+  }[];
+  accountData: {
+    account: string;
+    nativeBalanceChange: number;
+    tokenBalanceChanges: {
+      userAccount: string;
+      tokenAccount: string;
+      mint: string;
+      rawTokenAmount: {
+        tokenAmount: string;
+        decimals: number;
+      };
+    }[];
+  }[];
 }
 
 export interface BundleAnalysis {

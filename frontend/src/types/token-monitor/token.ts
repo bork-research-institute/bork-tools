@@ -53,6 +53,7 @@ export interface TokenData {
     url: string;
   }>;
   timestamp: string;
+  bundleAnalysis?: BundleAnalysis[];
 }
 
 export interface Tweet {
@@ -87,5 +88,54 @@ export interface TokenWithEngagement extends TokenSnapshot {
     retweets: number;
     views: number;
     tweets?: TweetWithAnalysis[];
+  };
+}
+
+interface BundleTransaction {
+  signature: string;
+  slot: number;
+  timestamp: number;
+  confirmationStatus: string;
+  error?: string;
+  description: string;
+  type: string;
+  fee: number;
+  feePayer: string;
+  nativeTransfers: {
+    fromUserAccount: string;
+    toUserAccount: string;
+    amount: number;
+  }[];
+  tokenTransfers: {
+    fromUserAccount: string;
+    toUserAccount: string;
+    fromTokenAccount: string;
+    toTokenAccount: string;
+    tokenAmount: number;
+    mint: string;
+  }[];
+  accountData: {
+    account: string;
+    nativeBalanceChange: number;
+    tokenBalanceChanges: {
+      userAccount: string;
+      tokenAccount: string;
+      mint: string;
+      rawTokenAmount: {
+        tokenAmount: string;
+        decimals: number;
+      };
+    }[];
+  }[];
+}
+
+interface BundleAnalysis {
+  bundleId: string;
+  transactions: BundleTransaction[];
+  netTokenMovements: {
+    [tokenAddress: string]: {
+      amount: number;
+      direction: 'in' | 'out';
+    };
   };
 }

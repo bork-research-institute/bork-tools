@@ -81,6 +81,7 @@ export class BundleAnalysisService extends Service {
 
   private async fetchBundleDetails(
     bundleId: string,
+    targetTokenAddress: string,
   ): Promise<BundleAnalysis | null> {
     try {
       const response = await fetch(this.JITO_BLOCK_ENGINE_API, {
@@ -105,7 +106,11 @@ export class BundleAnalysisService extends Service {
       const data = (await response.json()) as BundleResponse;
       const bundleData = data.result?.value?.[0];
 
-      if (!bundleData) {
+      if (!bundleData || bundleData.transactions.length <= 1) {
+        elizaLogger.debug(
+          '[BundleAnalysisService] Skipping single-transaction bundle',
+          { bundleId },
+        );
         return null;
       }
 
@@ -115,10 +120,37 @@ export class BundleAnalysisService extends Service {
           bundleData.transactions,
         );
 
+      // Check if any transaction involves the target token
+      const involvesTargetToken = transactionDetails.some((tx) => {
+        // Check token transfers
+        const hasTokenTransfer = tx.tokenTransfers?.some(
+          (transfer) => transfer.mint === targetTokenAddress,
+        );
+        if (hasTokenTransfer) {
+          return true;
+        }
+
+        // Check token balance changes
+        const hasBalanceChange = tx.accountData?.some((account) =>
+          account.tokenBalanceChanges?.some(
+            (change) => change.mint === targetTokenAddress,
+          ),
+        );
+        return hasBalanceChange;
+      });
+
+      if (!involvesTargetToken) {
+        elizaLogger.debug(
+          '[BundleAnalysisService] Bundle does not involve target token',
+          { bundleId, targetTokenAddress },
+        );
+        return null;
+      }
+
       // Calculate net token movements
       const netTokenMovements: BundleAnalysis['netTokenMovements'] = {};
       for (const tx of transactionDetails) {
-        for (const transfer of tx.tokenTransfers) {
+        for (const transfer of tx.tokenTransfers || []) {
           if (!netTokenMovements[transfer.mint]) {
             netTokenMovements[transfer.mint] = {
               amount: 0,
@@ -148,6 +180,7 @@ export class BundleAnalysisService extends Service {
 
   public async analyzeTokenBundles(
     transactionSignatures: string[],
+    targetTokenAddress: string,
   ): Promise<BundleAnalysis[]> {
     const bundleAnalyses: BundleAnalysis[] = [];
     const processedBundleIds = new Set<string>();
@@ -161,7 +194,10 @@ export class BundleAnalysisService extends Service {
 
         if (bundleId && !processedBundleIds.has(bundleId)) {
           processedBundleIds.add(bundleId);
-          const bundleDetails = await this.fetchBundleDetails(bundleId);
+          const bundleDetails = await this.fetchBundleDetails(
+            bundleId,
+            targetTokenAddress,
+          );
 
           if (bundleDetails) {
             bundleAnalyses.push(bundleDetails);
