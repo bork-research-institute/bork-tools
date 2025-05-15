@@ -16,7 +16,11 @@ import { getBalances } from '@/lib/services/solana-balance-service';
 import { cn } from '@/lib/utils';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
+import {
+  type ConfirmedSignatureInfo,
+  LAMPORTS_PER_SOL,
+  VersionedTransaction,
+} from '@solana/web3.js';
 import { Coins } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -144,33 +148,57 @@ export function SwapModal({
         skipPreflight: true,
       });
 
-      // Wait for confirmation
-      const confirmation = await connection.confirmTransaction(
-        {
-          signature,
-          blockhash: transaction.message.recentBlockhash,
-          lastValidBlockHeight: swapResponse.lastValidBlockHeight,
-        },
-        'confirmed',
-      );
+      // Wait for confirmation with a timeout
+      const confirmation = (await Promise.race([
+        connection.confirmTransaction(
+          {
+            signature,
+            blockhash: transaction.message.recentBlockhash,
+            lastValidBlockHeight: swapResponse.lastValidBlockHeight,
+          },
+          'confirmed',
+        ),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Transaction confirmation timeout')),
+            30000,
+          ),
+        ),
+      ])) as { value: ConfirmedSignatureInfo };
 
       if (confirmation.value.err) {
         throw new Error(
-          `Transaction failed: ${JSON.stringify(
-            confirmation.value.err,
-          )}\nhttps://solscan.io/tx/${signature}/`,
+          `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
+        );
+      }
+
+      // Verify the transaction was successful
+      const status = await connection.getSignatureStatus(signature);
+      if (status.value?.err) {
+        throw new Error(
+          `Transaction failed: ${JSON.stringify(status.value.err)}`,
         );
       }
 
       toast.success(
-        `Swap completed successfully! View on Solscan: https://solscan.io/tx/${signature}/`,
+        `Swap completed successfully! View on Solscan: https://solscan.io/tx/${signature}`,
+        {
+          duration: 5000,
+        },
       );
+
+      // Reset the form
+      setAmount('');
+      setQuote(null);
       onClose();
     } catch (error) {
       console.error('Error executing swap:', error);
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to execute swap',
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to execute swap';
+
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }

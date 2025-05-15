@@ -1,3 +1,4 @@
+import { tokenLaunchQueries } from '@/bork-protocol/db/token-launch-queries';
 import { ImageGenerationService } from '@/bork-protocol/services/image/image-generation';
 import { fetchTopicKnowledge } from '@/bork-protocol/utils/knowledge/fetch-topic-knowledge';
 import {
@@ -215,6 +216,24 @@ export default {
           });
 
           if (callback) {
+            // Store the token launch data in the database
+            const tokenLaunch = await tokenLaunchQueries.insertTokenLaunch(
+              runtime.character.id,
+              content.token.name,
+              content.token.symbol,
+              content.token.description,
+              compressedBase64,
+              response.mintAddress,
+              response.txid,
+              `https://gofundmeme.io/campaigns/${response.mintAddress}`,
+              {
+                website: content.token.website || undefined,
+                twitter: content.token.twitter || undefined,
+                discord: content.token.discord || undefined,
+                telegram: content.token.telegram || undefined,
+              },
+            );
+
             callback({
               text: `Successfully launched token ${content.token.name} (${content.token.symbol})!\nMint Address: ${response.mintAddress}\nTransaction ID: ${response.txid}\nView your token: https://gofundmeme.io/campaigns/${response.mintAddress}`,
               content: {
@@ -223,6 +242,7 @@ export default {
                 mintAddress: response.mintAddress,
                 txid: response.txid,
                 campaignUrl: `https://gofundmeme.io/campaigns/${response.mintAddress}`,
+                tokenLaunch,
               },
             });
           }
