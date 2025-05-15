@@ -36,3 +36,40 @@ export function getTimeAgo(timestamp: string | Date): string {
 
   return 'now';
 }
+
+export function fuzzyMatch(str1: string, str2: string): boolean {
+  const s1 = str1.toLowerCase();
+  const s2 = str2.toLowerCase();
+
+  // Direct match
+  if (s1.includes(s2) || s2.includes(s1)) {
+    return true;
+  }
+
+  // Levenshtein distance for fuzzy matching
+  const matrix = Array(s1.length + 1)
+    .fill(null)
+    .map(() => Array(s2.length + 1).fill(0));
+
+  for (let i = 0; i <= s1.length; i++) {
+    matrix[i][0] = i;
+  }
+  for (let j = 0; j <= s2.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= s1.length; i++) {
+    for (let j = 1; j <= s2.length; j++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j - 1] + cost, // substitution
+      );
+    }
+  }
+
+  // Allow for some tolerance in the distance (adjust this value as needed)
+  const maxDistance = Math.min(s1.length, s2.length) * 0.3;
+  return matrix[s1.length][s2.length] <= maxDistance;
+}

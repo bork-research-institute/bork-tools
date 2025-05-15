@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
+import type React from 'react';
 
 interface TokenInfoPanelProps {
   selectedToken: TokenSnapshot | null;
@@ -32,6 +33,9 @@ export function TokenInfoPanel({
 }: TokenInfoPanelProps) {
   const [isChartExpanded, setIsChartExpanded] = useState(false);
   const [expandedBundles, setExpandedBundles] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(
     new Set(),
   );
 
@@ -86,22 +90,296 @@ export function TokenInfoPanel({
     });
   };
 
+  const toggleTransaction = (signature: string) => {
+    setExpandedTransactions((prev) => {
+      const next = new Set(prev);
+      if (next.has(signature)) {
+        next.delete(signature);
+      } else {
+        next.add(signature);
+      }
+      return next;
+    });
+  };
+
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-6)}`;
   };
 
-  const formatAmount = (amount: number, decimals: number) => {
-    return amount.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
+  const formatLamports = (lamports: number) => {
+    return (lamports / 1e9).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 9,
+    });
+  };
+
+  const formatTokenAmount = (amount: number, decimals = 9) => {
+    return (amount / 10 ** decimals).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
       maximumFractionDigits: decimals,
     });
   };
 
-  const formatSolAmount = (amount: number) => {
-    return amount.toLocaleString(undefined, {
-      minimumFractionDigits: 8,
-      maximumFractionDigits: 8,
-    });
+  interface TokenTransfer {
+    fromUserAccount: string;
+    toUserAccount: string;
+    tokenAmount: number;
+    mint: string;
+    decimals?: number;
+  }
+
+  interface NativeTransfer {
+    fromUserAccount: string;
+    toUserAccount: string;
+    amount: number;
+  }
+
+  interface TokenBalanceChange {
+    mint: string;
+    tokenAccount: string;
+    rawTokenAmount: {
+      tokenAmount: string | number;
+      decimals: number;
+    };
+  }
+
+  interface AccountChange {
+    account: string;
+    nativeBalanceChange: number;
+    tokenBalanceChanges?: TokenBalanceChange[];
+  }
+
+  interface Transaction {
+    signature: string;
+    description?: string;
+    tokenTransfers?: TokenTransfer[];
+    nativeTransfers?: NativeTransfer[];
+    accountData?: AccountChange[];
+  }
+
+  const calculateNetFlows = (tx: Transaction) => {
+    const flows: {
+      [key: string]: { sol: number; tokens: { [mint: string]: number } };
+    } = {};
+
+    // Calculate SOL flows
+    if (tx.nativeTransfers && tx.nativeTransfers.length > 0) {
+      for (const transfer of tx.nativeTransfers) {
+        flows[transfer.fromUserAccount] = flows[transfer.fromUserAccount] || {
+          sol: 0,
+          tokens: {},
+        };
+        flows[transfer.toUserAccount] = flows[transfer.toUserAccount] || {
+          sol: 0,
+          tokens: {},
+        };
+        flows[transfer.fromUserAccount].sol -= transfer.amount;
+        flows[transfer.toUserAccount].sol += transfer.amount;
+      }
+    }
+
+    // Calculate token flows
+    if (tx.tokenTransfers && tx.tokenTransfers.length > 0) {
+      for (const transfer of tx.tokenTransfers) {
+        flows[transfer.fromUserAccount] = flows[transfer.fromUserAccount] || {
+          sol: 0,
+          tokens: {},
+        };
+        flows[transfer.toUserAccount] = flows[transfer.toUserAccount] || {
+          sol: 0,
+          tokens: {},
+        };
+        flows[transfer.fromUserAccount].tokens[transfer.mint] =
+          (flows[transfer.fromUserAccount].tokens[transfer.mint] || 0) -
+          transfer.tokenAmount;
+        flows[transfer.toUserAccount].tokens[transfer.mint] =
+          (flows[transfer.toUserAccount].tokens[transfer.mint] || 0) +
+          transfer.tokenAmount;
+      }
+    }
+
+    // Convert to array format and filter out addresses with no relevant token movement
+    return Object.entries(flows)
+      .filter(([_, flow]) => {
+        // Keep if there's movement of the selected token
+        return flow.tokens[selectedToken.token_address] !== undefined;
+      })
+      .map(([address, flow]) => ({
+        address,
+        sol: flow.sol,
+        tokens: {
+          [selectedToken.token_address]:
+            flow.tokens[selectedToken.token_address] || 0,
+        },
+      }));
+  };
+
+  const generateTransactionDescription = (tx: Transaction): React.ReactNode => {
+    const descriptions: React.ReactNode[] = [];
+    const netFlows = calculateNetFlows(tx);
+
+    // Only show if there are relevant flows
+    if (netFlows.length > 0) {
+      descriptions.push(
+        <div key="summary" className="mb-2 p-2 bg-white/5 rounded">
+          <div className="flex items-center justify-between">
+            <div className="text-emerald-400 font-semibold">Net Flows:</div>
+            <button
+              type="button"
+              onClick={() => toggleTransaction(tx.signature)}
+              className="text-emerald-400 hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded p-1"
+            >
+              {expandedTransactions.has(tx.signature) ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          {netFlows.map((flow) => (
+            <div key={flow.address} className="flex flex-col gap-1 text-sm">
+              <div className="flex items-center gap-1">
+                <a
+                  href={`https://solscan.io/account/${flow.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openSolscan(flow.address);
+                  }}
+                >
+                  {formatAddress(flow.address)}
+                </a>
+                <span>:</span>
+              </div>
+              {flow.sol !== 0 && (
+                <div className="pl-4">
+                  <span
+                    className={flow.sol > 0 ? 'text-green-400' : 'text-red-400'}
+                  >
+                    {flow.sol > 0 ? '+' : ''}
+                    {formatLamports(flow.sol)} SOL
+                  </span>
+                </div>
+              )}
+              {Object.entries(flow.tokens).map(([mint, amount]) => (
+                <div key={mint} className="pl-4">
+                  <span
+                    className={amount > 0 ? 'text-green-400' : 'text-red-400'}
+                  >
+                    {amount > 0 ? '+' : ''}
+                    {amount.toLocaleString()}{' '}
+                    {selectedToken.data?.ticker ||
+                      selectedToken.data?.name ||
+                      'tokens'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>,
+      );
+
+      // Add details section if expanded
+      if (expandedTransactions.has(tx.signature)) {
+        // Check token transfers
+        if (tx.tokenTransfers && tx.tokenTransfers.length > 0) {
+          const tokenTransfers = tx.tokenTransfers
+            .filter((transfer) => transfer.mint === selectedToken.token_address)
+            .map((transfer) => {
+              const amount = formatTokenAmount(
+                transfer.tokenAmount,
+                transfer.decimals,
+              );
+              return (
+                <div
+                  key={`${transfer.fromUserAccount}-${transfer.toUserAccount}-${transfer.mint}`}
+                  className="flex items-center gap-1"
+                >
+                  <a
+                    href={`https://solscan.io/account/${transfer.fromUserAccount}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openSolscan(transfer.fromUserAccount);
+                    }}
+                  >
+                    {formatAddress(transfer.fromUserAccount)}
+                  </a>
+                  <span>sent</span>
+                  <span className="text-emerald-400">
+                    {amount}{' '}
+                    {selectedToken.data?.ticker ||
+                      selectedToken.data?.name ||
+                      'tokens'}
+                  </span>
+                  <span>to</span>
+                  <a
+                    href={`https://solscan.io/account/${transfer.toUserAccount}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openSolscan(transfer.toUserAccount);
+                    }}
+                  >
+                    {formatAddress(transfer.toUserAccount)}
+                  </a>
+                </div>
+              );
+            });
+          descriptions.push(...tokenTransfers);
+        }
+
+        // Check native transfers
+        if (tx.nativeTransfers && tx.nativeTransfers.length > 0) {
+          const nativeTransfers = tx.nativeTransfers.map((transfer) => {
+            const amount = formatLamports(transfer.amount);
+            return (
+              <div
+                key={`${transfer.fromUserAccount}-${transfer.toUserAccount}`}
+                className="flex items-center gap-1"
+              >
+                <a
+                  href={`https://solscan.io/account/${transfer.fromUserAccount}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openSolscan(transfer.fromUserAccount);
+                  }}
+                >
+                  {formatAddress(transfer.fromUserAccount)}
+                </a>
+                <span>sent</span>
+                <span className="text-emerald-400">{amount} SOL</span>
+                <span>to</span>
+                <a
+                  href={`https://solscan.io/account/${transfer.toUserAccount}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openSolscan(transfer.toUserAccount);
+                  }}
+                >
+                  {formatAddress(transfer.toUserAccount)}
+                </a>
+              </div>
+            );
+          });
+          descriptions.push(...nativeTransfers);
+        }
+      }
+    }
+
+    return descriptions.length > 0 ? descriptions : null;
   };
 
   const openSolscan = (address: string, isTransaction = false) => {
@@ -275,7 +553,7 @@ export function TokenInfoPanel({
                   href={link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-emerald-400 underline text-xs hover:text-emerald-300"
+                  className="text-emerald-400 hover:text-emerald-300 text-xs"
                   onKeyDown={(e) =>
                     handleKeyPress(e, () => {
                       navigator.clipboard.writeText(link);
@@ -293,7 +571,7 @@ export function TokenInfoPanel({
                   href={(link as { url: string }).url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-emerald-400 underline text-xs hover:text-emerald-300"
+                  className="text-emerald-400 hover:text-emerald-300 text-xs"
                   onKeyDown={(e) =>
                     handleKeyPress(e, () => {
                       navigator.clipboard.writeText(
@@ -395,175 +673,24 @@ export function TokenInfoPanel({
                         key={tx.signature}
                         className="pl-2 border-l-2 border-emerald-400/20"
                       >
-                        <div className="mb-2">
-                          <div className="flex items-center gap-2 text-emerald-400">
-                            <a
-                              href={`https://solscan.io/tx/${tx.signature}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-mono cursor-pointer hover:underline"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                openSolscan(tx.signature, true);
-                              }}
-                            >
-                              {formatAddress(tx.signature)}
-                            </a>
-                            <ExternalLink className="w-3 h-3" />
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`https://solscan.io/tx/${tx.signature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openSolscan(tx.signature, true);
+                            }}
+                          >
+                            {formatAddress(tx.signature)}
+                          </a>
+                          <ExternalLink className="w-3 h-3 text-emerald-400" />
                         </div>
-
-                        {/* Token Transfers */}
-                        {(tx.tokenTransfers || []).length > 0 && (
-                          <div className="mb-2">
-                            <h4 className="text-emerald-400/80 mb-1">
-                              Token Transfers:
-                            </h4>
-                            {(tx.tokenTransfers || []).map((transfer) => (
-                              <div
-                                key={`${transfer.fromUserAccount}-${transfer.toUserAccount}-${transfer.mint}`}
-                                className="pl-2 mb-1"
-                              >
-                                <div className="flex items-center gap-1">
-                                  <a
-                                    href={`https://solscan.io/account/${transfer.fromUserAccount}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-mono cursor-pointer hover:underline"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      openSolscan(transfer.fromUserAccount);
-                                    }}
-                                  >
-                                    {formatAddress(transfer.fromUserAccount)}
-                                  </a>
-                                  <span>transferred to</span>
-                                  <a
-                                    href={`https://solscan.io/account/${transfer.toUserAccount}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-mono cursor-pointer hover:underline"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      openSolscan(transfer.toUserAccount);
-                                    }}
-                                  >
-                                    {formatAddress(transfer.toUserAccount)}
-                                  </a>
-                                </div>
-                                <div className="pl-4 text-emerald-400">
-                                  {formatAmount(transfer.tokenAmount, 8)} tokens
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Native Transfers */}
-                        {(tx.nativeTransfers || []).length > 0 && (
-                          <div className="mb-2">
-                            <h4 className="text-emerald-400/80 mb-1">
-                              SOL Transfers:
-                            </h4>
-                            {(tx.nativeTransfers || []).map((transfer) => (
-                              <div
-                                key={`${transfer.fromUserAccount}-${transfer.toUserAccount}`}
-                                className="pl-2 mb-1"
-                              >
-                                <div className="flex items-center gap-1">
-                                  <a
-                                    href={`https://solscan.io/account/${transfer.fromUserAccount}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-mono cursor-pointer hover:underline"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      openSolscan(transfer.fromUserAccount);
-                                    }}
-                                  >
-                                    {formatAddress(transfer.fromUserAccount)}
-                                  </a>
-                                  <span>transferred to</span>
-                                  <a
-                                    href={`https://solscan.io/account/${transfer.toUserAccount}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-mono cursor-pointer hover:underline"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      openSolscan(transfer.toUserAccount);
-                                    }}
-                                  >
-                                    {formatAddress(transfer.toUserAccount)}
-                                  </a>
-                                </div>
-                                <div className="pl-4 text-emerald-400">
-                                  {formatSolAmount(transfer.amount)} SOL
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Account Changes */}
-                        {(tx.accountData || []).length > 0 && (
-                          <div>
-                            <h4 className="text-emerald-400/80 mb-1">
-                              Account Changes:
-                            </h4>
-                            {(tx.accountData || []).map((account) => (
-                              <div key={account.account} className="pl-2 mb-2">
-                                <a
-                                  href={`https://solscan.io/account/${account.account}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-mono cursor-pointer hover:underline"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    openSolscan(account.account);
-                                  }}
-                                >
-                                  {account.account}
-                                </a>
-                                <div className="pl-4">
-                                  <div>
-                                    Change:{' '}
-                                    {formatSolAmount(
-                                      account.nativeBalanceChange,
-                                    )}{' '}
-                                    SOL
-                                  </div>
-                                  {(account.tokenBalanceChanges || []).map(
-                                    (change) => (
-                                      <div
-                                        key={`${change.mint}-${change.tokenAccount}`}
-                                        className="pl-2"
-                                      >
-                                        <a
-                                          href={`https://solscan.io/account/${change.mint}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="font-mono cursor-pointer hover:underline"
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            openSolscan(change.mint);
-                                          }}
-                                        >
-                                          {formatAddress(change.mint)}
-                                        </a>
-                                        <div className="pl-2">
-                                          Change:{' '}
-                                          {change.rawTokenAmount.tokenAmount}{' '}
-                                          tokens
-                                        </div>
-                                      </div>
-                                    ),
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div className="mt-2 space-y-2 text-sm text-white/80">
+                          {generateTransactionDescription(tx)}
+                        </div>
                       </div>
                     ))}
                   </div>
