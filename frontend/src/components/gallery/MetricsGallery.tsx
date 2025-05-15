@@ -275,12 +275,6 @@ export function MetricsGallery() {
                   trending
                 </TabsTrigger>
                 <TabsTrigger
-                  value="launched"
-                  className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                >
-                  launched
-                </TabsTrigger>
-                <TabsTrigger
                   value="news"
                   className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                 >
@@ -695,12 +689,6 @@ export function MetricsGallery() {
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
                     trending
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="launched"
-                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
-                  >
-                    launched
                   </TabsTrigger>
                   <TabsTrigger
                     value="news"
