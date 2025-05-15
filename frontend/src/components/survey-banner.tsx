@@ -14,8 +14,8 @@ export function SurveyBanner() {
 
   return (
     <div className="relative w-full bg-emerald-500/10 border-b border-emerald-500/20 py-2">
-      <div className="container flex items-center justify-center px-4 md:px-6">
-        <div className="flex flex-col sm:flex-row items-center gap-2 text-sm text-white">
+      <div className="container mx-auto flex items-center justify-center px-4 md:px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-sm text-white text-center w-full">
           <span className="font-medium">
             We're running a survey to improve Eggsight!
           </span>

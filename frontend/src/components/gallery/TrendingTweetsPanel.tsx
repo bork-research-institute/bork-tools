@@ -1,9 +1,12 @@
 'use client';
 
-import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
+import type { ScoreFilter } from '@/lib/services/tweets';
+import { tweetService } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import type { TweetMediaItem } from '@/types/media';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -16,8 +19,7 @@ import { Panel } from './Panel';
 
 interface TrendingTweetsPanelProps {
   maxHeight?: string;
-  tweets: TrendingTweet[];
-  loading: boolean;
+  className?: string;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
@@ -48,52 +50,61 @@ const getScoreColor = (score: number): string => {
 
 export function TrendingTweetsPanel({
   maxHeight,
-  tweets,
-  loading,
+  className,
 }: TrendingTweetsPanelProps) {
-  const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
-  const [filteredTweets, setFilteredTweets] = useState<TrendingTweet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { ref: loadMoreRef, inView } = useInView();
 
-  // Handle mounting to prevent hydration issues
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
+    useInfiniteQuery({
+      queryKey: ['trending-tweets', searchQuery],
+      queryFn: async ({ pageParam = 0 }) => {
+        const limit = 20;
+        const offset = pageParam * limit;
+        const tweets = await tweetService.getTrendingTweets(limit, offset);
+        return {
+          tweets,
+          nextPage: tweets.length === limit ? pageParam + 1 : undefined,
+        };
+      },
+      getNextPageParam: (lastPage) => lastPage.nextPage,
+      initialPageParam: 0,
+    });
+
   useEffect(() => {
-    setMounted(true);
-    if (tweets) {
-      setFilteredTweets(tweets);
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [tweets]);
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  useEffect(() => {
-    if (!mounted || !tweets) {
-      return;
+  const allTweets = data?.pages.flatMap((page) => page.tweets) ?? [];
+  // Deduplicate tweets by tweet_id
+  const uniqueTweets = Array.from(
+    new Map(allTweets.map((tweet) => [tweet.tweet_id, tweet])).values(),
+  );
+  const filteredTweets = uniqueTweets.filter((tweet) =>
+    tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const sortedTweets = [...filteredTweets].sort((a, b) => {
+    if (selectedFilter === 'aggregate') {
+      return b.aggregate_score - a.aggregate_score;
     }
-
-    const filtered = tweets.filter((tweet) =>
-      tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    setFilteredTweets(
-      [...filtered].sort((a, b) => {
-        if (selectedFilter === 'aggregate') {
-          return b.aggregate_score - a.aggregate_score;
-        }
-        if (selectedFilter === 'engagement_score') {
-          return b.engagement_score - a.engagement_score;
-        }
-        // For quality metrics, multiply by 100 to convert from 0-1 to 0-100
-        if (
-          ['relevance', 'clarity', 'authenticity', 'value_add'].includes(
-            selectedFilter,
-          )
-        ) {
-          return b[selectedFilter] * 100 - a[selectedFilter] * 100;
-        }
-        return b[selectedFilter] - a[selectedFilter];
-      }),
-    );
-  }, [tweets, selectedFilter, mounted, searchQuery]);
+    if (selectedFilter === 'engagement_score') {
+      return b.engagement_score - a.engagement_score;
+    }
+    // For quality metrics, multiply by 100 to convert from 0-1 to 0-100
+    if (
+      ['relevance', 'clarity', 'authenticity', 'value_add'].includes(
+        selectedFilter,
+      )
+    ) {
+      return b[selectedFilter] * 100 - a[selectedFilter] * 100;
+    }
+    return b[selectedFilter] - a[selectedFilter];
+  });
 
   return (
     <Panel maxHeight={maxHeight}>
@@ -121,17 +132,22 @@ export function TrendingTweetsPanel({
             </SelectContent>
           </Select>
         </div>
-        {loading ? (
+        {status === 'pending' ? (
           <div className="text-white/60">Loading trending tweets...</div>
-        ) : filteredTweets.length === 0 ? (
+        ) : sortedTweets.length === 0 ? (
           <div className="text-white/60">
             {searchQuery
               ? 'No tweets found for this username'
               : 'No trending tweets found'}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredTweets.map((tweet) => (
+          <div
+            className={cn(
+              'grid grid-cols-1 [&.expanded]:md:grid-cols-2 [&.expanded]:lg:grid-cols-3 [&.expanded]:xl:grid-cols-4 gap-4',
+              className,
+            )}
+          >
+            {sortedTweets.map((tweet) => (
               <div
                 key={tweet.tweet_id}
                 className="bg-gray-800 rounded-lg p-4 space-y-3"
@@ -193,7 +209,6 @@ export function TrendingTweetsPanel({
                         mediaKey = photo.id || idx;
                       }
                       if (!mediaUrl) {
-                        // Skip rendering if URL is missing
                         return null;
                       }
                       const isVideo =
@@ -210,7 +225,6 @@ export function TrendingTweetsPanel({
                               aria-label="Tweet video content"
                               tabIndex={0}
                               onError={(e) => {
-                                // Hide video if it fails to load
                                 (
                                   e.currentTarget as HTMLVideoElement
                                 ).style.display = 'none';
@@ -298,6 +312,15 @@ export function TrendingTweetsPanel({
                 </div>
               </div>
             ))}
+            {/* Loading indicator and infinite scroll trigger */}
+            <div
+              ref={loadMoreRef}
+              className="h-10 flex items-center justify-center col-span-full"
+            >
+              {isFetchingNextPage && (
+                <div className="text-white/60">Loading more tweets...</div>
+              )}
+            </div>
           </div>
         )}
       </div>

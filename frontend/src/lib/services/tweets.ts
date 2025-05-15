@@ -108,7 +108,7 @@ const processTweet = (tweet: TweetAnalysis): TrendingTweet => {
 };
 
 export const tweetService = {
-  async getTrendingTweets(limit = 50): Promise<TrendingTweet[]> {
+  async getTrendingTweets(limit = 50, offset = 0): Promise<TrendingTweet[]> {
     try {
       const { data, error } = await supabaseClient
         .from('tweet_analysis')
@@ -123,7 +123,7 @@ export const tweetService = {
         .eq('is_spam', false)
         .neq('type', 'news')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (error) {
         console.error('Error fetching trending tweets:', error);
@@ -141,7 +141,7 @@ export const tweetService = {
     }
   },
 
-  async getNewsTweets(limit = 50): Promise<TrendingTweet[]> {
+  async getNewsTweets(limit = 50, offset = 0): Promise<TrendingTweet[]> {
     try {
       const { data, error } = await supabaseClient
         .from('tweet_analysis')
@@ -156,7 +156,7 @@ export const tweetService = {
         .eq('is_spam', false)
         .eq('type', 'news')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (error) {
         console.error('Error fetching news tweets:', error);

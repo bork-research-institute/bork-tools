@@ -1,9 +1,12 @@
 'use client';
 
 import type { ScoreFilter, TrendingTweet } from '@/lib/services/tweets';
+import { tweetService } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import type { TweetMediaItem } from '@/types/media';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -16,8 +19,12 @@ import { Panel } from './Panel';
 
 interface NewsPanelProps {
   maxHeight?: string;
+  className?: string;
+}
+
+interface TweetPage {
   tweets: TrendingTweet[];
-  loading: boolean;
+  nextPage?: number;
 }
 
 const scoreFilterOptions: { label: string; value: ScoreFilter }[] = [
@@ -46,76 +53,60 @@ const getScoreColor = (score: number): string => {
   return 'text-green-800';
 };
 
-export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
-  const [mounted, setMounted] = useState(false);
+export function NewsPanel({ maxHeight, className }: NewsPanelProps) {
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
-  const [filteredTweets, setFilteredTweets] = useState<TrendingTweet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { ref: loadMoreRef, inView } = useInView();
 
-  // Handle mounting to prevent hydration issues
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
+    useInfiniteQuery({
+      queryKey: ['news-tweets', searchQuery],
+      queryFn: async ({ pageParam = 0 }) => {
+        const limit = 20;
+        const offset = pageParam * limit;
+        const tweets = await tweetService.getNewsTweets(limit, offset);
+        return {
+          tweets,
+          nextPage: tweets.length === limit ? pageParam + 1 : undefined,
+        };
+      },
+      getNextPageParam: (lastPage: TweetPage) => lastPage.nextPage,
+      initialPageParam: 0,
+    });
+
   useEffect(() => {
-    setMounted(true);
-    if (tweets) {
-      setFilteredTweets(tweets);
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [tweets]);
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  useEffect(() => {
-    if (!mounted || !tweets) {
-      return;
+  const allTweets = data?.pages.flatMap((page: TweetPage) => page.tweets) ?? [];
+  // Deduplicate tweets by tweet_id
+  const uniqueTweets = Array.from(
+    new Map(allTweets.map((tweet) => [tweet.tweet_id, tweet])).values(),
+  );
+  const filteredTweets = uniqueTweets.filter((tweet: TrendingTweet) =>
+    tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const sortedTweets = [...filteredTweets].sort((a, b) => {
+    if (selectedFilter === 'aggregate') {
+      return b.aggregate_score - a.aggregate_score;
     }
-
-    const filtered = tweets.filter((tweet) =>
-      tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    setFilteredTweets(
-      [...filtered].sort((a, b) => {
-        if (selectedFilter === 'aggregate') {
-          return b.aggregate_score - a.aggregate_score;
-        }
-        if (selectedFilter === 'engagement_score') {
-          return b.engagement_score - a.engagement_score;
-        }
-        // For quality metrics, multiply by 100 to convert from 0-1 to 0-100
-        if (
-          ['relevance', 'clarity', 'authenticity', 'value_add'].includes(
-            selectedFilter,
-          )
-        ) {
-          return b[selectedFilter] * 100 - a[selectedFilter] * 100;
-        }
-        return b[selectedFilter] - a[selectedFilter];
-      }),
-    );
-  }, [tweets, selectedFilter, mounted, searchQuery]);
-
-  // Show loading state during initial render
-  if (!mounted) {
-    return (
-      <Panel maxHeight={maxHeight}>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="h-9 w-[200px] rounded-md bg-white/5 animate-pulse" />
-            <div className="h-9 w-[140px] rounded-md bg-white/5 animate-pulse" />
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-gray-800/50 rounded-lg p-4 space-y-3 animate-pulse"
-              >
-                <div className="h-6 bg-white/5 rounded w-1/3" />
-                <div className="h-4 bg-white/5 rounded w-full" />
-                <div className="h-4 bg-white/5 rounded w-2/3" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </Panel>
-    );
-  }
+    if (selectedFilter === 'engagement_score') {
+      return b.engagement_score - a.engagement_score;
+    }
+    // For quality metrics, multiply by 100 to convert from 0-1 to 0-100
+    if (
+      ['relevance', 'clarity', 'authenticity', 'value_add'].includes(
+        selectedFilter,
+      )
+    ) {
+      return b[selectedFilter] * 100 - a[selectedFilter] * 100;
+    }
+    return b[selectedFilter] - a[selectedFilter];
+  });
 
   return (
     <Panel maxHeight={maxHeight}>
@@ -143,18 +134,22 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
             </SelectContent>
           </Select>
         </div>
-
-        {loading ? (
+        {status === 'pending' ? (
           <div className="text-white/60">Loading news tweets...</div>
-        ) : filteredTweets.length === 0 ? (
+        ) : sortedTweets.length === 0 ? (
           <div className="text-white/60">
             {searchQuery
               ? 'No tweets found for this username'
               : 'No news tweets found'}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredTweets.map((tweet) => (
+          <div
+            className={cn(
+              'grid grid-cols-1 [&.expanded]:md:grid-cols-2 [&.expanded]:lg:grid-cols-3 [&.expanded]:xl:grid-cols-4 gap-4',
+              className,
+            )}
+          >
+            {sortedTweets.map((tweet) => (
               <div
                 key={tweet.tweet_id}
                 className="bg-gray-800 rounded-lg p-4 space-y-3"
@@ -216,14 +211,11 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                         mediaKey = photo.id || idx;
                       }
                       if (!mediaUrl) {
-                        // Skip rendering if URL is missing
                         return null;
                       }
                       const isVideo =
                         mediaUrl.includes('video.twimg.com') ||
                         mediaUrl.includes('ext_tw_video');
-                      // Fallback image for broken media
-                      const fallbackImg = '/media-fallback.png';
                       if (isVideo) {
                         return (
                           <div key={mediaKey} className="w-full h-full">
@@ -235,7 +227,6 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                               aria-label="Tweet video content"
                               tabIndex={0}
                               onError={(e) => {
-                                // Hide video if it fails to load
                                 (
                                   e.currentTarget as HTMLVideoElement
                                 ).style.display = 'none';
@@ -262,8 +253,9 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                           aria-label="Tweet image content"
                           className="absolute inset-0 w-full h-full object-cover"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src =
-                              fallbackImg;
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = 'none';
                           }}
                         />
                       );
@@ -308,7 +300,7 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                         {tweet.content_summary}
                       </p>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {tweet.topics.map((topic) => (
+                        {tweet.topics.map((topic: string) => (
                           <span
                             key={`${tweet.tweet_id}-${topic}`}
                             className="px-2 py-0.5 bg-white/5 rounded-full text-[10px] break-words"
@@ -322,6 +314,15 @@ export function NewsPanel({ maxHeight, tweets, loading }: NewsPanelProps) {
                 </div>
               </div>
             ))}
+            {/* Loading indicator and infinite scroll trigger */}
+            <div
+              ref={loadMoreRef}
+              className="h-10 flex items-center justify-center col-span-full"
+            >
+              {isFetchingNextPage && (
+                <div className="text-white/60">Loading more tweets...</div>
+              )}
+            </div>
           </div>
         )}
       </div>
