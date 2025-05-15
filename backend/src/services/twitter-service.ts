@@ -1,3 +1,7 @@
+import { TwitterAuthService } from '@/services/twitter-auth.service';
+import { TwitterCacheService } from '@/services/twitter-cache.service';
+import { TwitterRequestService } from '@/services/twitter-request.service';
+import { TwitterSpamService } from '@/services/twitter-spam.service';
 import { ServiceTypeTwitter } from '@/types/service-type-twitter';
 import type {
   TwitterEngagementThresholds,
@@ -11,10 +15,6 @@ import {
   elizaLogger,
 } from '@elizaos/core';
 import { Scraper, SearchMode, type Tweet } from 'agent-twitter-client';
-import { TwitterAuthService } from '@/services/twitter-auth.service';
-import { TwitterCacheService } from '@/services/twitter-cache.service';
-import { TwitterRequestService } from '@/services/twitter-request.service';
-import { TwitterSpamService } from '@/services/twitter-spam.service';
 
 export class TwitterService extends Service {
   private authService: TwitterAuthService;
@@ -118,14 +118,12 @@ export class TwitterService extends Service {
       searchParams,
       engagementThresholds,
     });
-
     const searchResults = await this.requestService.fetchSearchTweets(
       query,
       maxTweets,
       searchMode,
       context,
     );
-
     if (!searchResults.tweets.length) {
       elizaLogger.warn(`${context} No tweets found for query`, {
         context,

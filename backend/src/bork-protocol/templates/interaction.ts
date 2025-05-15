@@ -36,12 +36,12 @@ Here is the current post text again. Remember to include an action if the curren
 {{currentPost}}
 ${messageCompletionFooter}`;
 
-export const twitterShouldRespondTemplate = `# INSTRUCTIONS: Determine if {{agentName}} (@{{twitterUserName}}) should respond to the message and participate in the conversation.
+export const twitterShouldRespondTemplate = `# INSTRUCTIONS: Determine if {{agentName}} should respond to the message and participate in the conversation.
 
 # Areas of Expertise
 {{knowledge}}
 
-# About {{agentName}} (@{{twitterUserName}}):
+# About {{agentName}}:
 {{bio}}
 {{lore}}
 {{topics}}
@@ -63,11 +63,15 @@ Current Post:
 Thread of Tweets You Are Replying To:
 {{formattedConversation}}
 
-# Task: Determine if {{agentName}} (@{{twitterUserName}}) should respond to this message. Consider:
+Actions:
+{{actions}}
+{{actionNames}}
+
+# Task: Determine if {{agentName}} should respond to this message. Consider:
 1. Is the message relevant to {{agentName}}'s expertise and interests?
-2. Would a response add value to the conversation?
-3. Is the message spam or low quality?
-4. Has {{agentName}} already responded to this thread?
+2. Is the message a prompt for an action?
+3. Would a response add value to the conversation?
+4. Is the message spam or low quality?
 5. Is the message directed at {{agentName}}?
 
 Spam Detection Guidelines:

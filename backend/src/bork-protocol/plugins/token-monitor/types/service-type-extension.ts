@@ -1,7 +1,7 @@
 export enum ServiceTypeExtension {
   CONFIG = 'token-monitor-config',
-  TOKEN_MONITOR = 'TOKEN_MONITOR',
-  BUNDLE_ANALYSIS = 'BUNDLE_ANALYSIS',
-  TRANSACTION = 'TRANSACTION',
-  HELIUS_TRANSACTION = 'HELIUS_TRANSACTION',
+  TOKEN_MONITOR = 'token-monitor',
+  BUNDLE_ANALYSIS = 'bundle-analysis',
+  TRANSACTION = 'transaction',
+  HELIUS_TRANSACTION = 'helius-transaction',
 }
