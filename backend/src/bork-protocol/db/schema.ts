@@ -322,3 +322,52 @@ export interface SpamUser {
   violations: string[];
   updated_at: Date;
 }
+
+export interface KnowledgeRow {
+  id: string;
+  agentId: string;
+  isShared: boolean;
+  createdAt: Date;
+  content: {
+    text?: string;
+    mainContent?: string;
+    metadata?: {
+      topics?: string[];
+      entities?: string[];
+      originalText?: string;
+    };
+  };
+  content_size?: number;
+  text_content?: string;
+  main_content?: string;
+  metadata?: string;
+  match_score?: number;
+  raw_content?: string;
+  [key: string]: unknown;
+}
+
+export interface TableCheckRow {
+  exists: boolean;
+  [key: string]: unknown;
+}
+
+export interface CountRow {
+  total: number;
+  agent_count: number;
+  shared_count: number;
+  [key: string]: unknown;
+}
+
+export interface StructureRow {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  [key: string]: unknown;
+}
+
+export interface MatchCheckRow {
+  text_matches: boolean;
+  topics_match: boolean;
+  entities_match: boolean;
+  [key: string]: unknown;
+}
