@@ -86,9 +86,25 @@ export function NewsPanel({ maxHeight, className }: NewsPanelProps) {
   const uniqueTweets = Array.from(
     new Map(allTweets.map((tweet) => [tweet.tweet_id, tweet])).values(),
   );
-  const filteredTweets = uniqueTweets.filter((tweet: TrendingTweet) =>
-    tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredTweets = uniqueTweets.filter((tweet: TrendingTweet) => {
+    const searchLower = searchQuery.toLowerCase();
+    const usernameLower = tweet.username.toLowerCase();
+    const nameLower = tweet.name.toLowerCase();
+
+    // Check if search term is part of username or name
+    const usernameMatch =
+      usernameLower.includes(searchLower) ||
+      searchLower.includes(usernameLower);
+    const nameMatch =
+      nameLower.includes(searchLower) || searchLower.includes(searchLower);
+
+    // Check if any topic matches
+    const topicMatch = tweet.topics.some((topic) =>
+      topic.toLowerCase().includes(searchLower),
+    );
+
+    return usernameMatch || nameMatch || topicMatch;
+  });
 
   const sortedTweets = [...filteredTweets].sort((a, b) => {
     if (selectedFilter === 'aggregate') {
@@ -113,7 +129,7 @@ export function NewsPanel({ maxHeight, className }: NewsPanelProps) {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <Input
-            placeholder="Search by username..."
+            placeholder="Search by username or topic..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-[200px] bg-white/5 border-white/10 text-white"

@@ -108,9 +108,13 @@ const processTweet = (tweet: TweetAnalysis): TrendingTweet => {
 };
 
 export const tweetService = {
-  async getTrendingTweets(limit = 50, offset = 0): Promise<TrendingTweet[]> {
+  async getTrendingTweets(
+    limit = 50,
+    offset = 0,
+    searchQuery?: string,
+  ): Promise<TrendingTweet[]> {
     try {
-      const { data, error } = await supabaseClient
+      let query = supabaseClient
         .from('tweet_analysis')
         .select(`
           *,
@@ -121,22 +125,50 @@ export const tweetService = {
           )
         `)
         .eq('is_spam', false)
-        .neq('type', 'news')
+        .neq('type', 'news');
+
+      // Add fuzzy search if searchQuery is provided
+      if (searchQuery) {
+        query = query.or(
+          `author_username.ilike.%${searchQuery}%,content_summary.ilike.%${searchQuery}%`,
+        );
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (error) {
-        console.error('Error fetching trending tweets:', error);
+        console.error('Error fetching trending tweets:', {
+          error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
         return [];
       }
 
-      return (data || []).map((row) => ({
+      // Filter topics in memory since array search is tricky in Supabase
+      const filteredData = searchQuery
+        ? (data || []).filter((row) =>
+            row.topics.some((topic: string) =>
+              topic.toLowerCase().includes(searchQuery.toLowerCase()),
+            ),
+          )
+        : data;
+
+      return (filteredData || []).map((row) => ({
         ...processTweet(row),
         content: row.tweet?.text || row.content_summary,
         photos: row.tweet?.photos || [],
       }));
     } catch (error) {
-      console.error('Error in getTrendingTweets:', error);
+      console.error('Error in getTrendingTweets:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   },

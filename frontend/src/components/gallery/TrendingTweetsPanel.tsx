@@ -5,6 +5,7 @@ import { tweetService } from '@/lib/services/tweets';
 import { cn } from '@/lib/utils';
 import type { TweetMediaItem } from '@/types/media';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Input } from '../ui/input';
@@ -55,15 +56,30 @@ export function TrendingTweetsPanel({
   const [selectedFilter, setSelectedFilter] =
     useState<ScoreFilter>('aggregate');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchQuery, setActiveSearchQuery] = useState('');
   const { ref: loadMoreRef, inView } = useInView();
+
+  const handleSearch = () => {
+    setActiveSearchQuery(searchQuery);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
     useInfiniteQuery({
-      queryKey: ['trending-tweets', searchQuery],
+      queryKey: ['trending-tweets', activeSearchQuery],
       queryFn: async ({ pageParam = 0 }) => {
         const limit = 20;
         const offset = pageParam * limit;
-        const tweets = await tweetService.getTrendingTweets(limit, offset);
+        const tweets = await tweetService.getTrendingTweets(
+          limit,
+          offset,
+          activeSearchQuery,
+        );
         return {
           tweets,
           nextPage: tweets.length === limit ? pageParam + 1 : undefined,
@@ -84,11 +100,8 @@ export function TrendingTweetsPanel({
   const uniqueTweets = Array.from(
     new Map(allTweets.map((tweet) => [tweet.tweet_id, tweet])).values(),
   );
-  const filteredTweets = uniqueTweets.filter((tweet) =>
-    tweet.username.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
 
-  const sortedTweets = [...filteredTweets].sort((a, b) => {
+  const sortedTweets = [...uniqueTweets].sort((a, b) => {
     if (selectedFilter === 'aggregate') {
       return b.aggregate_score - a.aggregate_score;
     }
@@ -110,12 +123,16 @@ export function TrendingTweetsPanel({
     <Panel maxHeight={maxHeight}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <Input
-            placeholder="Search by username..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-[200px] bg-white/5 border-white/10 text-white"
-          />
+          <div className="relative">
+            <Input
+              placeholder="Search for..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-[200px] bg-white/5 border-white/10 text-white pl-8"
+            />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+          </div>
           <Select
             value={selectedFilter}
             onValueChange={(value: ScoreFilter) => setSelectedFilter(value)}
@@ -136,9 +153,7 @@ export function TrendingTweetsPanel({
           <div className="text-white/60">Loading trending tweets...</div>
         ) : sortedTweets.length === 0 ? (
           <div className="text-white/60">
-            {searchQuery
-              ? 'No tweets found for this username'
-              : 'No trending tweets found'}
+            {activeSearchQuery ? 'No tweets found' : 'No trending tweets found'}
           </div>
         ) : (
           <div
