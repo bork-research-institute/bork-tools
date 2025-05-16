@@ -29,7 +29,7 @@ export const character: TwitterDiscoveryCharacter = {
     discoveryInterval: 43200000, // 12 hours in ms
     evaluationInterval: 86400000, // 24 hours in ms
     twitterTargetUsers: [],
-    searchTimeframeHours: 24,
+    searchTimeframeHours: 48,
     searchPreferredTopic: [],
     maxSearchTopics: 5,
     preferredTopic: '',

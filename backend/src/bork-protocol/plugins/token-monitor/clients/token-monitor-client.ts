@@ -37,6 +37,7 @@ export class TokenMonitorClient implements Client, ClientInstance {
       );
       return;
     }
+    elizaLogger.info('[TokenMonitorClient] Starting token monitor client');
     this.monitorTokens(
       tokenMonitorService,
       twitterConfigService.getCharacterConfig().twitterPollInterval,

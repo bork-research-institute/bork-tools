@@ -1,10 +1,6 @@
-import { tweetQueries } from '@/bork-protocol/db/queries';
 import { TwitterService } from '@/services/twitter-service';
 import { TWITTER_MENTION_POLL_INTERVAL } from '@bork/plugins/twitter-interaction/config/interaction';
-import {
-  twitterMessageHandlerTemplate,
-  twitterShouldRespondTemplate,
-} from '@bork/templates/interaction';
+import { twitterMessageHandlerTemplate } from '@bork/templates/interaction';
 import {
   sendTweetAndCreateMemory,
   wait,
@@ -20,7 +16,6 @@ import {
   composeContext,
   elizaLogger,
   generateMessageResponse,
-  generateShouldRespond,
   stringToUuid,
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
@@ -112,7 +107,6 @@ export class InteractionsClient implements Client, ClientInstance {
         );
 
         if (
-          sortedResponses.length === 0 ||
           sortedResponses[sortedResponses.length - 1].userId === runtime.agentId
         ) {
           // If there are no responses or the last response is from the agent, we don't need to answer
@@ -217,55 +211,56 @@ Text: ${tweet.text}
       timeline: formattedTimeline,
     });
 
-    const shouldRespondContext = composeContext({
-      state,
-      template: twitterShouldRespondTemplate,
-    });
+    // For now we always respond, we need to validate the should respond template
+    // const shouldRespondContext = composeContext({
+    //   state,
+    //   template: twitterShouldRespondTemplate,
+    // });
 
-    const shouldRespond = await generateShouldRespond({
-      runtime,
-      context: shouldRespondContext,
-      modelClass: ModelClass.SMALL,
-    });
+    // const shouldRespond = await generateShouldRespond({
+    //   runtime,
+    //   context: shouldRespondContext,
+    //   modelClass: ModelClass.SMALL,
+    // });
 
-    elizaLogger.info(`[TwitterInteraction] Should respond: ${shouldRespond}`);
+    // elizaLogger.info(`[TwitterInteraction] Should respond: ${shouldRespond}`);
 
-    // Handle spam detection from shouldRespond
-    if (shouldRespond.startsWith('SPAM')) {
-      try {
-        const spamJson = shouldRespond.substring(4).trim(); // Remove 'SPAM' prefix
-        const spamData = JSON.parse(spamJson);
+    // // Handle spam detection from shouldRespond
+    // if (shouldRespond.startsWith('SPAM')) {
+    //   try {
+    //     const spamJson = shouldRespond.substring(4).trim(); // Remove 'SPAM' prefix
+    //     const spamData = JSON.parse(spamJson);
 
-        elizaLogger.debug(
-          `[TwitterInteraction] Tweet ${tweet.id} identified as spam`,
-          {
-            spamScore: spamData.spamScore,
-            reasons: spamData.reasons,
-            userId: tweet.userId,
-            username: tweet.username,
-          },
-        );
+    //     elizaLogger.debug(
+    //       `[TwitterInteraction] Tweet ${tweet.id} identified as spam`,
+    //       {
+    //         spamScore: spamData.spamScore,
+    //         reasons: spamData.reasons,
+    //         userId: tweet.userId,
+    //         username: tweet.username,
+    //       },
+    //     );
 
-        // Update spam user data in the database
-        await tweetQueries.updateSpamUser(
-          tweet.userId,
-          spamData.spamScore,
-          spamData.reasons,
-        );
+    //     // Update spam user data in the database
+    //     await tweetQueries.updateSpamUser(
+    //       tweet.userId,
+    //       spamData.spamScore,
+    //       spamData.reasons,
+    //     );
 
-        return; // Exit without responding
-      } catch (error) {
-        elizaLogger.error(
-          '[TwitterInteraction] Error processing spam response:',
-          error,
-        );
-      }
-    }
+    //     return; // Exit without responding
+    //   } catch (error) {
+    //     elizaLogger.error(
+    //       '[TwitterInteraction] Error processing spam response:',
+    //       error,
+    //     );
+    //   }
+    // }
 
-    if (shouldRespond !== 'RESPOND') {
-      elizaLogger.info('[TwitterInteraction] Not responding to message');
-      return;
-    }
+    // if (shouldRespond !== 'RESPOND') {
+    //   elizaLogger.info('[TwitterInteraction] Not responding to message');
+    //   return;
+    // }
 
     const context = composeContext({
       state,
@@ -325,11 +320,14 @@ Text: ${tweet.text}
           } else {
             responseMessage.content.action = 'CONTINUE';
           }
+          await runtime.messageManager.addEmbeddingToMemory(responseMessage);
           await runtime.messageManager.createMemory(responseMessage);
         }
 
         await runtime.evaluate(message, state);
         await runtime.processActions(message, responseMessages, state);
+
+        state = await runtime.updateRecentMessageState(state);
 
         await twitterService.cacheResponseInfo(
           tweet.id,
@@ -366,7 +364,7 @@ Text: ${tweet.text}
       );
 
       if (!currentTweet) {
-        elizaLogger.info(
+        elizaLogger.warn(
           '[TwitterInteraction] No current tweet found for thread building',
         );
         return;
