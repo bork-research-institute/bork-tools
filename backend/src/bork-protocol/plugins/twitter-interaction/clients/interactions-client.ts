@@ -107,6 +107,8 @@ export class InteractionsClient implements Client, ClientInstance {
         );
 
         if (
+          sortedResponses &&
+          sortedResponses.length > 0 &&
           sortedResponses[sortedResponses.length - 1].userId === runtime.agentId
         ) {
           // If there are no responses or the last response is from the agent, we don't need to answer
@@ -312,7 +314,7 @@ Text: ${tweet.text}
 
         state = (await runtime.updateRecentMessageState(state)) as State;
 
-        for (const responseMessage of responseMessages) {
+        for (let responseMessage of responseMessages) {
           if (
             responseMessage === responseMessages[responseMessages.length - 1]
           ) {
@@ -320,14 +322,23 @@ Text: ${tweet.text}
           } else {
             responseMessage.content.action = 'CONTINUE';
           }
+          // save response to memory
+          responseMessage = {
+            id: stringToUuid(`${responseMessage}-${runtime.agentId}`),
+            ...message,
+            userId: runtime.agentId,
+            roomId: message.roomId,
+            content: response,
+            createdAt: Date.now(),
+          };
           await runtime.messageManager.addEmbeddingToMemory(responseMessage);
           await runtime.messageManager.createMemory(responseMessage);
         }
 
-        await runtime.evaluate(message, state);
-        await runtime.processActions(message, responseMessages, state);
-
         state = await runtime.updateRecentMessageState(state);
+
+        await runtime.processActions(message, responseMessages, state);
+        await runtime.evaluate(message, state);
 
         await twitterService.cacheResponseInfo(
           tweet.id,
