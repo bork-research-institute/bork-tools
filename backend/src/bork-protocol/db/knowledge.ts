@@ -1,6 +1,23 @@
 import { elizaLogger } from '@elizaos/core';
 import type { RAGKnowledgeItem } from '@elizaos/core';
 import { db } from './index';
+import type {
+  CountRow,
+  KnowledgeRow,
+  MatchCheckRow,
+  StructureRow,
+  TableCheckRow,
+} from './schema';
+
+// Helper function to execute queries with the pool
+async function executeQuery<T extends Record<string, unknown>>(
+  query: string,
+  params?: unknown[],
+): Promise<T[]> {
+  const pool = await db;
+  const result = await pool.query(query, params);
+  return result.rows;
+}
 
 export const knowledgeQueries = {
   /**
@@ -16,13 +33,13 @@ export const knowledgeQueries = {
           AND table_name = 'knowledge'
         );
       `;
-      const tableExists = await db.query(tableCheck);
+      const tableExists = await executeQuery<TableCheckRow>(tableCheck);
 
       elizaLogger.debug('[KnowledgeQueries] Knowledge table check:', {
-        exists: tableExists.rows[0]?.exists === true,
+        exists: tableExists[0]?.exists === true,
       });
 
-      if (!tableExists.rows[0]?.exists) {
+      if (!tableExists[0]?.exists) {
         elizaLogger.error('[KnowledgeQueries] Knowledge table does not exist!');
         return;
       }
@@ -35,12 +52,12 @@ export const knowledgeQueries = {
           COUNT(*) FILTER (WHERE "isShared" = true)::int as shared_count
         FROM knowledge;
       `;
-      const countResult = await db.query(countQuery, [agentId]);
+      const countResult = await executeQuery<CountRow>(countQuery, [agentId]);
 
       elizaLogger.debug('[KnowledgeQueries] Knowledge table counts:', {
-        total: Number(countResult.rows[0]?.total || 0),
-        agentCount: Number(countResult.rows[0]?.agent_count || 0),
-        sharedCount: Number(countResult.rows[0]?.shared_count || 0),
+        total: Number(countResult[0]?.total || 0),
+        agentCount: Number(countResult[0]?.agent_count || 0),
+        sharedCount: Number(countResult[0]?.shared_count || 0),
       });
 
       // Get table structure
@@ -50,10 +67,10 @@ export const knowledgeQueries = {
         WHERE table_schema = 'public'
         AND table_name = 'knowledge';
       `;
-      const structureResult = await db.query(structureQuery);
+      const structureResult = await executeQuery<StructureRow>(structureQuery);
 
       elizaLogger.debug('[KnowledgeQueries] Knowledge table structure:', {
-        columns: structureResult.rows,
+        columns: structureResult,
       });
 
       // Get sample rows
@@ -74,11 +91,11 @@ export const knowledgeQueries = {
         LIMIT 5
       `;
 
-      const result = await db.query(query, [agentId]);
+      const result = await executeQuery<KnowledgeRow>(query, [agentId]);
 
       elizaLogger.debug('[KnowledgeQueries] Knowledge table sample:', {
-        sampleSize: result.rows.length,
-        samples: result.rows.map((row) => ({
+        sampleSize: result.length,
+        samples: result.map((row) => ({
           id: row.id,
           agentId: row.agentId,
           isShared: row.isShared,
@@ -93,8 +110,8 @@ export const knowledgeQueries = {
       });
 
       // Check content structure variations
-      if (result.rows.length > 0) {
-        const contentStructures = result.rows
+      if (result.length > 0) {
+        const contentStructures = result
           .filter((row) => row.content)
           .map((row) => ({
             hasText: typeof row.content.text === 'string',
@@ -128,15 +145,17 @@ export const knowledgeQueries = {
     try {
       // First, let's check if there's any data in the knowledge table
       const checkQuery = `SELECT COUNT(*)::int as count FROM knowledge WHERE "agentId" = $1 OR "isShared" = true`;
-      const checkResult = await db.query(checkQuery, [params.agentId]);
+      const checkResult = await executeQuery<{ count: number }>(checkQuery, [
+        params.agentId,
+      ]);
 
       elizaLogger.debug('[KnowledgeQueries] Knowledge table stats:', {
-        totalCount: Number(checkResult.rows[0]?.count || 0),
+        totalCount: Number(checkResult[0]?.count || 0),
         agentId: params.agentId,
       });
 
       // If no data, return early
-      if (!Number(checkResult.rows[0]?.count || 0)) {
+      if (!Number(checkResult[0]?.count || 0)) {
         elizaLogger.warn(
           '[KnowledgeQueries] No knowledge data found for agent:',
           params.agentId,
@@ -169,17 +188,17 @@ export const knowledgeQueries = {
         pattern: `%${searchTerm}%`,
       });
 
-      const directCheckResult = await db.query(directCheckQuery, [
-        params.agentId,
-        `%${searchTerm}%`,
-      ]);
+      const directCheckResult = await executeQuery<KnowledgeRow>(
+        directCheckQuery,
+        [params.agentId, `%${searchTerm}%`],
+      );
 
       elizaLogger.debug('[KnowledgeQueries] Direct check found:', {
-        count: directCheckResult.rows.length,
-        firstItem: directCheckResult.rows[0]
+        count: directCheckResult.length,
+        firstItem: directCheckResult[0]
           ? {
-              id: directCheckResult.rows[0].id,
-              contentPreview: directCheckResult.rows[0].raw_content?.substring(
+              id: directCheckResult[0].id,
+              contentPreview: directCheckResult[0].raw_content?.substring(
                 0,
                 100,
               ),
@@ -321,26 +340,26 @@ export const knowledgeQueries = {
         params: queryParams,
       });
 
-      const result = await db.query(query, queryParams);
+      const result = await executeQuery<KnowledgeRow>(query, queryParams);
 
       // Log the first result's content for debugging
-      if (result.rows[0]) {
+      if (result[0]) {
         elizaLogger.debug('[KnowledgeQueries] First result content:', {
-          id: result.rows[0].id,
-          matchScore: result.rows[0].match_score,
-          rawContent: result.rows[0].raw_content?.substring(0, 200),
-          textContent: result.rows[0].text_content?.substring(0, 200),
-          mainContent: result.rows[0].main_content?.substring(0, 200),
+          id: result[0].id,
+          matchScore: result[0].match_score,
+          rawContent: result[0].raw_content?.substring(0, 200),
+          textContent: result[0].text_content?.substring(0, 200),
+          mainContent: result[0].main_content?.substring(0, 200),
           content:
-            typeof result.rows[0].content === 'object'
-              ? JSON.stringify(result.rows[0].content).substring(0, 200)
+            typeof result[0].content === 'object'
+              ? JSON.stringify(result[0].content).substring(0, 200)
               : 'not an object',
         });
 
         // Add explicit check for topics and entities
         try {
-          const topics = result.rows[0].content?.metadata?.topics;
-          const entities = result.rows[0].content?.metadata?.entities;
+          const topics = result[0].content?.metadata?.topics;
+          const entities = result[0].content?.metadata?.entities;
 
           elizaLogger.debug('[KnowledgeQueries] First result metadata:', {
             hasTopics: Array.isArray(topics),
@@ -372,35 +391,52 @@ export const knowledgeQueries = {
           WHERE "agentId" = $1 OR "isShared" = true 
           LIMIT 1
         `;
-        const debugResult = await db.query(debugQuery, [params.agentId]);
+        const debugResult = await executeQuery<KnowledgeRow>(debugQuery, [
+          params.agentId,
+        ]);
 
-        if (debugResult.rows[0]) {
+        if (debugResult[0]) {
           elizaLogger.debug('[KnowledgeQueries] Sample knowledge item:', {
-            id: debugResult.rows[0].id,
-            agentId: debugResult.rows[0].agentId,
-            isShared: debugResult.rows[0].isShared,
-            rawContent: debugResult.rows[0].raw_content?.substring(0, 200),
-            textContent: debugResult.rows[0].text_content?.substring(0, 200),
-            mainContent: debugResult.rows[0].main_content?.substring(0, 200),
+            id: debugResult[0].id,
+            agentId: debugResult[0].agentId,
+            isShared: debugResult[0].isShared,
+            rawContent: debugResult[0].raw_content?.substring(0, 200),
+            textContent: debugResult[0].text_content?.substring(0, 200),
+            mainContent: debugResult[0].main_content?.substring(0, 200),
           });
         }
       }
 
       elizaLogger.debug('[KnowledgeQueries] Search results:', {
         topic: params.topic,
-        resultCount: result.rows.length,
-        firstRow: result.rows[0]
+        resultCount: result.length,
+        firstRow: result[0]
           ? {
-              id: result.rows[0].id,
-              matchScore: result.rows[0].match_score,
-              createdAt: result.rows[0].createdAt,
+              id: result[0].id,
+              matchScore: result[0].match_score,
+              createdAt: result[0].createdAt,
             }
           : null,
       });
 
-      return result.rows.map((row) => ({
-        ...row,
-        similarity: row.match_score / ((searchWords.length + 1) * 9), // Normalize score to 0-1 range (max score per word is 9: 3 for each location)
+      return result.map((row) => ({
+        id: row.id as `${string}-${string}-${string}-${string}-${string}`,
+        agentId:
+          row.agentId as `${string}-${string}-${string}-${string}-${string}`,
+        isShared: row.isShared,
+        createdAt: row.createdAt.getTime(),
+        content: {
+          text: row.content.text || row.content.mainContent || '',
+          metadata: {
+            ...row.content.metadata,
+            isMain: true,
+            isShared: row.isShared,
+            type: 'knowledge',
+          },
+        },
+        similarity: row.match_score
+          ? row.match_score / ((searchWords.length + 1) * 9)
+          : 0,
       }));
     } catch (error) {
       elizaLogger.error('[KnowledgeQueries] Error in keyword search:', {
@@ -441,14 +477,17 @@ export const knowledgeQueries = {
         LIMIT 5
       `;
 
-      const structureResults = await db.query(structureQuery, [params.agentId]);
+      const structureResults = await executeQuery<KnowledgeRow>(
+        structureQuery,
+        [params.agentId],
+      );
 
-      if (structureResults.rows.length > 0) {
+      if (structureResults.length > 0) {
         elizaLogger.debug(
-          `[KnowledgeQueries] Found ${structureResults.rows.length} knowledge items to analyze`,
+          `[KnowledgeQueries] Found ${structureResults.length} knowledge items to analyze`,
         );
 
-        for (const [index, row] of structureResults.rows.entries()) {
+        for (const [index, row] of structureResults.entries()) {
           const contentKeys =
             typeof row.content === 'object'
               ? Object.keys(row.content)
@@ -467,21 +506,21 @@ export const knowledgeQueries = {
             isShared: row.isShared,
             contentKeys,
             metadataKeys,
-            hasTextField: row.text_field !== null,
-            hasTopicsField: row.topics_field !== null,
-            hasEntitiesField: row.entities_field !== null,
-            hasOriginalText: row.original_text !== null,
+            hasTextField: row.text_content !== null,
+            hasTopicsField: row.content?.metadata?.topics !== null,
+            hasEntitiesField: row.content?.metadata?.entities !== null,
+            hasOriginalText: row.content?.metadata?.originalText !== null,
             topicsType:
-              row.topics_field !== null
-                ? Array.isArray(row.topics_field)
+              row.content?.metadata?.topics !== null
+                ? Array.isArray(row.content.metadata.topics)
                   ? 'array'
-                  : typeof row.topics_field
+                  : typeof row.content.metadata.topics
                 : 'null',
             entitiesType:
-              row.entities_field !== null
-                ? Array.isArray(row.entities_field)
+              row.content?.metadata?.entities !== null
+                ? Array.isArray(row.content.metadata.entities)
                   ? 'array'
-                  : typeof row.entities_field
+                  : typeof row.content.metadata.entities
                 : 'null',
           });
 
@@ -501,18 +540,18 @@ export const knowledgeQueries = {
             WHERE id = $1
           `;
 
-          const matchResults = await db.query(searchQuery, [
+          const matchResults = await executeQuery<MatchCheckRow>(searchQuery, [
             row.id,
             `%${params.topic.toLowerCase()}%`,
           ]);
 
-          if (matchResults.rows.length > 0) {
+          if (matchResults.length > 0) {
             elizaLogger.debug(
               `[KnowledgeQueries] Match check for topic "${params.topic}" on item ${row.id}:`,
               {
-                textMatches: matchResults.rows[0].text_matches,
-                topicsMatch: matchResults.rows[0].topics_match,
-                entitiesMatch: matchResults.rows[0].entities_match,
+                textMatches: matchResults[0].text_matches,
+                topicsMatch: matchResults[0].topics_match,
+                entitiesMatch: matchResults[0].entities_match,
               },
             );
           }

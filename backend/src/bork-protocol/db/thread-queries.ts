@@ -17,7 +17,8 @@ async function withClient<T>(
   }
 
   // Get a new client and release it when done
-  const client = await db.connect();
+  const pool = await db;
+  const client = await pool.connect();
   try {
     return await fn(client);
   } finally {

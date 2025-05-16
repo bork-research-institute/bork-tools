@@ -211,7 +211,10 @@ export async function checkForInterestingTokens(
           tweetQueueService,
         );
 
-        // TODO: I think we should do some logic with the tweets to decide whether or not we keep a token. I think this logic should be split differently, but for now its going to be keeping the same tokens over and over again.
+        // Add token to recently searched set if we found any tweets
+        if (searchTweets.length > 0) {
+          updatedRecentlySearchedTokens.add(token.tokenAddress);
+        }
       }
     }
 

@@ -11,13 +11,20 @@ import {
   type Tweet,
 } from 'agent-twitter-client';
 
+// FIXME This doesn't work with the current flow because most of the time the requests are done
+// the caller is expecting a result
 export class TwitterRequestService {
   private readonly twitterClient: Scraper;
   private requestQueue: Array<() => Promise<void>> = [];
   private isProcessingQueue = false;
+  private processingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(twitterClient: Scraper) {
     this.twitterClient = twitterClient;
+    // TODO Probably need to optimize this to be more efficient
+    this.processingInterval = setInterval(() => {
+      this.processRequestQueue();
+    }, 10000);
   }
 
   private async enqueueRequest<T>(
@@ -85,9 +92,6 @@ export class TwitterRequestService {
           return searchResults;
         }
 
-        elizaLogger.info(
-          `${context} Found ${searchResults.tweets.length} tweets`,
-        );
         elizaLogger.debug('tweets:', {
           tweets: searchResults.tweets.map((t) => ({
             id: t.id,

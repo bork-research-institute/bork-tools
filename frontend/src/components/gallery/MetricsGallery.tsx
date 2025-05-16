@@ -1,14 +1,14 @@
 'use client';
 import { PANEL_HEIGHT } from '@/lib/config/metrics';
+import type { UserRelationship } from '@/lib/services/relationships';
 import { relationshipsService } from '@/lib/services/relationships';
 import { tokenMetricsService } from '@/lib/services/token-metrics-service';
 import type { TimeFrame } from '@/lib/services/token-snapshot-service';
-import { tweetService } from '@/lib/services/tweets';
+import type { RelationshipsPanelProps } from '@/types/metrics/gallery';
 import type {
-  MetricsGalleryState,
-  RelationshipsPanelProps,
-} from '@/types/metrics/gallery';
-import type { TokenWithEngagement } from '@/types/token-monitor/token';
+  TokenSnapshot,
+  TokenWithEngagement,
+} from '@/types/token-monitor/token';
 import { Filter, Maximize2, Network, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
@@ -22,12 +22,11 @@ import {
 } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { BundlerPanel } from './BundlerPanel';
 import { KaitoLeaderboard } from './KaitoLeaderboard';
+import { LaunchedTokensPanel } from './LaunchedTokensPanel';
 import { MarketStatsPanel } from './MarketStatsPanel';
 import { MindsharePanel } from './MindsharePanel';
 import { NewsPanel } from './NewsPanel';
-import { TokenHolderPanel } from './TokenHolderPanel';
 import { TokenTweetsPanel } from './TokenTweetsPanel';
 import { TrendingTweetsPanel } from './TrendingTweetsPanel';
 
@@ -36,14 +35,26 @@ const RelationshipsPanel = dynamic<RelationshipsPanelProps>(
   { ssr: false },
 );
 
+type RightTab = 'tweets' | 'news' | 'tokenTweets';
+
+interface MetricsGalleryState {
+  tokenAddress: string;
+  isDialogOpen: boolean;
+  maximizedPanel: 'socials' | 'mindshare' | 'trending' | 'market' | null;
+  relationships: UserRelationship[];
+  relationshipsLoading: boolean;
+  tokensWithEngagement: TokenWithEngagement[];
+  tokenSnapshotsLoading: boolean;
+  tokenSnapshots: TokenSnapshot[];
+  selectedToken: TokenWithEngagement | null;
+  activeRightTab: RightTab;
+}
+
 export function MetricsGallery() {
   const [state, setState] = useState<MetricsGalleryState>({
     tokenAddress: '',
     isDialogOpen: false,
     maximizedPanel: null,
-    trendingTweets: [],
-    newsTweets: [],
-    loading: true,
     relationships: [],
     relationshipsLoading: true,
     tokensWithEngagement: [],
@@ -61,9 +72,15 @@ export function MetricsGallery() {
       setState((prev) => ({ ...prev, activeRightTab: 'tweets' }));
     };
 
-    window.addEventListener('switchToTrending', handleSwitchToTrending);
+    window.addEventListener(
+      'switchToTrending',
+      handleSwitchToTrending as EventListener,
+    );
     return () => {
-      window.removeEventListener('switchToTrending', handleSwitchToTrending);
+      window.removeEventListener(
+        'switchToTrending',
+        handleSwitchToTrending as EventListener,
+      );
     };
   }, []);
 
@@ -133,70 +150,61 @@ export function MetricsGallery() {
     };
   }, []);
 
-  // Fetch tweets and calculate engagement for tokens
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!state.tokenSnapshots) {
-        return;
-      }
-
-      const updatedTokens = await tokenMetricsService.fetchTweetEngagement(
-        state.tokenSnapshots,
-      );
-      setState((prev) => ({ ...prev, tokensWithEngagement: updatedTokens }));
-    };
-
-    fetchData();
-  }, [state.tokenSnapshots]);
-
-  // Fetch trending and news tweets
-  useEffect(() => {
-    const fetchTweets = async () => {
-      setState((prev) => ({ ...prev, loading: true }));
-      try {
-        // Fetch regular tweets
-        const trendingData = await tweetService.getTrendingTweets(20);
-        const uniqueTrendingTweets = new Map(
-          trendingData.map((tweet) => [tweet.tweet_id, tweet]),
-        );
-
-        // Fetch news tweets
-        const newsData = await tweetService.getNewsTweets(20);
-        const uniqueNewsTweets = new Map(
-          newsData.map((tweet) => [tweet.tweet_id, tweet]),
-        );
-
-        setState((prev) => ({
-          ...prev,
-          trendingTweets: Array.from(uniqueTrendingTweets.values()),
-          newsTweets: Array.from(uniqueNewsTweets.values()),
-        }));
-      } catch (error) {
-        console.error('Error fetching tweets:', error);
-      } finally {
-        setState((prev) => ({ ...prev, loading: false }));
-      }
-    };
-
-    fetchTweets();
-  }, []);
-
-  // Add useEffect for fetching relationships
+  // Fetch relationships
   useEffect(() => {
     const fetchRelationships = async () => {
-      setState((prev) => ({ ...prev, relationshipsLoading: true }));
       try {
-        const data = await relationshipsService.getTopUserRelationships(100);
-        setState((prev) => ({ ...prev, relationships: data }));
+        const relationships =
+          await relationshipsService.getTopUserRelationships();
+        setState((prev) => ({
+          ...prev,
+          relationships,
+          relationshipsLoading: false,
+        }));
       } catch (error) {
         console.error('Error fetching relationships:', error);
-      } finally {
-        setState((prev) => ({ ...prev, relationshipsLoading: false }));
+        setState((prev) => ({
+          ...prev,
+          relationshipsLoading: false,
+        }));
       }
     };
 
     fetchRelationships();
   }, []);
+
+  // Update token snapshots with engagement
+  useEffect(() => {
+    const updateTokensWithEngagement = async () => {
+      if (state.tokenSnapshots.length === 0) {
+        return;
+      }
+
+      try {
+        const tokensWithEngagement =
+          await tokenMetricsService.fetchTweetEngagement(state.tokenSnapshots);
+        setState((prev) => ({
+          ...prev,
+          tokensWithEngagement,
+        }));
+      } catch (error) {
+        console.error('Error updating tokens with engagement:', error);
+      }
+    };
+
+    updateTokensWithEngagement();
+  }, [state.tokenSnapshots]);
+
+  // Handle token selection
+  const handleTokenSelect = (token: TokenWithEngagement | null) => {
+    const newTab: RightTab = token ? 'tokenTweets' : 'tweets';
+    setState((prev) => ({
+      ...prev,
+      selectedToken: token,
+      activeRightTab: newTab,
+      tokenAddress: token?.token_address || '',
+    }));
+  };
 
   const renderMaximizedContent = () => {
     switch (state.maximizedPanel) {
@@ -300,17 +308,22 @@ export function MetricsGallery() {
               <TabsContent value="tweets" className="h-full overflow-auto">
                 <div className="h-full overflow-auto">
                   <TrendingTweetsPanel
-                    tweets={state.trendingTweets}
-                    loading={state.loading}
+                    maxHeight={PANEL_HEIGHT}
+                    className={
+                      state.maximizedPanel === 'trending' ? 'expanded' : ''
+                    }
                   />
                 </div>
               </TabsContent>
-              <TabsContent value="news" className="h-full">
-                <NewsPanel
-                  maxHeight={PANEL_HEIGHT}
-                  tweets={state.newsTweets}
-                  loading={state.loading}
-                />
+              <TabsContent value="news" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <NewsPanel
+                    maxHeight={PANEL_HEIGHT}
+                    className={
+                      state.maximizedPanel === 'trending' ? 'expanded' : ''
+                    }
+                  />
+                </div>
               </TabsContent>
               {state.selectedToken && (
                 <TabsContent
@@ -394,6 +407,12 @@ export function MetricsGallery() {
                     trending
                   </TabsTrigger>
                   <TabsTrigger
+                    value="launched"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    launched
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="mindshare"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
@@ -415,28 +434,44 @@ export function MetricsGallery() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="trending" className="h-full">
-                <MarketStatsPanel
-                  tokenSnapshots={state.tokensWithEngagement}
-                  timeframe={timeframe}
-                  onTimeframeChange={handleTimeframeChange}
-                  loading={state.tokenSnapshotsLoading}
-                  error={null}
-                  selectedTokenAddress={state.selectedToken?.token_address}
-                  onTokenSelect={(token) => {
-                    setState((prev) => ({
-                      ...prev,
-                      selectedToken: token,
-                      activeRightTab: token === null ? 'tweets' : 'tokenTweets',
-                    }));
-                  }}
-                  selectedToken={state.selectedToken as TokenWithEngagement}
-                />
+              <TabsContent value="trending" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MarketStatsPanel
+                    tokenSnapshots={state.tokensWithEngagement}
+                    timeframe={timeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    loading={state.tokenSnapshotsLoading}
+                    error={null}
+                    selectedTokenAddress={state.selectedToken?.token_address}
+                    onTokenSelect={handleTokenSelect}
+                    selectedToken={state.selectedToken as TokenWithEngagement}
+                  />
+                </div>
               </TabsContent>
-              <TabsContent value="risk" className="h-full overflow-auto">
-                <div className="grid grid-cols-2 gap-4 h-full overflow-auto">
-                  <BundlerPanel tokenAddress={state.tokenAddress} />
-                  <TokenHolderPanel />
+              <TabsContent value="launched" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <LaunchedTokensPanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="mindshare" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <MindsharePanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="yaps" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <KaitoLeaderboard />
+                </div>
+              </TabsContent>
+              <TabsContent
+                value="relationships"
+                className="h-full overflow-auto"
+              >
+                <div className="h-full overflow-auto">
+                  <RelationshipsPanel
+                    relationships={state.relationships}
+                    loading={state.relationshipsLoading}
+                  />
                 </div>
               </TabsContent>
             </div>
@@ -539,6 +574,12 @@ export function MetricsGallery() {
                     trending
                   </TabsTrigger>
                   <TabsTrigger
+                    value="launched"
+                    className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
+                  >
+                    launched
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="mindshare"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
                   >
@@ -582,16 +623,14 @@ export function MetricsGallery() {
                     loading={state.tokenSnapshotsLoading}
                     error={null}
                     selectedTokenAddress={state.selectedToken?.token_address}
-                    onTokenSelect={(token) => {
-                      setState((prev) => ({
-                        ...prev,
-                        selectedToken: token,
-                        activeRightTab:
-                          token === null ? 'tweets' : 'tokenTweets',
-                      }));
-                    }}
+                    onTokenSelect={handleTokenSelect}
                     selectedToken={state.selectedToken as TokenWithEngagement}
                   />
+                </div>
+              </TabsContent>
+              <TabsContent value="launched" className="h-full overflow-auto">
+                <div className="h-full overflow-auto">
+                  <LaunchedTokensPanel />
                 </div>
               </TabsContent>
               <TabsContent value="mindshare" className="h-full overflow-auto">
@@ -623,9 +662,15 @@ export function MetricsGallery() {
         <div className="col-span-4 flex flex-col min-h-0">
           <Tabs
             value={state.activeRightTab}
-            onValueChange={(value) =>
-              setState((prev) => ({ ...prev, activeRightTab: value }))
-            }
+            onValueChange={(value) => {
+              if (
+                value === 'tweets' ||
+                value === 'news' ||
+                value === 'tokenTweets'
+              ) {
+                setState((prev) => ({ ...prev, activeRightTab: value }));
+              }
+            }}
             className="flex-1 flex flex-col min-h-0"
           >
             <div className="flex items-center justify-between mb-1">
@@ -677,16 +722,20 @@ export function MetricsGallery() {
               <TabsContent value="tweets" className="h-full overflow-auto">
                 <div className="h-full overflow-auto">
                   <TrendingTweetsPanel
-                    tweets={state.trendingTweets}
-                    loading={state.loading}
+                    maxHeight={PANEL_HEIGHT}
+                    className={
+                      state.maximizedPanel === 'trending' ? 'expanded' : ''
+                    }
                   />
                 </div>
               </TabsContent>
               <TabsContent value="news" className="h-full overflow-auto">
                 <div className="h-full overflow-auto">
                   <NewsPanel
-                    tweets={state.newsTweets}
-                    loading={state.loading}
+                    maxHeight={PANEL_HEIGHT}
+                    className={
+                      state.maximizedPanel === 'trending' ? 'expanded' : ''
+                    }
                   />
                 </div>
               </TabsContent>

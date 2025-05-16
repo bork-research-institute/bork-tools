@@ -1,8 +1,10 @@
 import { tokenQueries } from '@/bork-protocol/db/token-queries';
+import { bundleAnalysisService } from '@/bork-protocol/plugins/token-monitor/services/bundle-analysis-service';
 import { dexScreenerService } from '@/bork-protocol/plugins/token-monitor/services/dexscreener-service';
 import { marketDataService } from '@/bork-protocol/plugins/token-monitor/services/market-data-service';
 import { tokenEnrichmentService } from '@/bork-protocol/plugins/token-monitor/services/token-enrichment-service';
 import { TokenMonitorConfigService } from '@/bork-protocol/plugins/token-monitor/services/token-monitor-config-service';
+import { transactionService } from '@/bork-protocol/plugins/token-monitor/services/transaction-service';
 import { ServiceTypeExtension } from '@/bork-protocol/plugins/token-monitor/types/service-type-extension';
 import type {
   EnrichedToken,
@@ -192,12 +194,39 @@ export class TokenMonitorService extends Service {
   }
   public async enrichToken(token: TokenProfile): Promise<EnrichedToken> {
     try {
-      const [metrics, priceInfo] = await Promise.all([
+      const [metrics, priceInfo, recentTransactions] = await Promise.all([
         tokenEnrichmentService.getTokenMetrics(token.tokenAddress),
         marketDataService.getTokenPrice(token.tokenAddress),
+        transactionService.getRecentTransactions(token.tokenAddress, 15),
       ]);
 
-      const enrichedToken = {
+      // Analyze bundles for recent transactions
+      const bundleAnalyses = await bundleAnalysisService.analyzeTokenBundles(
+        recentTransactions.map((tx) => tx.signature),
+        token.tokenAddress,
+      );
+
+      // Convert bundle analyses to match the expected type
+      const typedBundleAnalyses = bundleAnalyses.map((bundle) => ({
+        bundleId: bundle.bundleId,
+        transactions: bundle.transactions.map((tx) => ({
+          signature: tx.signature,
+          slot: tx.slot,
+          timestamp: tx.timestamp,
+          confirmationStatus: tx.confirmationStatus,
+          error: tx.error ? String(tx.error) : undefined,
+          description: tx.description,
+          type: tx.type,
+          fee: tx.fee,
+          feePayer: tx.feePayer,
+          nativeTransfers: tx.nativeTransfers,
+          tokenTransfers: tx.tokenTransfers,
+          accountData: tx.accountData,
+        })),
+        netTokenMovements: bundle.netTokenMovements,
+      }));
+
+      const enrichedToken: EnrichedToken = {
         ...token,
         metrics: {
           ...metrics,
@@ -206,6 +235,7 @@ export class TokenMonitorService extends Service {
             : undefined,
           priceInfo: priceInfo || undefined,
         },
+        bundleAnalysis: typedBundleAnalyses,
       };
 
       return enrichedToken;

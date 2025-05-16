@@ -2,7 +2,6 @@ import gfmPlugin from '@/bork-protocol/plugins/gfm-plugin';
 import tokenMonitorPlugin from '@/bork-protocol/plugins/token-monitor';
 import twitterDiscoveryPlugin from '@/bork-protocol/plugins/twitter-discovery';
 import type { TwitterDiscoveryCharacter } from '@/bork-protocol/plugins/twitter-discovery/types/character-extension';
-import twitterInteractionPlugin from '@/bork-protocol/plugins/twitter-interaction';
 import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
 import { ModelProviderName } from '@elizaos/core';
 
@@ -16,7 +15,8 @@ export const character: TwitterDiscoveryCharacter = {
     xThreadPlugin,
     twitterDiscoveryPlugin,
     tokenMonitorPlugin,
-    twitterInteractionPlugin,
+    // NOTE: This is disabled for now because it's not working
+    // twitterInteractionPlugin,
   ],
   settings: {
     secrets: {
@@ -25,11 +25,11 @@ export const character: TwitterDiscoveryCharacter = {
   },
   twitterDiscovery: {
     discoveryKeywords: ['crypto', 'web3', 'defi'],
-    twitterPollInterval: 60000, // 1 minute in ms
+    twitterPollInterval: 7200000, // 2 hours in ms
     discoveryInterval: 43200000, // 12 hours in ms
     evaluationInterval: 86400000, // 24 hours in ms
     twitterTargetUsers: [],
-    searchTimeframeHours: 24,
+    searchTimeframeHours: 48,
     searchPreferredTopic: [],
     maxSearchTopics: 5,
     preferredTopic: '',

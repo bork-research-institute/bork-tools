@@ -37,10 +37,11 @@ export class TokenMonitorClient implements Client, ClientInstance {
       );
       return;
     }
+    elizaLogger.info('[TokenMonitorClient] Starting token monitor client');
     this.monitorTokens(
       tokenMonitorService,
       twitterConfigService.getCharacterConfig().twitterPollInterval,
-      configService.getRateLimitDelay(),
+      configService.getTokenPollInterval(),
     );
     return this;
   }
@@ -58,13 +59,13 @@ export class TokenMonitorClient implements Client, ClientInstance {
   private async monitorTokens(
     tokenMonitorService: TokenMonitorService,
     twitterPollInterval: number,
-    rateLimitDelay: number,
+    tokenPollInterval: number,
   ): Promise<void> {
     this.monitoringTimeout = setInterval(async () => {
       await tokenMonitorService.monitorTokens();
     }, twitterPollInterval);
     this.interestingTokenMonitoringTimeout = setInterval(async () => {
       await tokenMonitorService.checkForInterestingTokens();
-    }, rateLimitDelay);
+    }, tokenPollInterval);
   }
 }

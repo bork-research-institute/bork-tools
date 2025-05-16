@@ -3,6 +3,7 @@ import { type IAgentRuntime, Service, type ServiceType } from '@elizaos/core';
 
 export class TokenMonitorConfigService extends Service {
   // TODO: Should be in character config
+  private readonly TOKEN_POLL_INTERVAL = 1000 * 60 * 5; // 5 minutes between DexScreener calls
   private readonly RATE_LIMIT_DELAY = 5000; // 5 seconds between DexScreener calls
   private readonly JUPITER_CALL_DELAY = 150; // 150ms between Jupiter calls
 
@@ -11,6 +12,10 @@ export class TokenMonitorConfigService extends Service {
   }
 
   async initialize(_runtime: IAgentRuntime): Promise<void> {}
+
+  getTokenPollInterval(): number {
+    return this.TOKEN_POLL_INTERVAL;
+  }
 
   getRateLimitDelay(): number {
     return this.RATE_LIMIT_DELAY;
