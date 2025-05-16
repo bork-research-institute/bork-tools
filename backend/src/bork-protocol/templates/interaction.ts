@@ -34,6 +34,8 @@ Thread of Tweets You Are Replying To:
 
 Here is the current post text again. Remember to include an action if the current post text includes a prompt that asks for one of the available actions mentioned above (does not need to be exact):
 {{currentPost}}
+
+# IMPORTANT: Your response MUST be 280 characters or less to comply with Twitter's character limit. If you need to be concise, prioritize the main message and key points.
 ${messageCompletionFooter}`;
 
 export const twitterShouldRespondTemplate = `# INSTRUCTIONS: Determine if {{agentName}} should respond to the message and participate in the conversation.

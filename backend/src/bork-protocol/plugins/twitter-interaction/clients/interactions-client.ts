@@ -112,9 +112,10 @@ export class InteractionsClient implements Client, ClientInstance {
         );
 
         if (
+          sortedResponses.length === 0 ||
           sortedResponses[sortedResponses.length - 1].userId === runtime.agentId
         ) {
-          // If the last response is from the agent, we don't need to answer
+          // If there are no responses or the last response is from the agent, we don't need to answer
           continue;
         }
 
@@ -276,11 +277,33 @@ Text: ${tweet.text}
     const response = await generateMessageResponse({
       runtime,
       context,
-      modelClass: ModelClass.MEDIUM,
+      modelClass: ModelClass.SMALL,
     });
 
-    // Remove quotes from the response text
+    // Remove quotes from the response text and ensure it's within Twitter's character limit
     response.text = response.text.replace(/^['"](.*)['"]$/, '$1');
+    const MAX_TWEET_LENGTH = 280; // Twitter's character limit
+    if (response.text.length > MAX_TWEET_LENGTH) {
+      // Find the last complete sentence within the character limit
+      const truncatedText = response.text.substring(0, MAX_TWEET_LENGTH);
+      const lastSentenceEnd = Math.max(
+        truncatedText.lastIndexOf('. '),
+        truncatedText.lastIndexOf('! '),
+        truncatedText.lastIndexOf('? '),
+        truncatedText.lastIndexOf('.\n'),
+        truncatedText.lastIndexOf('!\n'),
+        truncatedText.lastIndexOf('?\n'),
+      );
+
+      // If we found a sentence end, cut there; otherwise, cut at the last space
+      if (lastSentenceEnd > 0) {
+        response.text = response.text.substring(0, lastSentenceEnd + 1);
+      } else {
+        const lastSpace = truncatedText.lastIndexOf(' ');
+        response.text = `${response.text.substring(0, lastSpace)}...`;
+      }
+    }
+
     if (response.text) {
       try {
         const responseMessages = await sendTweetAndCreateMemory(
