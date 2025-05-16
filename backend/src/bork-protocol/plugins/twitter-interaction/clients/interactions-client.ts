@@ -203,9 +203,29 @@ Text: ${tweet.text}
       .join('\n');
 
     // Fetch the saved memory for this tweet
-    const message = await runtime.messageManager.getMemoryById(
+    let message = await runtime.messageManager.getMemoryById(
       stringToUuid(`${tweet.id}-${runtime.agentId}`),
     );
+    if (!message) {
+      const memory: Memory = {
+        id: stringToUuid(`${tweet.id}-${runtime.agentId}`),
+        agentId: runtime.agentId,
+        userId: stringToUuid(tweet.userId),
+        roomId: stringToUuid(`${tweet.conversationId}-${runtime.agentId}`),
+        content: {
+          text: tweet.text,
+          source: 'twitter',
+          url: tweet.permanentUrl,
+          inReplyTo: tweet.inReplyToStatusId
+            ? stringToUuid(`${tweet.inReplyToStatusId}-${runtime.agentId}`)
+            : undefined,
+        },
+      };
+      await runtime.messageManager.addEmbeddingToMemory(memory);
+      await runtime.messageManager.createMemory(memory);
+      message = memory;
+    }
+
     let state = await runtime.composeState(message, {
       currentPost,
       formattedConversation,
@@ -331,8 +351,14 @@ Text: ${tweet.text}
             content: response,
             createdAt: Date.now(),
           };
+          elizaLogger.info(
+            '[TwitterInteraction] Creating memory',
+            responseMessage,
+          );
           await runtime.messageManager.addEmbeddingToMemory(responseMessage);
+          elizaLogger.info('[TwitterInteraction] Adding memory');
           await runtime.messageManager.createMemory(responseMessage);
+          elizaLogger.info('[TwitterInteraction] Created memory');
         }
 
         state = await runtime.updateRecentMessageState(state);
