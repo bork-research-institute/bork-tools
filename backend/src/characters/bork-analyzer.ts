@@ -25,7 +25,7 @@ export const character: TwitterDiscoveryCharacter = {
   },
   twitterDiscovery: {
     discoveryKeywords: ['crypto', 'web3', 'defi'],
-    twitterPollInterval: 7200000, // 2 hours in ms
+    twitterPollInterval: 10800000, // 3 hours in ms
     discoveryInterval: 43200000, // 12 hours in ms
     evaluationInterval: 86400000, // 24 hours in ms
     twitterTargetUsers: [],
