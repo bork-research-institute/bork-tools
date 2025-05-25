@@ -1,11 +1,18 @@
 'use client';
 import { postMessage } from '@/lib/services/post-message';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { Send } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 import { ScrollArea } from '../ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface Message {
   id: string;
@@ -15,6 +22,7 @@ interface Message {
 }
 
 export function ChatBubble() {
+  const { publicKey } = useWallet();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -51,7 +59,7 @@ export function ChatBubble() {
     setInput('');
 
     setIsLoading(true);
-    const response = await postMessage(input);
+    const response = await postMessage(input, publicKey?.toString() ?? '');
     for (const message of response) {
       const newMessage: Message = {
         id: Math.random().toString(),
@@ -66,21 +74,60 @@ export function ChatBubble() {
 
   return (
     <>
-      <Button
-        className="fixed bottom-4 right-4 rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible z-50"
-        style={{ position: 'fixed', right: '1rem', bottom: '1rem' }}
-        onClick={() => setIsOpen(true)}
-      >
-        <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md animate-pulse" />
-        <div className="absolute inset-0 rounded-full overflow-hidden">
-          <Image
-            src="/assets/Borksticker.webp"
-            alt="Bork"
-            fill={true}
-            className="object-cover"
-          />
+      <TooltipProvider>
+        <div className="fixed bottom-4 right-4 z-50">
+          <Tooltip>
+            <TooltipTrigger asChild={true}>
+              {publicKey ? (
+                <Button
+                  aria-label="Open chat"
+                  className="rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible"
+                  onClick={() => setIsOpen(true)}
+                >
+                  <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md animate-pulse" />
+                  <div className="absolute inset-0 rounded-full overflow-hidden">
+                    <Image
+                      src="/assets/Borksticker.webp"
+                      alt="Bork"
+                      fill={true}
+                      className="object-cover"
+                    />
+                  </div>
+                </Button>
+              ) : (
+                <span className="inline-block pointer-events-auto">
+                  <Button
+                    aria-label="Connect your wallet to chat with Bork."
+                    className="rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible pointer-events-none"
+                    disabled={true}
+                    aria-disabled={true}
+                    tabIndex={-1}
+                  >
+                    <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md animate-pulse" />
+                    <div className="absolute inset-0 rounded-full overflow-hidden">
+                      <Image
+                        src="/assets/Borksticker.webp"
+                        alt="Bork"
+                        fill={true}
+                        className="object-cover"
+                      />
+                    </div>
+                  </Button>
+                </span>
+              )}
+            </TooltipTrigger>
+            {!publicKey && (
+              <TooltipContent
+                side="top"
+                align="center"
+                className="bg-black text-white border border-white/10 z-[9999]"
+              >
+                Connect your wallet to chat with Bork.
+              </TooltipContent>
+            )}
+          </Tooltip>
         </div>
-      </Button>
+      </TooltipProvider>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[425px] h-[600px] flex flex-col gap-4 p-0 bg-black/90 border-white/10">

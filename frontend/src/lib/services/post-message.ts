@@ -1,12 +1,15 @@
-import { API_URL } from '../constants/api-url';
+import getUuidByString from 'uuid-by-string';
+import { getClientEnv } from '../config/client-env';
 
-export async function postMessage(message: string) {
+export async function postMessage(message: string, userPublicKey: string) {
   const messageObject = {
-    userId: '00000000-0000-0000-0000-000000000000',
+    userId: getUuidByString(userPublicKey),
     agentId: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
     text: message,
   };
-  const response = await fetch(`${API_URL}/message`, {
+  const clientEnv = getClientEnv();
+  console.log(clientEnv.NEXT_PUBLIC_BACKEND_URL);
+  const response = await fetch(`${clientEnv.NEXT_PUBLIC_BACKEND_URL}/message`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
