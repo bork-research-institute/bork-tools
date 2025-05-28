@@ -43,6 +43,13 @@ export class TokenMonitorClient implements Client, ClientInstance {
       twitterConfigService.getCharacterConfig().twitterPollInterval,
       configService.getTokenPollInterval(),
     );
+    if (twitterConfigService.getCharacterConfig().shouldPrefetch) {
+      elizaLogger.info('[TokenMonitorClient] Prefetching...');
+      await tokenMonitorService.monitorTokens();
+      await tokenMonitorService.checkForInterestingTokens();
+      elizaLogger.info('[TokenMonitorClient] Prefetching complete');
+    }
+
     return this;
   }
 

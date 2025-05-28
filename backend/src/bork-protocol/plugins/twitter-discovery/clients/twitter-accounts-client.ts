@@ -67,6 +67,18 @@ export class TwitterAccountsClient implements Client, ClientInstance {
       config,
       discoveryConfig,
     );
+
+    if (discoveryConfig.shouldPrefetch) {
+      elizaLogger.info('[TwitterAccountsClient] Prefetching...');
+      await this.monitorTargetAccounts(
+        runtime,
+        analysisQueueService,
+        twitterService,
+        config,
+        discoveryConfig,
+      );
+      elizaLogger.info('[TwitterAccountsClient] Prefetching complete');
+    }
     return this;
   }
 

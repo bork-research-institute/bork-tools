@@ -66,6 +66,17 @@ export class TwitterSearchClient implements Client, ClientInstance {
       config,
       characterConfig,
     );
+    if (characterConfig.shouldPrefetch) {
+      elizaLogger.info('[TwitterSearchClient] Prefetching...');
+      await this.engageWithSearchTerms(
+        runtime,
+        analysisQueueService,
+        twitterService,
+        config,
+        characterConfig,
+      );
+      elizaLogger.info('[TwitterSearchClient] Prefetching complete');
+    }
     return this;
   }
 
