@@ -29,7 +29,10 @@ export function ChainStats() {
   }
 
   return (
-    <div className="flex items-center space-x-3">
+    <div
+      className="flex items-center space-x-4 text-xs"
+      data-tutorial="chain-stats"
+    >
       <div className="flex items-center space-x-1.5">
         <Image
           src="/assets/solana-logo.png"

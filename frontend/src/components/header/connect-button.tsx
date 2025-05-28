@@ -27,19 +27,23 @@ export function ConnectButton({ onError, disabled }: Props) {
   }
 
   return (
-    <Button
-      className="flex w-48 items-center justify-center space-x-1.5 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-1.5 text-xs text-white transition-all duration-200 hover:bg-emerald-400/20"
-      type="button"
-      onClick={() => {
-        if (connected) {
-          disconnect();
-          signOut();
-        }
-      }}
-      disabled={disabled}
-    >
-      <Wallet className="h-3.5 w-3.5" />
-      <span>{connected && publicKey && trimAddress(publicKey.toString())}</span>
-    </Button>
+    <div className="flex items-center space-x-2" data-tutorial="wallet-connect">
+      <Button
+        className="flex w-48 items-center justify-center space-x-1.5 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-1.5 text-xs text-white transition-all duration-200 hover:bg-emerald-400/20"
+        type="button"
+        onClick={() => {
+          if (connected) {
+            disconnect();
+            signOut();
+          }
+        }}
+        disabled={disabled}
+      >
+        <Wallet className="h-3.5 w-3.5" />
+        <span>
+          {connected && publicKey && trimAddress(publicKey.toString())}
+        </span>
+      </Button>
+    </div>
   );
 }

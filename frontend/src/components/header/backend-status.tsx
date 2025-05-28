@@ -50,7 +50,10 @@ export function BackendStatus() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild={true}>
-          <div className="flex items-center space-x-2 px-2 py-1">
+          <div
+            className="flex items-center space-x-2 px-2 py-1"
+            data-tutorial="agent-status"
+          >
             {/* Blinking dot indicator */}
             <div className="relative">
               <div
