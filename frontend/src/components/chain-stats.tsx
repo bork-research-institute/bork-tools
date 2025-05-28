@@ -1,3 +1,5 @@
+'use client';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { getChainStats } from '@/lib/services/defillama';
 import { cn } from '@/lib/utils/cn';
