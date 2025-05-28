@@ -540,11 +540,11 @@ export function TokenInfoPanel({
       {Array.isArray(links) && links.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {links.map((link, idx) => {
-            let keyStr = String(idx); // fallback
+            let keyStr = `link-${idx}`; // Use index as part of the key
             if (typeof link === 'object' && link && 'url' in link) {
-              keyStr = String((link as { url: string }).url || idx);
+              keyStr = `link-${idx}-${(link as { url: string }).url}`;
             } else if (typeof link === 'string') {
-              keyStr = link;
+              keyStr = `link-${idx}-${link}`;
             }
             if (typeof link === 'string') {
               return (
@@ -615,25 +615,28 @@ export function TokenInfoPanel({
       )}
 
       {/* GeckoTerminal Chart */}
-      {lpProgramId && isChartExpanded && (
-        <div className="w-full h-[500px] mb-4">
-          <iframe
-            height="100%"
-            width="100%"
-            id="geckoterminal-embed"
-            title="GeckoTerminal Embed"
-            src={`https://www.geckoterminal.com/solana/pools/${lpProgramId}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=15m`}
-            frameBorder="0"
-            allow="clipboard-write"
-            allowFullScreen={true}
-            className="rounded-lg"
-          />
+      {isChartExpanded && lpProgramId && (
+        <div className="w-full h-[500px] mb-4 relative z-10 bg-black/20">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <iframe
+              height="100%"
+              width="100%"
+              id="geckoterminal-embed"
+              title="GeckoTerminal Embed"
+              src={`https://www.geckoterminal.com/solana/pools/${lpProgramId}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=15m`}
+              frameBorder="0"
+              allow="clipboard-write"
+              allowFullScreen={true}
+              className="rounded-lg bg-white"
+              style={{ minHeight: '500px' }}
+            />
+          </div>
         </div>
       )}
 
       {/* Bundle Analysis Section */}
       {bundleAnalysis.length > 0 && (
-        <div className="mt-4 p-3 bg-white/5 rounded">
+        <div className="mt-4 p-3 bg-white/5 rounded relative z-0">
           <h3 className="text-sm font-semibold text-emerald-400 mb-2">
             Bundle Analysis
           </h3>
