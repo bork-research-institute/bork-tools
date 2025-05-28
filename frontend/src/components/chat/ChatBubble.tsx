@@ -1,18 +1,19 @@
 'use client';
-import { postMessage } from '@/lib/services/post-message';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { Send } from 'lucide-react';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
-import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
-import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '../ui/tooltip';
+} from '@/components/ui/tooltip';
+import { useBackendStatus } from '@/hooks/use-backend-status';
+import { postMessage } from '@/lib/services/post-message';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Send } from 'lucide-react';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 interface Message {
   id: string;
@@ -22,12 +23,38 @@ interface Message {
 }
 
 export function ChatBubble() {
+  const {
+    data: backendStatus,
+    isError: isBackendError,
+    isLoading: isBackendLoading,
+  } = useBackendStatus();
   const { publicKey } = useWallet();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  // Check if backend is available
+  const isBackendAvailable =
+    !isBackendError && !isBackendLoading && backendStatus?.status === 'ok';
+
+  // Determine if chat should be disabled
+  const isChatDisabled = !publicKey || !isBackendAvailable;
+
+  // Get tooltip message based on current state
+  const getTooltipMessage = () => {
+    if (!publicKey) {
+      return 'Connect your wallet to chat with Bork.';
+    }
+    if (isBackendLoading) {
+      return 'Checking agent status...';
+    }
+    if (isBackendError || !isBackendAvailable) {
+      return 'Agent is currently offline. Please try again later.';
+    }
+    return 'Chat with Bork';
+  };
 
   useEffect(() => {
     if (isOpen && !hasShownWelcome) {
@@ -78,7 +105,27 @@ export function ChatBubble() {
         <div className="fixed bottom-4 right-4 z-50">
           <Tooltip>
             <TooltipTrigger asChild={true}>
-              {publicKey ? (
+              {isChatDisabled ? (
+                <span className="inline-block pointer-events-auto">
+                  <Button
+                    aria-label={getTooltipMessage()}
+                    className="rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible pointer-events-none opacity-50"
+                    disabled={true}
+                    aria-disabled={true}
+                    tabIndex={-1}
+                  >
+                    <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md" />
+                    <div className="absolute inset-0 rounded-full overflow-hidden">
+                      <Image
+                        src="/assets/Borksticker.webp"
+                        alt="Bork"
+                        fill={true}
+                        className="object-cover grayscale"
+                      />
+                    </div>
+                  </Button>
+                </span>
+              ) : (
                 <Button
                   aria-label="Open chat"
                   className="rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible"
@@ -94,35 +141,15 @@ export function ChatBubble() {
                     />
                   </div>
                 </Button>
-              ) : (
-                <span className="inline-block pointer-events-auto">
-                  <Button
-                    aria-label="Connect your wallet to chat with Bork."
-                    className="rounded-full h-16 w-16 p-0 mr-4 mb-4 shadow-lg overflow-visible pointer-events-none"
-                    disabled={true}
-                    aria-disabled={true}
-                    tabIndex={-1}
-                  >
-                    <div className="absolute inset-[-8px] rounded-full bg-gray-500/50 blur-md animate-pulse" />
-                    <div className="absolute inset-0 rounded-full overflow-hidden">
-                      <Image
-                        src="/assets/Borksticker.webp"
-                        alt="Bork"
-                        fill={true}
-                        className="object-cover"
-                      />
-                    </div>
-                  </Button>
-                </span>
               )}
             </TooltipTrigger>
-            {!publicKey && (
+            {isChatDisabled && (
               <TooltipContent
                 side="top"
                 align="center"
                 className="bg-black text-white border border-white/10 z-[9999]"
               >
-                Connect your wallet to chat with Bork.
+                {getTooltipMessage()}
               </TooltipContent>
             )}
           </Tooltip>

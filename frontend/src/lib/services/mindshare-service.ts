@@ -57,8 +57,6 @@ export const mindshareService = {
   async getTopicWeights(
     filters?: TopicWeightFilters,
   ): Promise<TopicWeightWithChange[]> {
-    console.log('Fetching topic weights with filters:', filters);
-
     let query = supabaseClient
       .from('topic_weights')
       .select('*')
@@ -66,10 +64,6 @@ export const mindshareService = {
 
     // Apply timeframe filter if provided
     if (filters?.timeframe) {
-      console.log('Applying timeframe filter:', {
-        start: filters.timeframe.start.toISOString(),
-        end: filters.timeframe.end.toISOString(),
-      });
       query = query
         .gte('created_at', filters.timeframe.start.toISOString())
         .lte('created_at', filters.timeframe.end.toISOString());
@@ -77,11 +71,8 @@ export const mindshareService = {
 
     // Apply sentiment filter if provided
     if (filters?.sentiment && filters.sentiment.length > 0) {
-      console.log('Applying sentiment filter:', filters.sentiment);
       query = query.in('sentiment', filters.sentiment);
     }
-
-    console.log('Executing Supabase query...');
     const { data: rawData, error } = await query;
 
     if (error) {
@@ -90,11 +81,8 @@ export const mindshareService = {
     }
 
     if (!rawData) {
-      console.log('No data returned from query');
       return [];
     }
-
-    console.log(`Retrieved ${rawData.length} raw topic weights`);
 
     // Group by topic and time period
     const topicGroups = rawData.reduce<Record<string, TopicWeight[]>>(
@@ -106,10 +94,6 @@ export const mindshareService = {
         return acc;
       },
       {},
-    );
-
-    console.log(
-      `Grouped into ${Object.keys(topicGroups).length} unique topics`,
     );
 
     // Calculate engagement scores and mindshare percentages
@@ -182,15 +166,6 @@ export const mindshareService = {
       };
 
       return result;
-    });
-
-    console.log('Processed data summary:', {
-      totalItems: processedData.length,
-      sampleScores: processedData.slice(0, 3).map((d) => ({
-        topic: d.topic,
-        score: d.engagement_score,
-        change: d.percentage_change,
-      })),
     });
 
     // Sort by engagement score in descending order

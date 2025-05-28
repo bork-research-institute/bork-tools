@@ -352,13 +352,6 @@ export function MarketStatsPanel({
     return value;
   };
 
-  // Add debug logging to see what data we're getting
-  useEffect(() => {
-    if (dexData.size > 0) {
-      console.log('DexScreener data:', Array.from(dexData.entries()));
-    }
-  }, [dexData]);
-
   // Always render the header row (controls)
   return (
     <Panel maxHeight={maxHeight}>

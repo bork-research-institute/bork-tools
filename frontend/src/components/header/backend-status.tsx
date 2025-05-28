@@ -1,14 +1,14 @@
 'use client';
 
-import { useBackendStatus } from '@/hooks/use-backend-status';
-import { cn } from '@/lib/utils';
-import { Activity, AlertCircle, CheckCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '../ui/tooltip';
+} from '@/components/ui/tooltip';
+import { useBackendStatus } from '@/hooks/use-backend-status';
+import { cn } from '@/lib/utils';
+import { Activity, AlertCircle, CheckCircle } from 'lucide-react';
 
 export function BackendStatus() {
   const { data, isLoading, isError, error } = useBackendStatus();

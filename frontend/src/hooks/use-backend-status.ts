@@ -25,9 +25,10 @@ export function useBackendStatus() {
 
       return response.json();
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 20000, // Consider data stale after 20 seconds
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    staleTime: 90 * 1000, // Consider data stale after 90 seconds
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    placeholderData: (previousData) => previousData,
   });
 }
