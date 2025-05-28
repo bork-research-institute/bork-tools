@@ -1,17 +1,14 @@
 import {
   InvalidSignatureError,
   NotEnoughBorkTokensError,
-  TokenBalanceError,
 } from '@/lib/errors/auth-error';
+import { checkTokenBalance } from '@/lib/utils/check-token-balance';
+import { isWhitelisted } from '@/lib/utils/whitelist';
 import { signInSchema } from '@/lib/validators/signin-schema';
-import { stakerSchema } from '@/lib/validators/staker-schema';
 import bs58 from 'bs58';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import nacl from 'tweetnacl';
-
-// Minimum required $BORK tokens for access
-const MIN_BORK_REQUIRED = 100_000_000;
 
 export const { signIn, signOut, auth, handlers } = NextAuth({
   providers: [
@@ -52,27 +49,22 @@ export const { signIn, signOut, auth, handlers } = NextAuth({
             throw new InvalidSignatureError('invalid_signature');
           }
 
-          // Check if user has enough $BORK tokens
-          const response = await fetch(
-            `https://bork-tools.vercel.app/api/stakers/${address}`,
-          );
-
-          if (!response.ok) {
-            console.error('Failed to fetch staker data:', response.statusText);
-            throw new TokenBalanceError('insufficient_tokens_fetch_error');
+          // If user is whitelisted, return early
+          if (isWhitelisted(address)) {
+            return {
+              id: address,
+            };
           }
+          // Check if user has enough $BORK tokens
+          const hasEnoughTokens = await checkTokenBalance(address);
 
-          const data = await response.json();
-          const stakerData = stakerSchema.parse(data);
-
-          if (stakerData.total < MIN_BORK_REQUIRED) {
+          if (!hasEnoughTokens) {
             console.error('User does not have enough $BORK tokens');
             throw new NotEnoughBorkTokensError('insufficient_tokens');
           }
 
           return {
             id: address,
-            tokens: stakerData.total,
           };
         } catch (error) {
           console.error(error);
