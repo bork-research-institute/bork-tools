@@ -1,3 +1,5 @@
+'use client';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { getChainStats } from '@/lib/services/defillama';
 import { cn } from '@/lib/utils/cn';
@@ -27,7 +29,10 @@ export function ChainStats() {
   }
 
   return (
-    <div className="flex items-center space-x-3">
+    <div
+      className="flex items-center space-x-4 text-xs"
+      data-tutorial="chain-stats"
+    >
       <div className="flex items-center space-x-1.5">
         <Image
           src="/assets/solana-logo.png"

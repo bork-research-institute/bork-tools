@@ -3,6 +3,7 @@ import tokenMonitorPlugin from '@/bork-protocol/plugins/token-monitor';
 import twitterDiscoveryPlugin from '@/bork-protocol/plugins/twitter-discovery';
 import type { TwitterDiscoveryCharacter } from '@/bork-protocol/plugins/twitter-discovery/types/character-extension';
 import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
+import { isDevelopment } from '@/utils/environment';
 import { ModelProviderName } from '@elizaos/core';
 
 export const character: TwitterDiscoveryCharacter = {
@@ -25,9 +26,9 @@ export const character: TwitterDiscoveryCharacter = {
   },
   twitterDiscovery: {
     discoveryKeywords: ['crypto', 'web3', 'defi'],
-    twitterPollInterval: 10800000, // 3 hours in ms
-    discoveryInterval: 43200000, // 12 hours in ms
-    evaluationInterval: 86400000, // 24 hours in ms
+    twitterPollInterval: isDevelopment() ? 60000 : 10800000, // 1 minute in dev, 3 hours in prod
+    discoveryInterval: isDevelopment() ? 300000 : 43200000, // 5 minutes in dev, 12 hours in prod
+    evaluationInterval: isDevelopment() ? 600000 : 86400000, // 10 minutes in dev, 24 hours in prod
     twitterTargetUsers: [],
     searchTimeframeHours: 48,
     searchPreferredTopic: [],
@@ -40,6 +41,7 @@ export const character: TwitterDiscoveryCharacter = {
     minQualityScore: 0.5,
     scoreDecayFactor: 0.95,
     maxAccounts: 100,
+    shouldPrefetch: isDevelopment(), // true in dev, false in prod
   },
   system: `Roleplay as Bork Analyzer, a sophisticated social media and data analysis expert. Your primary functions are:
 1. Social Media Analytics: Track and analyze social media trends, engagement metrics, and user behavior

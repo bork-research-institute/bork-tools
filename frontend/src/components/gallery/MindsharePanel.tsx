@@ -257,27 +257,6 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   const [timeFrame, setTimeFrame] = useState<string>('24h');
   const [selectedData, setSelectedData] = useState<TreemapData | null>(null);
 
-  // Debug logging for state changes
-  useEffect(() => {
-    console.log('MindsharePanel state:', {
-      loading,
-      error,
-      treemapRectsCount: treemapRects.length,
-      searchQuery,
-      debouncedSearch,
-      timeFrame,
-      selectedData: selectedData?.topic,
-    });
-  }, [
-    loading,
-    error,
-    treemapRects,
-    searchQuery,
-    debouncedSearch,
-    timeFrame,
-    selectedData,
-  ]);
-
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -290,7 +269,6 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching mindshare data...');
         setLoading(true);
 
         // Calculate timeframe dates
@@ -298,13 +276,6 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
         const start = new Date();
         const timeFrameValue = timeFrame.replace(/[^0-9]/g, '');
         const timeFrameUnit = timeFrame.replace(/[0-9]/g, '');
-
-        console.log('Timeframe params:', {
-          timeFrameValue,
-          timeFrameUnit,
-          start,
-          end,
-        });
 
         switch (timeFrameUnit) {
           case 'h':
@@ -322,8 +293,6 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           timeframe: { start, end },
         });
 
-        console.log('Raw mindshare data:', data);
-
         // Filter by search query if present
         const filteredData = debouncedSearch
           ? data.filter((item) =>
@@ -331,14 +300,10 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
             )
           : data;
 
-        console.log('Filtered data count:', filteredData.length);
-
         const totalEngagementScore = filteredData.reduce(
           (sum, item) => sum + item.engagement_score,
           0,
         );
-
-        console.log('Total engagement score:', totalEngagementScore);
 
         // Create a Map to keep only unique topics with their latest data
         const uniqueTopics = new Map();
@@ -363,22 +328,11 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
           .sort((a, b) => b.value - a.value)
           .slice(0, 25);
 
-        console.log('Processed data:', {
-          uniqueTopicsCount: uniqueTopics.size,
-          processedDataCount: processedData.length,
-          firstItem: processedData[0],
-        });
-
         // Define container dimensions
         const container = { x0: 0, y0: 0, x1: 100, y1: 100 };
 
         // Generate treemap layout
         const layout = squarify<TreemapData>(processedData, container);
-
-        console.log('Treemap layout:', {
-          layoutCount: layout.length,
-          firstRect: layout[0],
-        });
 
         setTreemapRects(layout);
       } catch (err) {
@@ -414,13 +368,8 @@ export function MindsharePanel({ maxHeight }: MindsharePanelProps) {
   };
 
   const handleRectClick = (rect: TreemapData) => {
-    console.log('Clicked rect:', rect);
     setSelectedData(rect);
   };
-
-  useEffect(() => {
-    console.log('Selected data updated:', selectedData);
-  }, [selectedData]);
 
   if (loading) {
     return (

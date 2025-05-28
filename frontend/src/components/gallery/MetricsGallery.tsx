@@ -1,4 +1,6 @@
 'use client';
+import { OnboardingTutorial } from '@/components/tutorial/onboarding-tutorial';
+import { useTutorial } from '@/hooks/use-tutorial';
 import { PANEL_HEIGHT } from '@/lib/config/metrics';
 import type { UserRelationship } from '@/lib/services/relationships';
 import { relationshipsService } from '@/lib/services/relationships';
@@ -51,6 +53,7 @@ interface MetricsGalleryState {
 }
 
 export function MetricsGallery() {
+  const { isTutorialOpen, closeTutorial } = useTutorial();
   const [state, setState] = useState<MetricsGalleryState>({
     tokenAddress: '',
     isDialogOpen: false,
@@ -509,7 +512,10 @@ export function MetricsGallery() {
         <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/5" />
 
         {/* Left Column - Market (8/12 = 2/3 width) */}
-        <div className="col-span-8 flex flex-col min-h-0">
+        <div
+          className="col-span-8 flex flex-col min-h-0"
+          data-tutorial="market-section"
+        >
           <Tabs
             defaultValue="trending"
             className="flex-1 flex flex-col min-h-0"
@@ -566,7 +572,10 @@ export function MetricsGallery() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                <TabsList className="bg-transparent">
+                <TabsList
+                  className="bg-transparent"
+                  data-tutorial="market-tabs"
+                >
                   <TabsTrigger
                     value="trending"
                     className="text-xs text-white/60 data-[state=active]:text-white data-[state=active]:bg-white/50 lowercase tracking-wide font-display"
@@ -608,6 +617,7 @@ export function MetricsGallery() {
                       maximizedPanel: 'market',
                     }))
                   }
+                  data-tutorial="maximize-button"
                 >
                   <Maximize2 className="h-3 w-3" />
                 </Button>
@@ -615,7 +625,10 @@ export function MetricsGallery() {
             </div>
             <div className="flex-1 min-h-0">
               <TabsContent value="trending" className="h-full overflow-auto">
-                <div className="h-full overflow-auto">
+                <div
+                  className="h-full overflow-auto"
+                  data-tutorial="token-list"
+                >
                   <MarketStatsPanel
                     tokenSnapshots={state.tokensWithEngagement}
                     timeframe={timeframe}
@@ -659,7 +672,10 @@ export function MetricsGallery() {
         </div>
 
         {/* Right Column - Tweets (4/12 = 1/3 width) */}
-        <div className="col-span-4 flex flex-col min-h-0">
+        <div
+          className="col-span-4 flex flex-col min-h-0"
+          data-tutorial="tweets-section"
+        >
           <Tabs
             value={state.activeRightTab}
             onValueChange={(value) => {
@@ -681,7 +697,10 @@ export function MetricsGallery() {
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <TabsList className="bg-transparent">
+                <TabsList
+                  className="bg-transparent"
+                  data-tutorial="tweets-tabs"
+                >
                   {state.selectedToken && (
                     <TabsTrigger
                       value="tokenTweets"
@@ -759,6 +778,9 @@ export function MetricsGallery() {
           </Tabs>
         </div>
       </div>
+
+      {/* Tutorial Component */}
+      <OnboardingTutorial isOpen={isTutorialOpen} onClose={closeTutorial} />
     </div>
   );
 }

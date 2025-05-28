@@ -15,4 +15,5 @@ export interface TwitterDiscoveryConfig {
   discoveryInterval: number;
   evaluationInterval: number;
   accountsPerDiscovery: number;
+  shouldPrefetch: boolean;
 }

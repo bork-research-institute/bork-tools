@@ -107,7 +107,7 @@ export class TwitterRequestService {
 
         return searchResults;
       } catch (error) {
-        elizaLogger.error(`${context} Error fetching search tweets:`, error);
+        elizaLogger.error(`${context} Error fetching search tweets: ${error}`);
         throw error;
       }
     }, context);

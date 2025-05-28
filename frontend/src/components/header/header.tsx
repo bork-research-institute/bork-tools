@@ -1,5 +1,7 @@
 import { ChainStats } from '@/components/chain-stats';
+import { BackendStatus } from '@/components/header/backend-status';
 import { ConnectButton } from '@/components/header/connect-button';
+import { TutorialButton } from '@/components/header/tutorial-button';
 import { Egg } from 'lucide-react';
 import Link from 'next/link';
 
@@ -22,6 +24,8 @@ export function Header() {
           </div>
           <div className="flex items-center space-x-3">
             <ChainStats />
+            <BackendStatus />
+            <TutorialButton />
             <ConnectButton />
           </div>
         </div>

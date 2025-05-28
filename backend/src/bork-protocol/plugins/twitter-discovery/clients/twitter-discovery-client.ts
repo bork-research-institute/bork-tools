@@ -54,6 +54,13 @@ export class TwitterDiscoveryClient implements Client, ClientInstance {
       characterConfig.evaluationInterval,
     );
 
+    if (characterConfig.shouldPrefetch) {
+      elizaLogger.info('[TwitterDiscoveryClient] Prefetching...');
+      await this.runDiscoveryCycle(discoveryService, config, characterConfig);
+      await this.runEvaluationCycle(discoveryService, config);
+      elizaLogger.info('[TwitterDiscoveryClient] Prefetching complete');
+    }
+
     elizaLogger.info(
       '[TwitterDiscoveryClient] Account discovery client started',
     );
