@@ -226,7 +226,7 @@ export function RelationshipsPanel({
         </div>
         <div ref={containerRef} className="h-[calc(100%-3rem)]">
           <ForceGraph2D
-            ref={graphRef}
+            ref={graphRef as React.RefObject<ForceGraph2D>}
             graphData={graphData}
             nodeLabel="id"
             // @ts-ignore - enableNodeDrag exists but type is not properly defined
