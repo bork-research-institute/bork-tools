@@ -1,9 +1,4 @@
-import {
-  InvalidSignatureError,
-  NotEnoughBorkTokensError,
-} from '@/lib/errors/auth-error';
-import { checkTokenBalance } from '@/lib/utils/check-token-balance';
-import { isWhitelisted } from '@/lib/utils/whitelist';
+import { InvalidSignatureError } from '@/lib/errors/auth-error';
 import { signInSchema } from '@/lib/validators/signin-schema';
 import bs58 from 'bs58';
 import NextAuth from 'next-auth';
@@ -47,20 +42,6 @@ export const { signIn, signOut, auth, handlers } = NextAuth({
           if (!result) {
             console.error('Invalid signature', address);
             throw new InvalidSignatureError('invalid_signature');
-          }
-
-          // If user is whitelisted, return early
-          if (isWhitelisted(address)) {
-            return {
-              id: address,
-            };
-          }
-          // Check if user has enough $BORK tokens
-          const hasEnoughTokens = await checkTokenBalance(address);
-
-          if (!hasEnoughTokens) {
-            console.error('User does not have enough $BORK tokens');
-            throw new NotEnoughBorkTokensError('insufficient_tokens');
           }
 
           return {
