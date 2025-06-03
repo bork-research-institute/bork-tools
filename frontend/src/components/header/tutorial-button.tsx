@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useTutorial } from '@/hooks/use-tutorial';
+import { useTutorial } from '@/contexts/tutorial-context';
 import { HelpCircle } from 'lucide-react';
 
 export function TutorialButton() {

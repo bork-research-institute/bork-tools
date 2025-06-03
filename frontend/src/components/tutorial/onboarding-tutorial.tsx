@@ -1,17 +1,11 @@
 'use client';
 
+import { useTutorial } from '@/contexts/tutorial-context';
 import { useEffect, useState } from 'react';
 import Joyride, { type CallBackProps, STATUS, type Step } from 'react-joyride';
 
-interface OnboardingTutorialProps {
-  isOpen: boolean;
-  onClose: (wasSkipped: boolean) => void;
-}
-
-export function OnboardingTutorial({
-  isOpen,
-  onClose,
-}: OnboardingTutorialProps) {
+export function OnboardingTutorial() {
+  const { isTutorialOpen, closeTutorial } = useTutorial();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
@@ -31,6 +25,9 @@ export function OnboardingTutorial({
       ),
       placement: 'center',
       disableBeacon: true,
+      // This is because the skip button is not working on the first step, known issue:
+      // https://github.com/gilbarbara/react-joyride/issues/1121
+      showSkipButton: false,
     },
     {
       target: '[data-tutorial="agent-status"]',
@@ -182,7 +179,7 @@ export function OnboardingTutorial({
     if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
       const wasSkipped = status === STATUS.SKIPPED;
       setStepIndex(0);
-      onClose(wasSkipped);
+      closeTutorial(wasSkipped);
     } else if (type === 'step:after') {
       setStepIndex(index + 1);
     }
@@ -190,18 +187,20 @@ export function OnboardingTutorial({
 
   // Reset step index when tutorial opens
   useEffect(() => {
-    if (isOpen) {
+    if (isTutorialOpen) {
       setStepIndex(0);
     }
-  }, [isOpen]);
+  }, [isTutorialOpen]);
 
   return (
     <Joyride
       steps={steps}
-      run={isOpen}
+      run={isTutorialOpen}
       stepIndex={stepIndex}
       continuous={true}
       showProgress={true}
+      disableCloseOnEsc={true}
+      hideCloseButton={true}
       showSkipButton={true}
       callback={handleJoyrideCallback}
       styles={{
@@ -271,7 +270,7 @@ export function OnboardingTutorial({
       //   floaterProps={{
       //     disableAnimation: false,
       //   }}
-      disableOverlayClose={false}
+      disableOverlayClose={true}
       disableScrollParentFix={true}
       spotlightClicks={true}
       spotlightPadding={8}

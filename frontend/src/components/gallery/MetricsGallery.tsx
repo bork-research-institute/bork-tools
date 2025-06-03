@@ -1,6 +1,5 @@
 'use client';
 import { OnboardingTutorial } from '@/components/tutorial/onboarding-tutorial';
-import { useTutorial } from '@/hooks/use-tutorial';
 import { PANEL_HEIGHT } from '@/lib/config/metrics';
 import type { UserRelationship } from '@/lib/services/relationships';
 import { relationshipsService } from '@/lib/services/relationships';
@@ -53,7 +52,6 @@ interface MetricsGalleryState {
 }
 
 export function MetricsGallery() {
-  const { isTutorialOpen, closeTutorial } = useTutorial();
   const [state, setState] = useState<MetricsGalleryState>({
     tokenAddress: '',
     isDialogOpen: false,
@@ -779,8 +777,7 @@ export function MetricsGallery() {
         </div>
       </div>
 
-      {/* Tutorial Component */}
-      <OnboardingTutorial isOpen={isTutorialOpen} onClose={closeTutorial} />
+      <OnboardingTutorial />
     </div>
   );
 }

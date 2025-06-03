@@ -3,10 +3,16 @@
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 export function SurveyBanner() {
   const [isVisible, setIsVisible] = useState(true);
+  const pathname = usePathname();
+
+  if (pathname === '/login') {
+    return null;
+  }
 
   if (!isVisible) {
     return null;
