@@ -44,6 +44,25 @@ export function OnboardingTutorial() {
       placement: 'bottom',
     },
     {
+      target: '[data-tutorial="chat-button"]',
+      content: (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-white">
+            Chat with Bork 💬
+          </h3>
+          <p className="text-sm text-white/80">
+            Click here to chat directly with our AI agent! Ask questions about
+            market trends, token analysis, or get insights on specific projects.
+          </p>
+          <p className="text-xs text-white/60 bg-white/10 rounded p-2 mt-2">
+            <strong>Note:</strong> Chat access requires holding at least 100M
+            $BORK tokens.
+          </p>
+        </div>
+      ),
+      placement: 'left',
+    },
+    {
       target: '[data-tutorial="market-section"]',
       content: (
         <div className="space-y-3">
@@ -231,16 +250,6 @@ export function OnboardingTutorial() {
           border: 'none',
           cursor: 'pointer',
         },
-        buttonBack: {
-          color: '#ffffff',
-          marginRight: 10,
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          backgroundColor: 'transparent',
-          borderRadius: 6,
-          padding: '8px 16px',
-          fontSize: '14px',
-          cursor: 'pointer',
-        },
         buttonSkip: {
           color: '#ffffff',
           backgroundColor: 'transparent',
@@ -270,6 +279,7 @@ export function OnboardingTutorial() {
       //   floaterProps={{
       //     disableAnimation: false,
       //   }}
+      hideBackButton={true}
       disableOverlayClose={true}
       disableScrollParentFix={true}
       spotlightClicks={true}
