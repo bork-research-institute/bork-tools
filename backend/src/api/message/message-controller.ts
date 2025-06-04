@@ -1,5 +1,8 @@
-import { errorResponseSchema } from '@api/error-response';
+import { error403ResponseSchema } from '@/api/validators/403-error';
+import { errorResponseSchema } from '@/api/validators/error-response';
+import { tokenValidationMiddleware } from '@/middleware/token-validation-middleware';
 import { messageRequestSchema } from '@api/message/message-request';
+import type { MessageRequest } from '@api/message/message-request';
 import { messageResponseSchema } from '@api/message/message-response';
 import type { MessageService } from '@api/message/message-service';
 import { elizaLogger } from '@elizaos/core';
@@ -15,7 +18,7 @@ export class MessageController {
   public setupRoutes(app: Elysia): void {
     app.post(
       '/message',
-      async ({ body }) => {
+      async ({ body }: { body: MessageRequest }) => {
         try {
           elizaLogger.info(
             `[MessageController] Message endpoint called for agent ${body.agentId}`,
@@ -38,9 +41,11 @@ export class MessageController {
         }
       },
       {
+        beforeHandle: tokenValidationMiddleware,
         body: messageRequestSchema,
         response: {
           200: t.Array(messageResponseSchema),
+          403: error403ResponseSchema,
           500: errorResponseSchema,
         },
       },

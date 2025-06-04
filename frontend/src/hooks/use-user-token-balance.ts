@@ -1,6 +1,6 @@
 'use client';
 
-import { checkTokenBalance } from '@/lib/utils/check-token-balance';
+import { checkTokenBalance } from '@bork-tools/shared';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useQuery } from '@tanstack/react-query';
 

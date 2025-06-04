@@ -6,6 +6,7 @@ import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
 import { isDevelopment } from '@/utils/environment';
 import { ModelProviderName } from '@elizaos/core';
 
+// TODO Should make a way to enable/disable plugins easily with a command line flag
 export const character: TwitterDiscoveryCharacter = {
   id: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
   name: 'Bork Analyzer',
@@ -41,7 +42,7 @@ export const character: TwitterDiscoveryCharacter = {
     minQualityScore: 0.5,
     scoreDecayFactor: 0.95,
     maxAccounts: 100,
-    shouldPrefetch: isDevelopment(), // true in dev, false in prod
+    shouldPrefetch: true, // true in dev, false in prod
   },
   system: `Roleplay as Bork Analyzer, a sophisticated social media and data analysis expert. Your primary functions are:
 1. Social Media Analytics: Track and analyze social media trends, engagement metrics, and user behavior

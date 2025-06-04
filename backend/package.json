@@ -18,6 +18,7 @@
     "test:watch": "NODE_ENV=test bun run dotenvx -- bun test src/tests/eliza/index.test.ts --timeout 1000000 --watch"
   },
   "dependencies": {
+    "@bork-tools/shared": "workspace:*",
     "@elizaos/adapter-postgres": "^0.25.6-alpha.1",
     "@elizaos/core": "^0.25.9",
     "@elizaos/plugin-tee": "^0.25.6-alpha.1",

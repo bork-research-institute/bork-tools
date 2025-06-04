@@ -1,10 +1,10 @@
+import { errorResponseSchema } from '@/api/validators/error-response';
 import {
   type BalanceRequest,
   balanceRequestSchema,
 } from '@api/balance/balance-request';
 import { balanceResponseSchema } from '@api/balance/balance-response';
 import type { BalanceService } from '@api/balance/balance-service';
-import { errorResponseSchema } from '@api/error-response';
 import { elizaLogger } from '@elizaos/core';
 import type { Elysia } from 'elysia';
 
