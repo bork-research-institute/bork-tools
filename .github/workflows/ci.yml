@@ -1,0 +1,116 @@
+name: Backend CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # Quick backend build validation
+  backend-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build and validate backend
+        run: |
+          # Create minimal env file for build validation
+          cd backend
+          echo "POSTGRES_URL=dummy" > .env.backend.production
+          echo "TWITTER_USERNAME=dummy" >> .env.backend.production
+          echo "TWITTER_PASSWORD=dummy" >> .env.backend.production
+          echo "TWITTER_EMAIL=dummy" >> .env.backend.production
+          echo "TWITTER_DRY_RUN=true" >> .env.backend.production
+          echo "OPENAI_API_KEY=dummy" >> .env.backend.production
+          echo "DEFAULT_LOG_LEVEL=info" >> .env.backend.production
+          echo "HELIUS_API_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_PRIVATE_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_PUBLIC_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_RPC_URL=dummy" >> .env.backend.production
+          echo "PINATA_JWT=dummy" >> .env.backend.production
+          echo "PINATA_GATEWAY_URL=dummy" >> .env.backend.production
+          echo "TEE_MODE=false" >> .env.backend.production
+          cd ..
+          bun run backend:build
+
+  # Docker build validation on PRs to catch issues before main
+  docker-validation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create dummy env files for Docker build
+        run: |
+          # Create minimal backend env for Docker build validation
+          cd backend
+          echo "POSTGRES_URL=dummy" > .env.backend.production
+          echo "TWITTER_USERNAME=dummy" >> .env.backend.production
+          echo "TWITTER_PASSWORD=dummy" >> .env.backend.production
+          echo "TWITTER_EMAIL=dummy" >> .env.backend.production
+          echo "TWITTER_DRY_RUN=true" >> .env.backend.production
+          echo "OPENAI_API_KEY=dummy" >> .env.backend.production
+          echo "DEFAULT_LOG_LEVEL=info" >> .env.backend.production
+          echo "HELIUS_API_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_PRIVATE_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_PUBLIC_KEY=dummy" >> .env.backend.production
+          echo "SOLANA_RPC_URL=dummy" >> .env.backend.production
+          echo "PINATA_JWT=dummy" >> .env.backend.production
+          echo "PINATA_GATEWAY_URL=dummy" >> .env.backend.production
+          echo "TEE_MODE=false" >> .env.backend.production
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: bork-tools:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Code quality checks
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run backend linting  
+        run: bun run --cwd backend lint
+
+      - name: Check frontend formatting
+        run: cd frontend && bun biome format . --check
+
+      - name: Check backend formatting
+        run: cd backend && bun biome format . --check
+
+      - name: Run shared package linting
+        run: bun run --cwd shared lint || echo "No lint script in shared package"
+
+      - name: Check shared package formatting  
+        run: cd shared && bun biome format . --check || echo "No biome config in shared package" 

@@ -49,7 +49,7 @@ COPY shared ./shared/
 # Install dependencies
 RUN bun install --filter "!frontend"
 
-# Build the backend
+# Build the backend and shared
 RUN bun backend:build
 
 # Final runtime image
