@@ -11,9 +11,9 @@
     "start": "NODE_ENV=production bun run dotenvx bun run dist/index.js",
     "start:local": "NODE_ENV=development dotenvx run -f .env.backend.local -f .env.backend.production -fk ../.env.keys -- bun run dist/index.js",
     "test": "NODE_ENV=test bun test",
-    "format": "biome format --write .",
-    "lint": "biome lint --write .",
-    "lint:unsafe": "biome lint --write --unsafe .",
+    "format": "biome format --write --config-path ../biome.json",
+    "lint": "biome lint --write --config-path ../biome.json",
+    "lint:unsafe": "biome lint --write --unsafe --config-path ../biome.json",
     "test:market": "NODE_ENV=test bun run src/plugins/injective-client/test/test-market-analysis.ts",
     "test:watch": "NODE_ENV=test bun run dotenvx -- bun test src/tests/eliza/index.test.ts --timeout 1000000 --watch"
   },

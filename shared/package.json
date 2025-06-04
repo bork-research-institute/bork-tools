@@ -15,8 +15,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "bun test",
-    "lint": "biome check .",
-    "format": "biome format . --write"
+    "lint": "biome check . --config-path ../biome.json",
+    "format": "biome format . --write --config-path ../biome.json"
   },
   "dependencies": {
     "zod": "^3.22.4"

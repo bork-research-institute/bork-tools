@@ -8,8 +8,8 @@
     "build:local": "bun run dotenvx:prod:local next build",
     "build": "bun run dotenvx next build",
     "start": "bun run dotenvx next start",
-    "lint": "biome check .",
-    "format": "biome format . --write"
+    "lint": "biome check . --config-path ../biome.json",
+    "format": "biome format . --write --config-path ../biome.json"
   },
   "dependencies": {
     "@bork-tools/shared": "workspace:*",

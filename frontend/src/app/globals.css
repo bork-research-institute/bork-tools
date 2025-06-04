@@ -5,9 +5,16 @@
 body {
   background-color: #020617;
   color: white;
-  background-image: 
-    radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(52, 211, 153, 0.1) 0%, transparent 50%);
+  background-image: radial-gradient(
+      circle at 50% 50%,
+      rgba(52, 211, 153, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(52, 211, 153, 0.1) 0%,
+      transparent 50%
+    );
 }
 
 /* React Tags container */
