@@ -9,6 +9,7 @@ interface TokenValidationContext extends Context {
   };
 }
 
+// TODO add a way to make sure its not spoofed
 /**
  * Middleware to validate that a user has sufficient BORK tokens
  * @param context - Elysia context containing the request body
