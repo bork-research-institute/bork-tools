@@ -1,0 +1,24 @@
+{
+  "name": "@bork-tools/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "lint": "biome check . --config-path ../biome.json",
+    "format": "biome format . --write --config-path ../biome.json"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}

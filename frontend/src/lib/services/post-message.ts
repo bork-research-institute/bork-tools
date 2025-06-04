@@ -1,14 +1,14 @@
+import { getClientEnv } from '@/lib/config/client-env';
 import getUuidByString from 'uuid-by-string';
-import { getClientEnv } from '../config/client-env';
 
 export async function postMessage(message: string, userPublicKey: string) {
   const messageObject = {
     userId: getUuidByString(userPublicKey),
+    userPublicKey: userPublicKey,
     agentId: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
     text: message,
   };
   const clientEnv = getClientEnv();
-  console.log(clientEnv.NEXT_PUBLIC_BACKEND_URL);
   const response = await fetch(`${clientEnv.NEXT_PUBLIC_BACKEND_URL}/message`, {
     method: 'POST',
     headers: {
@@ -20,6 +20,10 @@ export async function postMessage(message: string, userPublicKey: string) {
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Insufficient token balance');
+    }
     throw new Error('Failed to send message');
   }
 

@@ -2,6 +2,7 @@ import { t } from 'elysia';
 
 export const messageRequestSchema = t.Object({
   userId: t.String(),
+  userPublicKey: t.String(),
   agentId: t.String(),
   text: t.String(),
   roomId: t.Optional(t.String()),

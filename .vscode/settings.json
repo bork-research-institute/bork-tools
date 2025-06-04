@@ -14,13 +14,22 @@
   "[javascript]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
   "[json]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[jsonc]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
   // Disable prettier to avoid conflicts
   "prettier.enable": false,
   "eslint.enable": false,
+  // Biome configuration
+  "biome.enabled": true,
   "search.exclude": {
-    "**/.next": true
+    "**/.next": true,
+    "**/dist": true
   }
-} 
+}

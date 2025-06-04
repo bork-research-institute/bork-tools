@@ -24,6 +24,7 @@ import {
   getEmbeddingConfig,
 } from '@elizaos/core';
 import type {
+  PoolConfig,
   QueryConfig,
   QueryConfigValues,
   QueryResult,
@@ -43,7 +44,7 @@ export class PostgresDatabaseAdapter
   private readonly jitterMax: number = 1000; // 1 second
   private readonly connectionTimeout: number = 5000; // 5 seconds
 
-  constructor(connectionConfig: any) {
+  constructor(connectionConfig: Partial<PoolConfig>) {
     super({
       //circuitbreaker stuff
       failureThreshold: 5,
@@ -108,7 +109,7 @@ export class PostgresDatabaseAdapter
         if (attempt < this.maxRetries) {
           // Calculate delay with exponential backoff
           const backoffDelay = Math.min(
-            this.baseDelay * Math.pow(2, attempt - 1),
+            this.baseDelay * 2 ** (attempt - 1),
             this.maxDelay,
           );
 
@@ -166,7 +167,10 @@ export class PostgresDatabaseAdapter
     }
   }
 
-  async query<R extends QueryResultRow = any, I = any[]>(
+  async query<
+    R extends QueryResultRow = QueryResultRow,
+    I extends unknown[] = unknown[],
+  >(
     queryTextOrConfig: string | QueryConfig<I>,
     values?: QueryConfigValues<I>,
   ): Promise<QueryResult<R>> {
@@ -583,7 +587,10 @@ export class PostgresDatabaseAdapter
     return this.withDatabase(async () => {
       // Build query
       let sql = `SELECT * FROM memories WHERE type = $1 AND "roomId" = $2`;
-      const values: any[] = [params.tableName, params.roomId];
+      const values: (string | UUID | number)[] = [
+        params.tableName,
+        params.roomId,
+      ];
       let paramCount = 2;
 
       // Add time range filters
@@ -657,7 +664,7 @@ export class PostgresDatabaseAdapter
   }): Promise<Goal[]> {
     return this.withDatabase(async () => {
       let sql = `SELECT * FROM goals WHERE "roomId" = $1`;
-      const values: any[] = [params.roomId];
+      const values: (UUID | string | number)[] = [params.roomId];
       let paramCount = 1;
 
       if (params.userId) {
@@ -735,7 +742,7 @@ export class PostgresDatabaseAdapter
 
         elizaLogger.debug('Goal removal attempt:', {
           goalId,
-          removed: result?.rowCount ?? 0 > 0,
+          removed: result?.rowCount && result.rowCount > 0,
         });
       } catch (error) {
         elizaLogger.error('Failed to remove goal:', {
@@ -1150,7 +1157,7 @@ export class PostgresDatabaseAdapter
                 WHERE type = $2
             `;
 
-      const values: any[] = [vectorStr, params.tableName];
+      const values: (string | UUID | number)[] = [vectorStr, params.tableName];
 
       // Log the query for debugging
       elizaLogger.debug('Query debug:', {
@@ -1183,7 +1190,7 @@ export class PostgresDatabaseAdapter
         values.push(params.match_threshold);
       }
 
-      sql += ` ORDER BY embedding <-> $1::vector`;
+      sql += ' ORDER BY embedding <-> $1::vector';
 
       if (params.count) {
         paramCount++;
@@ -1478,7 +1485,7 @@ export class PostgresDatabaseAdapter
   }): Promise<RAGKnowledgeItem[]> {
     return this.withDatabase(async () => {
       let sql = `SELECT * FROM knowledge WHERE ("agentId" = $1 OR "isShared" = true)`;
-      const queryParams: any[] = [params.agentId];
+      const queryParams: (UUID | string | number)[] = [params.agentId];
       let paramCount = 1;
 
       if (params.id) {
@@ -1703,7 +1710,7 @@ export class PostgresDatabaseAdapter
     id: UUID;
     originalId: UUID;
     agentId: UUID | null;
-    content: any;
+    content: Record<string, unknown>;
     embedding: Float32Array | undefined | null;
     chunkIndex: number;
     isShared: boolean;

@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     if (isServer) {
       config.resolve.alias['lru-cache'] = require.resolve('lru-cache');
     }
+
     return config;
   },
 };

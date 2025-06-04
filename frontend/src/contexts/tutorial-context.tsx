@@ -1,10 +1,29 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { track } from '@vercel/analytics';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 const TUTORIAL_STORAGE_KEY = 'eggsight-tutorial-completed';
 
-export function useTutorial() {
+interface TutorialContextType {
+  isTutorialOpen: boolean;
+  hasCompletedTutorial: boolean;
+  startTutorial: () => void;
+  closeTutorial: (wasSkipped?: boolean) => void;
+  resetTutorial: () => void;
+}
+
+const TutorialContext = createContext<TutorialContextType | undefined>(
+  undefined,
+);
+
+export function TutorialProvider({ children }: { children: React.ReactNode }) {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [hasCompletedTutorial, setHasCompletedTutorial] = useState(true); // Default to true to prevent flash
 
@@ -32,11 +51,10 @@ export function useTutorial() {
     localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
     setHasCompletedTutorial(true);
 
-    // Optional: Log analytics about tutorial completion
     if (wasSkipped) {
-      console.log('Tutorial was skipped by user');
+      track('tutorial_skipped');
     } else {
-      console.log('Tutorial was completed by user');
+      track('tutorial_completed');
     }
   }, []);
 
@@ -48,11 +66,25 @@ export function useTutorial() {
     setIsTutorialOpen(true);
   }, []);
 
-  return {
+  const value = {
     isTutorialOpen,
     hasCompletedTutorial,
     startTutorial,
     closeTutorial,
     resetTutorial,
   };
+
+  return (
+    <TutorialContext.Provider value={value}>
+      {children}
+    </TutorialContext.Provider>
+  );
+}
+
+export function useTutorial() {
+  const context = useContext(TutorialContext);
+  if (context === undefined) {
+    throw new Error('useTutorial must be used within a TutorialProvider');
+  }
+  return context;
 }

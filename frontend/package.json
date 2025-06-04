@@ -2,14 +2,17 @@
   "name": "frontend",
   "version": "0.0.1",
   "scripts": {
+    "dotenvx:prod:local": "dotenvx run -f .env.frontend.production -fk ../.env.keys --",
     "dotenvx": "dotenvx run -f .env.frontend.production --",
     "dev": "dotenvx run -f .env.frontend.local -f .env.frontend.production -fk ../.env.keys -- next dev -p 3001",
+    "build:local": "bun run dotenvx:prod:local next build",
     "build": "bun run dotenvx next build",
     "start": "bun run dotenvx next start",
-    "lint": "biome check .",
-    "format": "biome format . --write"
+    "lint": "biome check . --config-path ../biome.json",
+    "format": "biome format . --write --config-path ../biome.json"
   },
   "dependencies": {
+    "@bork-tools/shared": "workspace:*",
     "@radix-ui/react-dialog": "latest",
     "@radix-ui/react-dropdown-menu": "latest",
     "@radix-ui/react-navigation-menu": "latest",

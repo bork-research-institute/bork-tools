@@ -1,10 +1,8 @@
 'use client';
 
 import { ConnectButton } from '@/components/header/connect-button';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { type AuthError, ERROR_MESSAGES } from '@/types/auth';
-import { Coins } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -36,8 +34,8 @@ export function Login() {
             Welcome to Eggsight
           </h1>
           <p className="text-md text-zinc-300">
-            Eggsight is currently in alpha and requires 100M $bork to have
-            access.
+            Eggsight is currently in open alpha. Please connect your wallet to
+            continue.
           </p>
         </div>
 
@@ -55,31 +53,9 @@ export function Login() {
             />
 
             <p className="text-sm text-zinc-400">
-              Connect your wallet and sign in to check eligibility
+              Connect your wallet and sign in to continue.
             </p>
           </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-700" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-black px-2 text-sm text-zinc-500">or</span>
-            </div>
-          </div>
-
-          <Button
-            className="flex w-full items-center justify-center space-x-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-white transition-all duration-200 hover:bg-emerald-400/20"
-            onClick={() =>
-              window.open(
-                'https://raydium.io/swap/?inputMint=sol&outputMint=yzRagkRLnzG3ksiCRpknHNVc1nep6MMS7rKJv8YHGFM',
-                '_blank',
-              )
-            }
-          >
-            <Coins className="h-5 w-5" />
-            <span>Buy $BORK</span>
-          </Button>
         </div>
       </Card>
     </div>

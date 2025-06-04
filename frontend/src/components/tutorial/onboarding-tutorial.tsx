@@ -1,17 +1,11 @@
 'use client';
 
+import { useTutorial } from '@/contexts/tutorial-context';
 import { useEffect, useState } from 'react';
 import Joyride, { type CallBackProps, STATUS, type Step } from 'react-joyride';
 
-interface OnboardingTutorialProps {
-  isOpen: boolean;
-  onClose: (wasSkipped: boolean) => void;
-}
-
-export function OnboardingTutorial({
-  isOpen,
-  onClose,
-}: OnboardingTutorialProps) {
+export function OnboardingTutorial() {
+  const { isTutorialOpen, closeTutorial } = useTutorial();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
@@ -31,6 +25,9 @@ export function OnboardingTutorial({
       ),
       placement: 'center',
       disableBeacon: true,
+      // This is because the skip button is not working on the first step, known issue:
+      // https://github.com/gilbarbara/react-joyride/issues/1121
+      showSkipButton: false,
     },
     {
       target: '[data-tutorial="agent-status"]',
@@ -45,6 +42,25 @@ export function OnboardingTutorial({
         </div>
       ),
       placement: 'bottom',
+    },
+    {
+      target: '[data-tutorial="chat-button"]',
+      content: (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-white">
+            Chat with Bork 💬
+          </h3>
+          <p className="text-sm text-white/80">
+            Click here to chat directly with our AI agent! Ask questions about
+            market trends, token analysis, or get insights on specific projects.
+          </p>
+          <p className="text-xs text-white/60 bg-white/10 rounded p-2 mt-2">
+            <strong>Note:</strong> Chat access requires holding at least 100M
+            $BORK tokens.
+          </p>
+        </div>
+      ),
+      placement: 'left',
     },
     {
       target: '[data-tutorial="market-section"]',
@@ -182,7 +198,7 @@ export function OnboardingTutorial({
     if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
       const wasSkipped = status === STATUS.SKIPPED;
       setStepIndex(0);
-      onClose(wasSkipped);
+      closeTutorial(wasSkipped);
     } else if (type === 'step:after') {
       setStepIndex(index + 1);
     }
@@ -190,18 +206,20 @@ export function OnboardingTutorial({
 
   // Reset step index when tutorial opens
   useEffect(() => {
-    if (isOpen) {
+    if (isTutorialOpen) {
       setStepIndex(0);
     }
-  }, [isOpen]);
+  }, [isTutorialOpen]);
 
   return (
     <Joyride
       steps={steps}
-      run={isOpen}
+      run={isTutorialOpen}
       stepIndex={stepIndex}
       continuous={true}
       showProgress={true}
+      disableCloseOnEsc={true}
+      hideCloseButton={true}
       showSkipButton={true}
       callback={handleJoyrideCallback}
       styles={{
@@ -230,16 +248,6 @@ export function OnboardingTutorial({
           fontSize: '14px',
           fontWeight: '500',
           border: 'none',
-          cursor: 'pointer',
-        },
-        buttonBack: {
-          color: '#ffffff',
-          marginRight: 10,
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          backgroundColor: 'transparent',
-          borderRadius: 6,
-          padding: '8px 16px',
-          fontSize: '14px',
           cursor: 'pointer',
         },
         buttonSkip: {
@@ -271,7 +279,8 @@ export function OnboardingTutorial({
       //   floaterProps={{
       //     disableAnimation: false,
       //   }}
-      disableOverlayClose={false}
+      hideBackButton={true}
+      disableOverlayClose={true}
       disableScrollParentFix={true}
       spotlightClicks={true}
       spotlightPadding={8}
