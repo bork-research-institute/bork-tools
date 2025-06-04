@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
 
+# Add explicit permissions for the workflow
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   # Quick backend build validation
   backend-validation:
@@ -178,19 +184,35 @@ jobs:
             shared/dist/
           retention-days: 7
 
+      - name: Add build info to workflow summary
+        if: env.BACKEND_SIZE
+        run: |
+          echo "## 📦 Build Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend Bundle Size:** \`${{ env.BACKEND_SIZE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Build artifacts are available for download in the workflow summary." >> $GITHUB_STEP_SUMMARY
+
       - name: Comment PR with build info
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request' && env.BACKEND_SIZE
+        continue-on-error: true
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 📦 Build Analysis
-              
-              **Backend Bundle Size:** \`${{ env.BACKEND_SIZE }}\`
-              
-              Build artifacts are available for download in the workflow summary.
-              `
-            })
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📦 Build Analysis
+                
+                **Backend Bundle Size:** \`${{ env.BACKEND_SIZE }}\`
+                
+                Build artifacts are available for download in the workflow summary.
+                `
+              });
+              console.log('Successfully posted PR comment');
+            } catch (error) {
+              console.log('Failed to post PR comment:', error.message);
+              console.log('Build info is available in the workflow summary instead');
+            }
