@@ -10,7 +10,6 @@
         "noImplicitAny": true,
         "skipLibCheck": true,
         "declaration": true,
-        "composite": true,
         "outDir": "./dist",
         "rootDir": "./src",
         "baseUrl": ".",

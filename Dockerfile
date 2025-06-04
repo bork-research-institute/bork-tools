@@ -44,6 +44,7 @@ WORKDIR /app
 COPY package.json ./
 COPY frontend/package.json ./frontend/
 COPY backend ./backend/
+COPY shared ./shared/
 
 # Install dependencies
 RUN bun install --filter "!frontend"
@@ -75,11 +76,13 @@ RUN chmod +x /usr/local/bin/bun
 
 # Copy the built application artifacts from the builder stage
 COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/bun.lock ./bun.lock
 COPY --from=builder /app/package.json ./package.json
 # COPY --from=builder /app/frontend/package.json ./frontend/package.json # Uncomment if frontend package.json needed at runtime
 COPY --from=builder /app/backend/package.json ./backend/package.json
+COPY --from=builder /app/shared/package.json ./shared/package.json
 COPY --from=builder /app/backend/.env.backend.production ./backend/.env.backend.production
 
 # Expose the port the app runs on
