@@ -42,7 +42,7 @@ export const character: TwitterDiscoveryCharacter = {
     minQualityScore: 0.5,
     scoreDecayFactor: 0.95,
     maxAccounts: 100,
-    shouldPrefetch: true, // true in dev, false in prod
+    shouldPrefetch: isDevelopment(), // true in dev, false in prod
   },
   system: `Roleplay as Bork Analyzer, a sophisticated social media and data analysis expert. Your primary functions are:
 1. Social Media Analytics: Track and analyze social media trends, engagement metrics, and user behavior
