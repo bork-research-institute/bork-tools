@@ -1,7 +1,7 @@
 {
   "name": "bork-tools",
   "private": true,
-  "workspaces": ["frontend", "backend", "shared"],
+  "workspaces": ["frontend", "backend", "shared", "landing-page"],
   "scripts": {
     "frontend:dev": "bun run --cwd frontend dev",
     "frontend:build": "bun run shared:build && bun run --cwd frontend build",
@@ -14,6 +14,8 @@
     "backend:test": "bun run --cwd backend test:watch",
     "shared:build": "bun run --cwd shared build",
     "shared:dev": "bun run --cwd shared dev",
+    "landing-page:dev": "bun run --cwd landing-page dev",
+    "landing-page:build": "bun run --cwd landing-page build",
     "build": "bun run shared:build && bun run frontend:build && bun run backend:build",
     "build:local": "bun run shared:build && bun run frontend:build:local && bun run backend:build:local",
     "lint": "bun run --cwd frontend lint && bun run --cwd backend lint && bun run --cwd shared lint",
@@ -23,6 +25,7 @@
     "install:frontend": "bun install --cwd frontend",
     "install:backend": "bun install --cwd backend",
     "install:shared": "bun install --cwd shared",
+    "install:landing-page": "bun install --cwd landing-page",
     "generate:diagrams": "bun run scripts/generate-diagrams.ts"
   },
   "devDependencies": {
