@@ -151,33 +151,33 @@ const LandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#F5B335]/5 to-transparent opacity-50" />
-        <div className="text-center relative z-10">
-          <h1 className="text-6xl font-bogota font-bold mb-8 tracking-wide text-white">
+      <section className="container mx-auto px-4 min-h-screen flex flex-col justify-center items-center relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#2EC4F1]/5 to-transparent opacity-50" />
+        <div className="text-center relative z-10 w-full">
+          <h1 className="text-7xl lg:text-8xl font-bogota font-bold mb-10 tracking-wide text-white">
             Summon the Alpha
           </h1>
-          <p className="text-2xl text-white/60 mb-6 max-w-3xl mx-auto tracking-wide">
+          <p className="text-3xl text-white/60 mb-8 max-w-3xl mx-auto tracking-wide">
             Live crypto intel feeds → instant on-chain moves.
           </p>
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-6">
             <a
               href="https://app.eggsight.xyz"
-              className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-12 py-4 rounded-md text-xl tracking-wide transition-colors flex items-center gap-2"
+              className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-16 py-5 rounded-md text-2xl tracking-wide transition-colors flex items-center gap-3"
             >
-              <Zap className="h-5 w-5" />
+              <Zap className="h-6 w-6" />
               Launch Eggsight
             </a>
-            <div className="flex items-center gap-4 text-white/40">
-              <span>No login • Free tier</span>
+            <div className="flex items-center gap-4 text-white/40 text-xl">
+              <span>Now Free for Public</span>
               <span>|</span>
               <a
                 href="https://discord.gg/MCpkAeUgej"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-white/60 hover:text-white transition-colors"
+                className="text-white/60 hover:text-white transition-colors text-xl"
               >
-                Discord (150+ degens)
+                Join Discord (150+ degens)
               </a>
             </div>
           </div>
