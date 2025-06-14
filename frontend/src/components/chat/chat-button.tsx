@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useBackendStatus } from '@/hooks/use-backend-status';
-import { useUserTokenBalance } from '@/hooks/use-user-token-balance';
+import { useUserPremiumAccess } from '@/hooks/use-user-premium-access';
 import { useWallet } from '@solana/wallet-adapter-react';
 import Image from 'next/image';
 
@@ -24,10 +24,10 @@ export function ChatButton({ onOpenChat }: ChatButtonProps) {
     isLoading: isBackendLoading,
   } = useBackendStatus();
   const {
-    data: hasEnoughTokens,
-    isLoading: isTokenBalanceLoading,
-    isError: isTokenBalanceError,
-  } = useUserTokenBalance();
+    isPremium,
+    isLoading: isPremiumLoading,
+    isError: isPremiumError,
+  } = useUserPremiumAccess();
 
   // Check if backend is available
   const isBackendAvailable =
@@ -56,14 +56,21 @@ export function ChatButton({ onOpenChat }: ChatButtonProps) {
       };
     }
 
-    if (isTokenBalanceLoading) {
+    if (isPremiumLoading) {
       return {
         disabled: true,
         message: 'Checking token balance...',
       };
     }
 
-    if (isTokenBalanceError || !hasEnoughTokens) {
+    if (isPremiumError) {
+      return {
+        disabled: true,
+        message: 'Error checking premium access. Please try again later.',
+      };
+    }
+
+    if (!isPremium) {
       return {
         disabled: true,
         message: 'You need at least 100M $BORK tokens to chat.',
