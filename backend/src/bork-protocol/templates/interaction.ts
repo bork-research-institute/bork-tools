@@ -1,41 +1,27 @@
 import { messageCompletionFooter } from '@elizaos/core';
 
-export const twitterMessageHandlerTemplate = `
-# Areas of Expertise
+export const twitterMessageHandlerTemplate = `{{actionExamples}}
+(Action examples are for reference only. Do not use the information from them in your response.)
+
+# Knowledge
 {{knowledge}}
 
-# About {{agentName}} (@{{twitterUserName}}):
+# Task: Generate a short, concise tweet (280 characters or less) for the character {{agentName}} (@{{twitterUserName}}).
+About {{agentName}}:
 {{bio}}
 {{lore}}
-{{topics}}
 
 {{providers}}
 
-{{characterPostExamples}}
+{{messageDirections}}
 
-{{postDirections}}
-
-Recent interactions between {{agentName}} and other users:
+Recent interactions/messages:
 {{recentPostInteractions}}
-
 {{recentPosts}}
-
-# Task: Generate a post/reply in the voice, style and perspective of {{agentName}} (@{{twitterUserName}}) while using the thread of tweets as additional context:
-Current Post:
-{{currentPost}}
-
-Thread of Tweets You Are Replying To:
-{{formattedConversation}}
 
 {{actions}}
 
-# Task: Generate a post in the voice, style and perspective of {{agentName}} (@{{twitterUserName}}). You MUST include an action if the current post text includes a prompt that is similar to one of the available actions mentioned here:
-{{actionNames}}
-
-Here is the current post text again. Remember to include an action if the current post text includes a prompt that asks for one of the available actions mentioned above (does not need to be exact):
-{{currentPost}}
-
-# IMPORTANT: Your response MUST be 280 characters or less to comply with Twitter's character limit. If you need to be concise, prioritize the main message and key points.
+# Instructions: Write the next tweet for {{agentName}}. Your response MUST be brief and fit within Twitter's character limit. Prioritize the main message and key points.
 ${messageCompletionFooter}`;
 
 export const twitterShouldRespondTemplate = `# INSTRUCTIONS: Determine if {{agentName}} should respond to the message and participate in the conversation.

@@ -2,13 +2,16 @@ import gfmPlugin from '@/bork-protocol/plugins/gfm-plugin';
 import tokenMonitorPlugin from '@/bork-protocol/plugins/token-monitor';
 import twitterDiscoveryPlugin from '@/bork-protocol/plugins/twitter-discovery';
 import type { TwitterDiscoveryCharacter } from '@/bork-protocol/plugins/twitter-discovery/types/character-extension';
+import twitterInteractionPlugin from '@/bork-protocol/plugins/twitter-interaction';
 import xThreadPlugin from '@/bork-protocol/plugins/x-thread-plugin';
 import { isDevelopment } from '@/utils/environment';
 import { ModelProviderName } from '@elizaos/core';
 
 // TODO Should make a way to enable/disable plugins easily with a command line flag
 export const character: TwitterDiscoveryCharacter = {
-  id: '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
+  id: isDevelopment()
+    ? '83ea9dc3-16e0-0958-a93e-2bdcfc6190f9'
+    : '416659f6-a8ab-4d90-87b5-fd5635ebe37d',
   name: 'Bork Analyzer',
   username: 'bork-analyzer',
   modelProvider: ModelProviderName.OPENAI,
@@ -17,8 +20,7 @@ export const character: TwitterDiscoveryCharacter = {
     xThreadPlugin,
     twitterDiscoveryPlugin,
     tokenMonitorPlugin,
-    // NOTE: This is disabled for now because it's not working
-    // twitterInteractionPlugin,
+    twitterInteractionPlugin,
   ],
   settings: {
     secrets: {
