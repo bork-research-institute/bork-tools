@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { Book, MessageCircle, Shield, Twitter, X, Zap } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
+import { FaBook, FaDiscord, FaShieldAlt } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './components/ui/tooltip';
 
 const PrivacyModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -131,14 +139,6 @@ const LandingPage: React.FC = () => {
                 Pricing
               </a>
               <a
-                href="https://discord.gg/MCpkAeUgej"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg text-white/60 hover:text-white transition-colors"
-              >
-                Discord
-              </a>
-              <a
                 href="https://app.eggsight.xyz"
                 className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-6 py-2 rounded-md text-lg transition-colors flex items-center gap-2"
               >
@@ -158,7 +158,7 @@ const LandingPage: React.FC = () => {
             Summon the Alpha
           </h1>
           <p className="text-3xl text-white/60 mb-8 max-w-3xl mx-auto tracking-wide">
-            Live crypto intel feeds → instant on-chain moves.
+            Live Twitter intel feeds → instant on-chain moves.
           </p>
           <div className="flex flex-col items-center gap-6">
             <a
@@ -229,7 +229,7 @@ const LandingPage: React.FC = () => {
                 Signal Scanner
               </h3>
               <p className="text-xl text-white/60 tracking-wide">
-                – whales, dev pushes, KOLs every 60 s
+                — uses tweets, token feeds from dexscreener
               </p>
             </div>
             <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
@@ -237,7 +237,7 @@ const LandingPage: React.FC = () => {
                 Agentic AI
               </h3>
               <p className="text-xl text-white/60 tracking-wide">
-                – crafts theses, filters noise
+                — analyzes data, filters noise
               </p>
             </div>
             <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
@@ -245,15 +245,7 @@ const LandingPage: React.FC = () => {
                 One-Tap Actions
               </h3>
               <p className="text-xl text-white/60 tracking-wide">
-                – trade straight from the card
-              </p>
-            </div>
-            <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
-              <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
-                XP Loop
-              </h3>
-              <p className="text-xl text-white/60 tracking-wide">
-                – your clicks sharpen the model
+                — trade straight from the dashboard
               </p>
             </div>
             <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
@@ -261,9 +253,17 @@ const LandingPage: React.FC = () => {
                 Content Bot
               </h3>
               <p className="text-xl text-white/60 tracking-wide">
-                – auto threads, guides, webinars
+                — automatic threads (done), articles (Q4), webinars (Q4)
               </p>
-              <span className="inline-block mt-4 text-[#2EC4F1]">Q4</span>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
+              <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
+                Cult of Bork
+              </h3>
+              <p className="text-xl text-white/60 tracking-wide">
+                — users can be the eyes and ears of eggsight, earning points in
+                exchange for tagging @eggsight_ in interesting tweets
+              </p>
             </div>
           </div>
         </div>
@@ -280,16 +280,27 @@ const LandingPage: React.FC = () => {
             <div className="text-center">
               <div className="text-4xl mb-6">1</div>
               <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
-                Listen
+                Research
               </h3>
-              <p className="text-xl text-white/60">— ingest every tweet & tx</p>
+              <p className="text-xl text-white/60">
+                — ingest tweets and transactions
+              </p>
+              <p className="text-xl text-white/60">
+                — adjust research strategy based on feedback
+              </p>
+              <p className="text-xl text-white/60">— runs 24/7</p>
             </div>
             <div className="text-center">
               <div className="text-4xl mb-6">2</div>
               <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
-                Learn
+                Analyze
               </h3>
-              <p className="text-xl text-white/60">— rank + verify signals</p>
+              <p className="text-xl text-white/60">
+                — ai-powered sentiment analysis
+              </p>
+              <p className="text-xl text-white/60">
+                — score in the context of trending topics and accounts
+              </p>
             </div>
             <div className="text-center">
               <div className="text-4xl mb-6">3</div>
@@ -297,7 +308,13 @@ const LandingPage: React.FC = () => {
                 Act
               </h3>
               <p className="text-xl text-white/60">
-                — execute inside the dashboard
+                — execute trades in the dashboard
+              </p>
+              <p className="text-xl text-white/60">
+                — generate informative threads
+              </p>
+              <p className="text-xl text-white/60">
+                — launch tokens on gofundmemes
               </p>
             </div>
           </div>
@@ -349,27 +366,26 @@ const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
               <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
-                Scout
+                Egg Scout
               </h3>
               <p className="text-3xl font-bold mb-6">Free</p>
               <ul className="space-y-4 text-xl text-white/60">
-                <li>Live feed</li>
-                <li>3 AI insights/day</li>
+                <li>Dashboard Access</li>
+                <li>Basic Info Display</li>
+                <li>Community Access</li>
               </ul>
             </div>
             <div className="bg-white/5 border border-white/10 p-8 rounded-md backdrop-blur-sm">
               <h3 className="text-2xl font-bogota font-semibold mb-4 tracking-wide">
-                Raider
+                Egg Master
               </h3>
-              <p className="text-3xl font-bold mb-6">$15 / mo</p>
+              <p className="text-3xl font-bold mb-6">100M $BORK</p>
               <ul className="space-y-4 text-xl text-white/60">
-                <li>Unlimited insights</li>
-                <li>Custom pings</li>
-                <li>API access</li>
+                <li>AI Chatbot Access</li>
+                <li>Live Research Feed</li>
+                <li>Thread Generation</li>
+                <li>Priority Support</li>
               </ul>
-              <span className="inline-block mt-4 text-[#2EC4F1]">
-                Coming soon
-              </span>
             </div>
           </div>
         </div>
@@ -387,34 +403,59 @@ const LandingPage: React.FC = () => {
               />
               <span>eggsight</span>
             </div>
-            <div className="flex space-x-8">
-              <span className="text-lg text-white/40 flex items-center gap-2">
-                <Book className="h-5 w-5" /> Docs (Coming Soon)
-              </span>
-              <a
-                href="https://discord.gg/MCpkAeUgej"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
-              >
-                <MessageCircle className="h-5 w-5" /> Discord
-              </a>
-              <a
-                href="https://twitter.com/eggsight_"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
-              >
-                <Twitter className="h-5 w-5" /> X (@eggsight_)
-              </a>
-              <button
-                type="button"
-                onClick={() => setIsPrivacyModalOpen(true)}
-                className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
-              >
-                <Shield className="h-5 w-5" /> Privacy
-              </button>
-            </div>
+            <TooltipProvider>
+              <div className="flex space-x-8">
+                <Tooltip>
+                  <TooltipTrigger asChild={true}>
+                    <button
+                      type="button"
+                      className="text-lg text-white/40 hover:text-white/60 transition-colors flex items-center gap-2"
+                    >
+                      <FaBook className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Documentation coming soon!</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild={true}>
+                    <a
+                      href="https://discord.gg/MCpkAeUgej"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <FaDiscord className="h-5 w-5" />
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>Join our Discord community!</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild={true}>
+                    <a
+                      href="https://twitter.com/eggsight_"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <FaXTwitter className="h-5 w-5" />
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>Follow us on X!</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild={true}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPrivacyModalOpen(true)}
+                      className="text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <FaShieldAlt className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>View our privacy policy</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
             <div className="text-center space-y-4">
               <p className="text-white/40">
                 Copyright © 2025{' '}
