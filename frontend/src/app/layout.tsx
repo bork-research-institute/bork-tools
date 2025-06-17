@@ -1,6 +1,7 @@
 import './globals.css';
 import { QueryClientProvider } from '@/components/providers/query-client-provider';
 import { SolanaProvider } from '@/components/providers/solana-provider';
+import { WalletSessionSyncProvider } from '@/components/providers/wallet-session-sync-provider';
 import { SurveyBanner } from '@/components/survey-banner';
 import { getClientEnv } from '@/lib/config/client-env';
 import { METADATA } from '@/lib/constants/metadata';
@@ -42,9 +43,11 @@ export default function RootLayout({ children }: PropsWithChildren) {
           > */}
           <QueryClientProvider>
             <SolanaProvider>
-              <SurveyBanner />
-              {children}
-              <Toaster />
+              <WalletSessionSyncProvider>
+                <SurveyBanner />
+                {children}
+                <Toaster />
+              </WalletSessionSyncProvider>
             </SolanaProvider>
           </QueryClientProvider>
           {/* </ThemeProvider> */}
