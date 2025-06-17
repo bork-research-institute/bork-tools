@@ -47,7 +47,7 @@ COPY backend ./backend/
 COPY shared ./shared/
 
 # Install dependencies
-RUN bun install --filter "!frontend"
+RUN bun install --filter "!frontend" --filter "!landing-page"
 
 # Build the backend and shared
 RUN bun backend:build
