@@ -8,11 +8,6 @@ module.exports = {
         header: '4rem', // 64px
         banner: '3rem', // 48px
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
-        bogota: ['Bogota', 'Inter', 'system-ui', 'sans-serif'],
-      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
