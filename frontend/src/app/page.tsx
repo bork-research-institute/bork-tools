@@ -1,5 +1,5 @@
 import { MainLayout } from '@/components/layouts/main-layout';
-import { Home } from '@/components/pages/home';
+import { Dashboard } from '@/components/pages/dashboard';
 import { auth } from '@/lib/utils/auth';
 import { redirect } from 'next/navigation';
 
@@ -10,7 +10,7 @@ export default async function Page() {
   }
   return (
     <MainLayout>
-      <Home />
+      <Dashboard />
     </MainLayout>
   );
 }

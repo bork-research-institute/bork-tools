@@ -43,11 +43,12 @@ WORKDIR /app
 # Copy package files
 COPY package.json ./
 COPY frontend/package.json ./frontend/
+COPY landing-page/package.json ./landing-page/
 COPY backend ./backend/
 COPY shared ./shared/
 
 # Install dependencies
-RUN bun install --filter "!frontend"
+RUN bun install --filter "!frontend" --filter "!landing-page"
 
 # Build the backend and shared
 RUN bun backend:build

@@ -1,5 +1,5 @@
 import { MetricsGallery } from '@/components/gallery/MetricsGallery';
 
-export function Home() {
+export function Dashboard() {
   return <MetricsGallery />;
 }
