@@ -1,106 +1,17 @@
-import React, { useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import './index.css';
-import { X, Zap } from 'lucide-react';
-import { FaBook, FaDiscord, FaShieldAlt } from 'react-icons/fa';
-import { FaXTwitter } from 'react-icons/fa6';
+import { PrivacyModal } from '@/components/privacy-modal';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from './components/ui/tooltip';
+} from '@/components/ui/tooltip';
+import { Zap } from 'lucide-react';
+import { useState } from 'react';
+import { FaBook, FaDiscord, FaShieldAlt } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
 
-const PrivacyModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
-  isOpen,
-  onClose,
-}) => {
-  if (!isOpen) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#020617] border border-white/10 rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
-        <div className="sticky top-0 bg-[#020617] border-b border-white/10 p-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bogota">Privacy Policy</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-white/60 hover:text-white transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-        <div className="p-6 space-y-6 text-white/60">
-          <section>
-            <h3 className="text-xl font-bogota text-white mb-4">
-              1. Information We Collect
-            </h3>
-            <p className="mb-4">
-              We collect information that you provide directly to us, including:
-            </p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Account information (email, username)</li>
-              <li>Usage data and analytics</li>
-              <li>Wallet addresses (when connected)</li>
-              <li>Communication preferences</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bogota text-white mb-4">
-              2. How We Use Your Information
-            </h3>
-            <p className="mb-4">We use the information we collect to:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Provide and maintain our services</li>
-              <li>Improve and personalize your experience</li>
-              <li>Communicate with you about updates and features</li>
-              <li>Analyze usage patterns and optimize performance</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bogota text-white mb-4">
-              3. Data Security
-            </h3>
-            <p>
-              We implement appropriate security measures to protect your
-              personal information. However, no method of transmission over the
-              internet is 100% secure.
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bogota text-white mb-4">
-              4. Your Rights
-            </h3>
-            <p className="mb-4">You have the right to:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Access your personal information</li>
-              <li>Correct inaccurate data</li>
-              <li>Request deletion of your data</li>
-              <li>Opt-out of communications</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bogota text-white mb-4">
-              5. Contact Us
-            </h3>
-            <p>
-              If you have any questions about this Privacy Policy, please
-              contact us at privacy@eggsight.ai
-            </p>
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const LandingPage: React.FC = () => {
+export const LandingPage: React.FC = () => {
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   return (
@@ -152,7 +63,6 @@ const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 min-h-screen flex flex-col justify-center items-center relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#2EC4F1]/5 to-transparent opacity-50" />
         <div className="text-center relative z-10 w-full">
           <h1 className="text-7xl lg:text-8xl font-bogota font-bold mb-10 tracking-wide text-white">
             Summon the Alpha
@@ -217,7 +127,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Core Features */}
-      <section className="py-24">
+      <section className="py-24" id="features">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl font-bogota font-bold text-center mb-16 tracking-wide flex items-center justify-center gap-2">
             <span className="text-[#2EC4F1]">🔮</span>
@@ -489,11 +399,3 @@ const LandingPage: React.FC = () => {
     </div>
   );
 };
-
-const root = createRoot(document.getElementById('root') as HTMLElement);
-
-root.render(
-  <React.StrictMode>
-    <LandingPage />
-  </React.StrictMode>,
-);

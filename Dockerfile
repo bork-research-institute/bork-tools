@@ -43,6 +43,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json ./
 COPY frontend/package.json ./frontend/
+COPY landing-page/package.json ./landing-page/
 COPY backend ./backend/
 COPY shared ./shared/
 

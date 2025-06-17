@@ -20,7 +20,7 @@
     "build:local": "bun run shared:build && bun run frontend:build:local && bun run backend:build:local",
     "lint": "bun run --cwd frontend lint && bun run --cwd backend lint && bun run --cwd shared lint",
     "format": "bun run --cwd frontend format && bun run --cwd backend format && bun run --cwd shared format",
-    "clean": "rm -rf frontend/.next frontend/dist backend/dist shared/dist",
+    "clean": "rm -rf node_modules frontend/.next frontend/dist backend/dist shared/dist landing-page/dist frontend/node_modules backend/node_modules shared/node_modules landing-page/node_modules",
     "install:all": "bun install",
     "install:frontend": "bun install --cwd frontend",
     "install:backend": "bun install --cwd backend",
