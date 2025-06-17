@@ -6,6 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { track } from '@vercel/analytics';
 import { Zap } from 'lucide-react';
 import { useState } from 'react';
 import { FaBook, FaDiscord, FaShieldAlt } from 'react-icons/fa';
@@ -52,6 +53,7 @@ export const LandingPage: React.FC = () => {
               <a
                 href="https://app.eggsight.xyz"
                 className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-6 py-2 rounded-md text-lg transition-colors flex items-center gap-2"
+                onClick={() => track('launch_app', { source: 'header_cta' })}
               >
                 <Zap className="h-5 w-5" />
                 Launch App
@@ -74,6 +76,7 @@ export const LandingPage: React.FC = () => {
             <a
               href="https://app.eggsight.xyz"
               className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-16 py-5 rounded-md text-2xl tracking-wide transition-colors flex items-center gap-3"
+              onClick={() => track('launch_app', { source: 'hero_cta' })}
             >
               <Zap className="h-6 w-6" />
               Launch Eggsight
@@ -392,6 +395,7 @@ export const LandingPage: React.FC = () => {
       <a
         href="https://app.eggsight.xyz"
         className="fixed bottom-8 right-8 bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-6 py-3 rounded-full text-lg transition-colors flex items-center gap-2 shadow-lg backdrop-blur-sm"
+        onClick={() => track('launch_app', { source: 'floating_cta' })}
       >
         <Zap className="h-5 w-5" />
         Launch
