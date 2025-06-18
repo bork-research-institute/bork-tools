@@ -12,7 +12,6 @@ const metaTags = (meta: typeof METADATA) =>
   <meta name="application-name" content="${meta.applicationName}" />
   <meta name="apple-mobile-web-app-title" content="${meta.name}" />
   <link rel="icon" type="image/x-icon" href="${meta.icons.favicon}" />
-  <link rel="icon" type="image/svg+xml" href="${meta.logo.replace('.png', '.svg')}" />
   <link rel="icon" type="image/png" sizes="16x16" href="${meta.icons.favicon16}" />
   <link rel="icon" type="image/png" sizes="32x32" href="${meta.icons.favicon32}" />
   <link rel="apple-touch-icon" href="${meta.icons.appleTouchIcon}" />
