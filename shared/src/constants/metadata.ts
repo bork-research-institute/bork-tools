@@ -31,6 +31,8 @@ export const METADATA = {
     appleTouchIcon: 'https://eggsight.xyz/assets/apple-touch-icon.png',
     android192: 'https://eggsight.xyz/assets/android-chrome-192x192.png',
     android512: 'https://eggsight.xyz/assets/android-chrome-512x512.png',
+    favicon16: 'https://eggsight.xyz/assets/favicon-16x16.png',
+    favicon32: 'https://eggsight.xyz/assets/favicon-32x32.png',
   },
   openGraph: {
     title: 'Eggsight',

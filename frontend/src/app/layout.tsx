@@ -31,23 +31,45 @@ export const metadata: Metadata = {
   keywords: SHARED_METADATA.keywords,
   applicationName: SHARED_METADATA.applicationName,
   icons: {
-    icon: SHARED_METADATA.icons.favicon,
+    icon: [
+      { url: SHARED_METADATA.icons.favicon },
+      {
+        url: SHARED_METADATA.icons.favicon16,
+        sizes: '16x16',
+        type: 'image/png',
+      },
+      {
+        url: SHARED_METADATA.icons.favicon32,
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: SHARED_METADATA.icons.android192,
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        url: SHARED_METADATA.icons.android512,
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
     apple: SHARED_METADATA.icons.appleTouchIcon,
     shortcut: SHARED_METADATA.icons.favicon,
-    other: [
-      { rel: 'icon', url: SHARED_METADATA.icons.android192, sizes: '192x192' },
-      { rel: 'icon', url: SHARED_METADATA.icons.android512, sizes: '512x512' },
-    ],
+  },
+  manifest: '/manifest.json',
+  other: {
+    'apple-mobile-web-app-title': SHARED_METADATA.name,
   },
   openGraph: {
     title: SHARED_METADATA.openGraph.title,
     description: SHARED_METADATA.openGraph.description,
     url: SHARED_METADATA.openGraph.url,
-    type: 'website',
+    type: 'website' as const,
     images: [SHARED_METADATA.openGraph.image],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary_large_image' as const,
     site: SHARED_METADATA.twitter.site,
     title: SHARED_METADATA.twitter.title,
     description: SHARED_METADATA.twitter.description,

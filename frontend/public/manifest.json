@@ -1,0 +1,21 @@
+{
+  "name": "Eggsight",
+  "short_name": "Eggsight",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#181F2A",
+  "theme_color": "#2EC4F1",
+  "description": "Eggsight Alpha is live! Eggsight delivers live Twitter intelligence feeds and instant on-chain actions.",
+  "icons": [
+    {
+      "src": "https://eggsight.xyz/assets/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://eggsight.xyz/assets/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
