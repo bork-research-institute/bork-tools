@@ -3,8 +3,9 @@ import { QueryClientProvider } from '@/components/providers/query-client-provide
 import { SolanaProvider } from '@/components/providers/solana-provider';
 import { SurveyBanner } from '@/components/survey-banner';
 import { getClientEnv } from '@/lib/config/client-env';
-import { METADATA } from '@/lib/constants/metadata';
+import { METADATA as SHARED_METADATA } from '@bork-tools/shared';
 import { Analytics } from '@vercel/analytics/react';
+import type { Metadata } from 'next';
 import { SessionProvider } from 'next-auth/react';
 import { Inter } from 'next/font/google';
 import localFont from 'next/font/local';
@@ -24,7 +25,35 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-export const metadata = METADATA;
+export const metadata: Metadata = {
+  title: SHARED_METADATA.name,
+  description: SHARED_METADATA.description,
+  keywords: SHARED_METADATA.keywords,
+  applicationName: SHARED_METADATA.applicationName,
+  icons: {
+    icon: SHARED_METADATA.icons.favicon,
+    apple: SHARED_METADATA.icons.appleTouchIcon,
+    shortcut: SHARED_METADATA.icons.favicon,
+    other: [
+      { rel: 'icon', url: SHARED_METADATA.icons.android192, sizes: '192x192' },
+      { rel: 'icon', url: SHARED_METADATA.icons.android512, sizes: '512x512' },
+    ],
+  },
+  openGraph: {
+    title: SHARED_METADATA.openGraph.title,
+    description: SHARED_METADATA.openGraph.description,
+    url: SHARED_METADATA.openGraph.url,
+    type: 'website',
+    images: [SHARED_METADATA.openGraph.image],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SHARED_METADATA.twitter.site,
+    title: SHARED_METADATA.twitter.title,
+    description: SHARED_METADATA.twitter.description,
+    images: [SHARED_METADATA.twitter.image],
+  },
+};
 
 export default function RootLayout({ children }: PropsWithChildren) {
   return (

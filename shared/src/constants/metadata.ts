@@ -1,0 +1,51 @@
+export const METADATA = {
+  name: 'Eggsight',
+  description:
+    'Eggsight Alpha is live! Eggsight delivers live Twitter intelligence feeds and instant on-chain actions. Unified signals, predictive AI, and one-tap trading for crypto degens.',
+  keywords: [
+    'crypto',
+    'on-chain',
+    'Twitter intelligence',
+    'trading',
+    'AI',
+    'signals',
+    'degen',
+    'real-time',
+    'alpha',
+    'dashboard',
+    'web3',
+    'Eggsight',
+    'predictive analytics',
+    'token feed',
+    'DeFi',
+    'Solana',
+    'crypto tools',
+  ],
+  url: 'https://eggsight.xyz',
+  applicationName: 'Eggsight',
+  appUrl: 'https://app.eggsight.xyz',
+  logo: 'https://eggsight.xyz/assets/eggsight.png',
+  banner: 'https://eggsight.xyz/assets/banner.png',
+  icons: {
+    favicon: 'https://eggsight.xyz/assets/favicon.ico',
+    appleTouchIcon: 'https://eggsight.xyz/assets/apple-touch-icon.png',
+    android192: 'https://eggsight.xyz/assets/android-chrome-192x192.png',
+    android512: 'https://eggsight.xyz/assets/android-chrome-512x512.png',
+  },
+  openGraph: {
+    title: 'Eggsight',
+    description:
+      'Live Twitter intel feeds → instant on-chain moves. Unified signals, predictive AI, and one-tap trading for crypto degens.',
+    url: 'https://eggsight.xyz',
+    type: 'website',
+    image: 'https://eggsight.xyz/assets/banner.png',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@eggsight_',
+    title: 'Eggsight',
+    description:
+      'Live Twitter intel feeds → instant on-chain moves. Unified signals, predictive AI, and one-tap trading for crypto degens.',
+    image: 'https://eggsight.xyz/assets/banner.png',
+  },
+};

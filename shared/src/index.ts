@@ -17,3 +17,4 @@ export * from './validators/staker-schema';
 
 // Constants
 export * from './constants/tokens';
+export * from './constants/metadata';
