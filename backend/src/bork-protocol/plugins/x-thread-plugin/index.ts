@@ -1,6 +1,6 @@
 import { twitterService } from '@/services/twitter-service';
+import createAndPostThread from '@bork/plugins/x-thread-plugin/action';
 import type { Plugin } from '@elizaos/core';
-import createAndPostThread from './action';
 
 export const xThreadPlugin: Plugin = {
   name: 'xThread',

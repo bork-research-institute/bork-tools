@@ -15,13 +15,19 @@ About {{agentName}}:
 
 {{messageDirections}}
 
-Recent interactions/messages:
+# Recent interactions/messages:
 {{recentPostInteractions}}
 {{recentPosts}}
 
+# Actions
 {{actions}}
 
-# Instructions: Write the next tweet for {{agentName}}. Your response MUST be brief and fit within Twitter's character limit. Prioritize the main message and key points.
+# Instructions:
+- If there are available actions, select the most appropriate one and generate a tweet that fits the context and Twitter's character limit.
+- If there are NO actions, simply generate a brief, context-appropriate tweet response (e.g., a thank you, acknowledgment, or relevant reply) that fits within Twitter's character limit.
+
+Your response MUST be brief and fit within Twitter's character limit. Prioritize the main message and key points.
+
 ${messageCompletionFooter}`;
 
 export const twitterShouldRespondTemplate = `# INSTRUCTIONS: Determine if {{agentName}} should respond to the message and participate in the conversation.

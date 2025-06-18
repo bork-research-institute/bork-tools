@@ -1,7 +1,7 @@
-import { messageHandlerTemplate } from '@/eliza/base-templates';
+import { wait } from '@/bork-protocol/utils/active-tweeting/tweet';
 import { TwitterService } from '@/services/twitter-service';
 import { TWITTER_MENTION_POLL_INTERVAL } from '@bork/plugins/twitter-interaction/config/interaction';
-import { wait } from '@bork/utils/active-tweeting/tweet';
+import { twitterMessageHandlerTemplate } from '@bork/plugins/twitter-interaction/templates/interaction';
 import {
   type Client,
   type ClientInstance,
@@ -17,6 +17,8 @@ import {
   stringToUuid,
 } from '@elizaos/core';
 import { SearchMode, type Tweet } from 'agent-twitter-client';
+
+export const IGNORED_USERS = ['borkinstitute'];
 
 export class InteractionsClient implements Client, ClientInstance {
   name = 'InteractionsClient';
@@ -90,6 +92,8 @@ export class InteractionsClient implements Client, ClientInstance {
         .sort((a, b) => a.id.localeCompare(b.id))
         // We exclude tweets from the agent
         .filter((tweet) => tweet.userId !== profile.userId)
+        // We exclude tweets from ignored users
+        .filter((tweet) => !IGNORED_USERS.includes(tweet.username))
         // We exclude tweets with no text
         .filter((tweet) => tweet.text.length > 0);
 
@@ -99,16 +103,14 @@ export class InteractionsClient implements Client, ClientInstance {
       );
 
       for (const tweet of uniqueTweetCandidates) {
-        const roomId = stringToUuid(`${tweet.userId}-${runtime.agentId}`);
-
-        await runtime.ensureConnection(
-          runtime.agentId,
-          roomId,
+        elizaLogger.info(
+          '[TwitterInteraction] processing tweet:',
+          tweet.id,
+          tweet.text,
           tweet.username,
           tweet.name,
-          'twitter',
         );
-        elizaLogger.debug('[TwitterInteraction] roomId:', roomId);
+        const roomId = stringToUuid(`${tweet.userId}-${runtime.agentId}`);
         const existingResponsesRaw = await runtime.messageManager.getMemories({
           roomId,
           unique: true,
@@ -182,6 +184,13 @@ export class InteractionsClient implements Client, ClientInstance {
     elizaLogger.debug(
       `[TwitterInteraction] checking to reply to: ${currentPost}`,
     );
+    await runtime.ensureConnection(
+      userId,
+      roomId,
+      tweet.username,
+      tweet.name,
+      'twitter',
+    );
     // Fetch the saved memory for this tweet
     let message = await runtime.messageManager.getMemoryById(id);
     // If the message is not found, its a new conversation
@@ -199,6 +208,7 @@ export class InteractionsClient implements Client, ClientInstance {
     }
 
     let state = await runtime.composeState(message);
+
     // TODO: Right now we always respond, we need to validate the should respond template
     // const shouldRespondContext = composeContext({
     //   state,
@@ -221,7 +231,8 @@ export class InteractionsClient implements Client, ClientInstance {
     // TODO: We should use a different template for the response
     const context = composeContext({
       state,
-      template: messageHandlerTemplate,
+      template: twitterMessageHandlerTemplate,
+      templatingEngine: 'handlebars',
     });
 
     const response = await generateMessageResponse({

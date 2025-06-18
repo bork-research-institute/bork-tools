@@ -14,12 +14,16 @@ About {{agentName}}:
 {{bio}}
 {{lore}}
 
+# Providers
 {{providers}}
 
+# Message Directions
 {{messageDirections}}
 
+# Recent Messages
 {{recentMessages}}
 
+# Actions
 {{actions}}
 
 # Instructions: Write the next message for {{agentName}}.

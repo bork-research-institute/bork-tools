@@ -1,4 +1,4 @@
-import { searchToken } from '@/bork-protocol/plugins/token-monitor/actions/search-token';
+import searchToken from '@/bork-protocol/plugins/token-monitor/actions/search-token';
 import { TokenMonitorClient } from '@/bork-protocol/plugins/token-monitor/clients/token-monitor-client';
 import { tokenMonitorConfigService } from '@/bork-protocol/plugins/token-monitor/services/token-monitor-config-service';
 import { tokenMonitorService } from '@/bork-protocol/plugins/token-monitor/services/token-monitor-service';

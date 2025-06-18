@@ -15,7 +15,7 @@ import {
 } from '@elizaos/core';
 import { z } from 'zod';
 
-export const searchToken: Action = {
+export default {
   name: 'SEARCH_TOKEN',
   description: 'Search for a token',
   similes: ['SEARCH_TOKENS', 'SEARCH_TOKEN_FOR_ADDRESS', 'SEARCH_TOKEN_FOR_CA'],
@@ -66,7 +66,9 @@ export const searchToken: Action = {
       await dexScreenerService.getTokenPairsAsProfiles(tokenAddress);
     for (const token of tokens) {
       const enrichedToken = await tokenMonitorService.enrichToken(token);
-      await tokenMonitorService.searchTokenTweets(enrichedToken.tokenAddress);
+      await tokenMonitorService.searchTokenTweetsIfNotRecentlySearched(
+        enrichedToken.tokenAddress,
+      );
     }
 
     if (callback) {
