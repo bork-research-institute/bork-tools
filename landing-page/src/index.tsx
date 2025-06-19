@@ -469,6 +469,7 @@ export const LandingPage: React.FC = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-base sm:text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2 p-2 hover:bg-white/10 rounded-md"
+                      onClick={() => track('discord_cta', { source: 'footer' })}
                     >
                       <FaDiscord className="h-4 w-4 sm:h-5 sm:w-5" />
                     </a>
@@ -482,6 +483,7 @@ export const LandingPage: React.FC = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-base sm:text-lg text-white/60 hover:text-white transition-colors flex items-center gap-2 p-2 hover:bg-white/10 rounded-md"
+                      onClick={() => track('twitter_cta', { source: 'footer' })}
                     >
                       <FaXTwitter className="h-4 w-4 sm:h-5 sm:w-5" />
                     </a>
