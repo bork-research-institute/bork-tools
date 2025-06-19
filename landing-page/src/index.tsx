@@ -443,7 +443,7 @@ export const LandingPage: React.FC = () => {
           <div className="flex flex-col items-center space-y-6 sm:space-y-8">
             <div className="flex items-center space-x-2 text-xl sm:text-2xl font-bogota">
               <img
-                src="/assets/eggsight.png"
+                src="/assets/eggsight-removebg-preview.png"
                 alt="Eggsight Logo"
                 className="h-6 w-6 sm:h-8 sm:w-8"
               />
