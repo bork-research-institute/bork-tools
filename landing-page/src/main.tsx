@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import { Analytics } from '@vercel/analytics/next';
 import { LandingPage } from './index';
@@ -12,9 +11,7 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <HelmetProvider>
-      <LandingPage />
-    </HelmetProvider>
+    <LandingPage />
     <Analytics />
   </React.StrictMode>,
 );
