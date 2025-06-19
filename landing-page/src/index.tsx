@@ -28,7 +28,7 @@ export const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-[#181F2A] text-white">
       {/* Header */}
       <header className="border-[#2EC4F1]/20 border-b bg-[#181F2A]/95 backdrop-blur-sm sticky top-0 z-50">
-        <div className="mx-auto max-w-7xl px-4 py-2 sm:py-1">
+        <div className="mx-auto max-w-7xl px-4 py-2 sm:py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <a
@@ -40,7 +40,7 @@ export const LandingPage: React.FC = () => {
                   alt="Eggsight Logo"
                   className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8"
                 />
-                <h1 className="font-bogota">eggsight</h1>
+                <h1 className="font-bogota mt-1">eggsight</h1>
                 <span className="rounded-md bg-[#2EC4F1]/10 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm lg:text-base">
                   ALPHA
                 </span>
@@ -122,7 +122,7 @@ export const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 min-h-screen flex flex-col justify-center items-center relative py-8 sm:py-8 lg:py-0">
-        <div className="relative z-10 w-full mx-auto flex flex-col sm:flex-row items-center sm:justify-center text-center sm:text-left gap-0 sm:gap-10">
+        <div className="relative z-10 w-full mx-auto flex flex-col lg:flex-row items-center lg:justify-center text-center lg:text-left gap-0 sm:gap-10">
           <img
             src="/assets/eggsight-removebg-preview.png"
             alt="Eggsight Hero Logo"
@@ -139,7 +139,7 @@ export const LandingPage: React.FC = () => {
             <p className="text-lg sm:text-xl lg:text-2xl xl:text-3xl text-white/60 mb-8 sm:mb-10 max-w-3xl mx-auto sm:mx-0 tracking-wide px-4 sm:px-0 leading-relaxed">
               Live Twitter intel feeds → instant on-chain moves.
             </p>
-            <div className="flex flex-col items-center sm:items-start gap-6 sm:gap-8">
+            <div className="flex flex-col items-center lg:items-start gap-6 lg:gap-8">
               <a
                 href="https://app.eggsight.xyz"
                 className="bg-[#2EC4F1]/10 hover:bg-[#2EC4F1]/20 text-[#2EC4F1] px-8 sm:px-12 lg:px-16 py-4 sm:py-5 rounded-lg text-lg sm:text-xl lg:text-2xl tracking-wide transition-all duration-200 flex items-center gap-3 shadow-lg hover:shadow-xl hover:scale-105"
@@ -441,13 +441,13 @@ export const LandingPage: React.FC = () => {
       <footer className="bg-[#181F2A]/80 border-t border-white/10 py-12 sm:py-16">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center space-y-6 sm:space-y-8">
-            <div className="flex items-center space-x-2 text-xl sm:text-2xl font-bogota">
+            <div className="flex items-center justify-center space-x-2 text-xl sm:text-2xl font-bogota">
               <img
                 src="/assets/eggsight-removebg-preview.png"
                 alt="Eggsight Logo"
                 className="h-6 w-6 sm:h-8 sm:w-8"
               />
-              <span>eggsight</span>
+              <span className="mt-1">eggsight</span>
             </div>
             <TooltipProvider>
               <div className="flex space-x-6 sm:space-x-8">
